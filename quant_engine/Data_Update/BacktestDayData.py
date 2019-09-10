@@ -160,5 +160,5 @@ class BacktestDayData:
 if __name__ == '__main__':
     print(datetime.datetime.now())
     btd = BacktestDayData()
-    data = btd.process_data(codelist=None,start_input=20160101,end_input=20190901)
+    data = btd.process_data(codelist=None,start_input=20130101,end_input=20160101)
     btd.influx.saveData(data,'DailyData_backtest','marketData')

@@ -104,7 +104,7 @@ class influxdbData:
 if __name__ == '__main__':
     influx = influxdbData('DailyData_backtest')
     print(datetime.datetime.now())
-    a = influx.getDataMultiprocess('DailyData_backtest','marketData','20190101','20190901',None)
+    a = influx.getDataMultiprocess('DailyData_backtest','marketData','20160101','20190901',None)
     a = pd.concat(a)
     print('finish!')
     print(influx.getDBs())
