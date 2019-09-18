@@ -75,12 +75,17 @@ class BacktestDayData:
         merged_data['citics_lv1_name'] = None
         merged_data['citics_lv2_code'] = None
         merged_data['citics_lv2_name'] = None
+        merged_data['citics_lv3_code'] = None
+        merged_data['citics_lv3_name'] = None
         citics_lv1 = self.rdf.get_citics_lv1()
         citics_lv1['entry_date'] = pd.to_datetime(citics_lv1['entry_date'])
         citics_lv1['exit_date'] = pd.to_datetime(citics_lv1['exit_date'])
         citics_lv2 = self.rdf.get_citics_lv2()
         citics_lv2['entry_date'] = pd.to_datetime(citics_lv2['entry_date'])
         citics_lv2['exit_date'] = pd.to_datetime(citics_lv2['exit_date'])
+        citics_lv3 = self.rdf.get_citics_lv3()
+        citics_lv3['entry_date'] = pd.to_datetime(citics_lv3['entry_date'])
+        citics_lv3['exit_date'] = pd.to_datetime(citics_lv3['exit_date'])
 
         for idx,row in citics_lv1.iterrows():
             if pd.isnull(row['exit_date']):
@@ -105,6 +110,18 @@ class BacktestDayData:
                     = row['index_lv2_code']
                 merged_data.loc[(row['stock_code'],row['entry_date']):(row['stock_code'],row['exit_date']),'citics_lv2_name'] \
                     = row['industry_lv2_name']
+
+        for idx, row in citics_lv3.iterrows():
+            if pd.isnull(row['exit_date']):
+                merged_data.loc[(row['stock_code'],row['entry_date']):(row['stock_code'],dtparser.parse(str(end_input))),'citics_lv3_code'] \
+                    = row['index_lv3_code']
+                merged_data.loc[(row['stock_code'],row['entry_date']):(row['stock_code'],dtparser.parse(str(end_input))),'citics_lv3_name'] \
+                    = row['industry_lv3_name']
+            else:
+                merged_data.loc[(row['stock_code'],row['entry_date']):(row['stock_code'],row['exit_date']),'citics_lv3_code'] \
+                    = row['index_lv3_code']
+                merged_data.loc[(row['stock_code'],row['entry_date']):(row['stock_code'],row['exit_date']),'citics_lv3_name'] \
+                    = row['industry_lv3_name']
         print('industry(citics) loaded!')
 
         # 申万
@@ -160,5 +177,9 @@ class BacktestDayData:
 if __name__ == '__main__':
     print(datetime.datetime.now())
     btd = BacktestDayData()
-    data = btd.process_data(codelist=None,start_input=20130101,end_input=20160101)
+    start = 20100101
+    end = 20130101
+    data = btd.process_data(codelist=None,start_input=start,end_input=end)
     btd.influx.saveData(data,'DailyData_backtest','marketData')
+    print("start: %i ~ end: %i is finish!" % (start, end))
+    print(datetime.datetime.now())

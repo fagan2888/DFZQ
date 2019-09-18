@@ -9,7 +9,8 @@ from dateutil.relativedelta import relativedelta
 class influxdbData:
     def __init__(self, db_input=None):
         self.client = influxdb.DataFrameClient\
-            (host='192.168.58.71', port=8086, username='root', password='root', database=db_input)
+            (host='192.168.38.176', port=8086, username='root', password='root', database=db_input)
+        #192.168.58.71
 
     def getDBs(self):
         self.dbs = self.client.get_list_database()
@@ -59,7 +60,7 @@ class influxdbData:
         for i in range(10):
             try:
                 self.client.write_points(dataframe=data,database=database,measurement=measure,tag_columns=['code'],
-                                         protocol='json',batch_size=1000)
+                                         protocol='json',batch_size=5000)
                 success_flag = True
                 break
             except Exception as excp:
@@ -102,9 +103,12 @@ class influxdbData:
 
 
 if __name__ == '__main__':
-    influx = influxdbData('DailyData_backtest')
+    influx = influxdbData()
+    print(influx.getDBs())
     print(datetime.datetime.now())
-    a = influx.getDataMultiprocess('DailyData_backtest','marketData','20160101','20190901',None)
+    a = influx.getDataMultiprocess('DailyData_backtest','marketData','20190101','20190827',None)
     a = pd.concat(a)
+    a = a.loc[:,['code','ROE_YOY_wind','ROE_YOY','ROE_QOQ','PE_YOY','PE_QOQ','PB_YOY','PB_QOQ','PS_YOY','PS_QOQ']]
+    a.to_csv('YOYQOQ_20100101_20190827.csv',encoding='gbk')
     print('finish!')
     print(influx.getDBs())

@@ -120,7 +120,7 @@ class rdf_data:
     # 获取复权信息
     def get_EX_right_dvd(self,start_input=None,end_input=None):
         query = "select S_INFO_WINDCODE, EX_DATE, CASH_DIVIDEND_RATIO, BONUS_SHARE_RATIO, RIGHTSISSUE_RATIO, " \
-                "RIGHTSISSUE_PRICE, CONVERSED_RATIO, CONSOLIDATE_SPLIT_RATIO " \
+                "RIGHTSISSUE_PRICE, CONVERSED_RATIO, CONSOLIDATE_SPLIT_RATIO, SEO_PRICE, SEO_RATIO " \
                 "from wind_filesync.AShareEXRightDividendRecord "
         if start_input and (not end_input):
             str_start = self.date_preprocess(start_input)
@@ -136,7 +136,7 @@ class rdf_data:
             pass
         self.curs.execute(query)
         ex_right = pd.DataFrame(self.curs.fetchall(),columns=['code','date','cash_dvd_ratio','bonus_share_ratio',
-            'rightissue_ratio','rightissue_price','conversed_ratio','split_ratio'])
+            'rightissue_ratio','rightissue_price','conversed_ratio','split_ratio','seo_price','seo_ratio'])
         return ex_right
 
 
@@ -439,6 +439,23 @@ class rdf_data:
         industries.set_index('index_lv2_code', inplace=True)
         citics_lv2 = citics_lv2.join(industries, on='index_lv2_code')
         return citics_lv2
+
+    def get_citics_lv3(self):
+        sql_sentence = "select S_INFO_WINDCODE,s_con_windcode,s_con_indate,s_con_outdate " \
+                       "from wind_filesync.AIndexMembersCITICS3"
+        self.curs.execute(sql_sentence)
+        fetchdata = self.curs.fetchall()
+        citics_lv3 = pd.DataFrame(fetchdata, columns=['index_lv3_code', 'stock_code', 'entry_date', 'exit_date'])
+        industries_code_list = citics_lv3['index_lv3_code'].unique()
+        sql_sentence = "select s_info_windcode, S_INFO_NAME " \
+                       "from wind_filesync.AIndexDescription " \
+                       "where s_info_windcode in " + str(tuple(industries_code_list))
+        self.curs.execute(sql_sentence)
+        fetchdata = self.curs.fetchall()
+        industries = pd.DataFrame(fetchdata, columns=['index_lv3_code', 'industry_lv3_name'])
+        industries.set_index('index_lv3_code', inplace=True)
+        citics_lv3 = citics_lv3.join(industries, on='index_lv3_code')
+        return citics_lv3
 
     def get_SW_lv1(self):
         sw_lv1_index = ['801010.SI','801020.SI','801030.SI','801040.SI','801050.SI','801080.SI','801110.SI',
