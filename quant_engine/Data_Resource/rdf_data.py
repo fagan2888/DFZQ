@@ -201,7 +201,7 @@ class rdf_data:
 
 
     def get_index_constituent_df(self,index_type,date_input):
-        self.date_preprocess(date_input)
+        str_date = self.date_preprocess(date_input)
 
         IH_sentence = "select TRADE_DT,S_INFO_WINDCODE,S_CON_WINDCODE,closevalue,weight " \
                       "from wind_filesync.AIndexSSE50Weight " \
@@ -511,3 +511,25 @@ class rdf_data:
         industries.set_index('index_lv2_code', inplace=True)
         sw_lv2 = sw_lv2.join(industries, on='index_lv2_code')
         return sw_lv2
+
+
+    def get_block_trade(self,start_input,end_input):
+        query = "select S_INFO_WINDCODE, TRADE_DT, S_BLOCK_PRICE, S_BLOCK_VOLUME, S_BLOCK_AMOUNT, " \
+                "S_BLOCK_BUYERNAME, S_BLOCK_SELLERNAME " \
+                "from wind_filesync.AShareBlockTrade "
+        if start_input and (not end_input):
+            str_start = self.date_preprocess(start_input)
+            query = query + " where TRADE_DT >={0}".format(str_start)
+        elif (not start_input) and end_input:
+            str_end = self.date_preprocess(end_input)
+            query = query + " where TRADE_DT <{0}".format(str_end)
+        elif start_input and end_input:
+            str_start = self.date_preprocess(start_input)
+            str_end = self.date_preprocess(end_input)
+            query = query + " where TRADE_DT >={0} and TRADE_DT <{1}".format(str_start, str_end)
+        else:
+            pass
+        self.curs.execute(query)
+        block_trade = pd.DataFrame(self.curs.fetchall(), columns=['code', 'date', 'block_price', 'block_volume',
+                                                                  'block_amount','buyer_name', 'seller_name'])
+        return block_trade

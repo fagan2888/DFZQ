@@ -9,8 +9,8 @@ from dateutil.relativedelta import relativedelta
 class influxdbData:
     def __init__(self, db_input=None):
         self.client = influxdb.DataFrameClient\
-            (host='192.168.38.176', port=8086, username='root', password='root', database=db_input)
-        #192.168.58.71
+            (host='192.168.58.71', port=8086, username='root', password='root', database=db_input)
+        # 服务器:192.168.58.71 阿毛:192.168.38.176
 
     def getDBs(self):
         self.dbs = self.client.get_list_database()
@@ -106,9 +106,8 @@ if __name__ == '__main__':
     influx = influxdbData()
     print(influx.getDBs())
     print(datetime.datetime.now())
-    a = influx.getDataMultiprocess('DailyData_backtest','marketData','20190101','20190827',None)
+    a = influx.getDataMultiprocess('DailyData_backtest','marketData','20100101','20190901',None)
     a = pd.concat(a)
-    a = a.loc[:,['code','ROE_YOY_wind','ROE_YOY','ROE_QOQ','PE_YOY','PE_QOQ','PB_YOY','PB_QOQ','PS_YOY','PS_QOQ']]
-    a.to_csv('YOYQOQ_20100101_20190827.csv',encoding='gbk')
+    a = a.loc[pd.notnull(a['split_ratio']),:]
     print('finish!')
     print(influx.getDBs())

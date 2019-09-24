@@ -1,0 +1,28 @@
+2019-09-17 10:06:21,556 - INFO: TransactionTime: 19900904-00:00:00, Type: BuyStock, Detail: 600016.SH - 5.000000 * 100, Balance: 999499.449950
+2019-09-17 10:46:40,548 - INFO: TransactionTime: 19900904-00:00:00, Type: BuyStock, Detail: 600016.SH - 5.000000 * 100, Balance: 999499.450000
+2019-09-17 10:50:11,393 - INFO: TransactionTime: 19901126-00:00:00, Type: SellStock, Detail: 600016.SH - 10.000000 * 100, Balance: 1000497.351000
+2019-09-17 11:02:39,264 - INFO: TransactionTime: 19900904-00:00:00, Type: BuyStock, Detail: 600016.SH - 5.000000 * 100, Balance: 999499.450000
+2019-09-17 11:05:14,131 - INFO: TransactionTime: 19900904-00:00:00, Type: BuyStock, Detail: 600016.SH - 5.000000 * 100, Balance: 999499.450000
+2019-09-17 11:06:26,924 - INFO: TransactionTime: 19901126-00:00:00, Type: SellStock, Detail: 600016.SH - 10.000000 * 100, Balance: 1000497.350000
+2019-09-17 11:09:01,282 - INFO: TransactionTime: 19900904-00:00:00, Type: BuyStock, Detail: 600016.SH - 5.000000 * 100, Balance: 999499.450000
+2019-09-17 11:10:19,029 - INFO: TransactionTime: 19900904-00:00:00, Type: BuyStock, Detail: 600016.SH - 9.000000 * 100, Balance: 998598.460000
+2019-09-17 11:13:57,489 - INFO: TransactionTime: 19901126-00:00:00, Type: SellStock, Detail: 600016.SH - 10.000000 * 100, Balance: 999596.360000
+2019-09-17 11:16:25,148 - WARNING: Error: this stk not in portfolio!
+2019-09-17 11:16:45,088 - WARNING: Error: volume to sell > volume in positions, adjust to volume in positions!
+2019-09-17 11:16:45,088 - INFO: TransactionTime: 19901126-00:00:00, Type: SellStock, Detail: 600016.SH - 1.000000 * 100, Balance: 999696.150000
+2019-09-17 11:17:13,811 - INFO: TransactionTime: 19900904-00:00:00, Type: BuyStock, Detail: 600016.SH - 5.000000 * 100, Balance: 999499.450000
+2019-09-17 11:17:13,811 - INFO: TransactionTime: 19900904-00:00:00, Type: BuyStock, Detail: 600016.SH - 9.000000 * 100, Balance: 998598.460000
+2019-09-17 11:17:13,812 - WARNING: Error: volume to sell > volume in positions, adjust to volume in positions!
+2019-09-17 11:17:13,812 - INFO: TransactionTime: 19901126-00:00:00, Type: SellStock, Detail: 600016.SH - 10.000000 * 200, Balance: 1000594.260000
+2019-09-17 11:18:42,059 - WARNING: Error: this stk not in portfolio!
+2019-09-17 11:20:37,944 - INFO: TransactionTime: 19900904-00:00:00, Type: BuyStock, Detail: 600016.SH - 5.000000 * 100, Balance: 999499.450000
+2019-09-17 11:20:37,944 - INFO: TransactionTime: 19900904-00:00:00, Type: BuyStock, Detail: 600000.SH - 9.000000 * 100, Balance: 998598.460000
+2019-09-17 11:23:03,266 - WARNING: Error: volume to sell > volume in positions, adjust to volume in positions!
+2019-09-17 11:23:03,267 - INFO: TransactionTime: 19901126-00:00:00, Type: SellStock, Detail: 600016.SH - 10.000000 * 100, Balance: 999596.360000
+2019-09-17 11:24:30,160 - INFO: TransactionTime: 19900904-00:00:00, Type: BuyStock, Detail: 600016.SH - 5.000000 * 20000, Balance: 899889.990000
+2019-09-17 11:24:30,160 - INFO: TransactionTime: 19900904-00:00:00, Type: BuyStock, Detail: 600000.SH - 9.000000 * 10000, Balance: 809790.980000
+2019-09-17 11:25:50,313 - INFO: Estimate Trade Volume: 4000
+2019-09-17 11:25:50,315 - INFO: TransactionTime: 19900904-00:00:00, Type: BuyStock, Detail: 600016.SH - 5.000000 * 4000, Balance: 979978.000000
+2019-09-17 11:25:50,315 - INFO: Estimate Trade Volume: 1100
+2019-09-17 11:25:50,315 - INFO: TransactionTime: 19900904-00:00:00, Type: BuyStock, Detail: 600000.SH - 9.000000 * 1100, Balance: 970067.110000
+2019-09-17 11:28:35,440 - INFO: TransactionTime: 19901126-00:00:00, Type: SellStock, Detail: 600016.SH - 10.000000 * 300, Balance: 973060.810000

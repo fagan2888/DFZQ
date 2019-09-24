@@ -89,6 +89,17 @@ class stock_portfolio:
             self.sell_stks_by_volume(time,stock_code,price,goal_volume)
 
 
+    def trade_stks_to_target_volume(self,time,stock_code,price,target_volume):
+        if stock_code not in self.stk_positions:
+            volume_held = 0
+        volume_held = self.stk_positions[stock_code]['volume']
+        volume_diff = target_volume - volume_held
+        if volume_diff > 0:
+            self.buy_stks_by_volume(time,stock_code,price,volume_diff)
+        elif volume_diff < 0:
+            self.sell_stks_by_volume(time,stock_code,price,volume_diff*(-1))
+
+
     def get_portfolio_value(self,price_input:pd.Series):
         total_value = self.balance
         for stk in self.stk_positions:
