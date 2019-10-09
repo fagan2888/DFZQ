@@ -1,5 +1,6 @@
 # 回测所用日线数据维护
-# 数据包含：
+# 数据包含：高开低收，分红、送股、转增、配股，st信息，ifihic权重，中信123级行业，申万12级行业
+# 最近更新：2010.01.01~2019.09.01
 
 from influxdb_data import influxdbData
 from rdf_data import rdf_data
@@ -173,13 +174,13 @@ class BacktestDayData:
         return merged_data
 
 
-
 if __name__ == '__main__':
     print(datetime.datetime.now())
     btd = BacktestDayData()
     start = 20100101
-    end = 20130101
+    end   = 20190901
     data = btd.process_data(codelist=None,start_input=start,end_input=end)
+
     btd.influx.saveData(data,'DailyData_backtest','marketData')
     print("start: %i ~ end: %i is finish!" % (start, end))
     print(datetime.datetime.now())

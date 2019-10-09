@@ -24,7 +24,7 @@ class rdf_data:
     # 维护回测数据用
     def get_ohlc(self,code_list=None,start_input=None,end_input=None):
         query = "select S_INFO_WINDCODE,TRADE_DT,S_DQ_PRECLOSE,S_DQ_OPEN,S_DQ_HIGH,S_DQ_LOW,S_DQ_CLOSE,S_DQ_VOLUME," \
-                "S_DQ_AMOUNT,S_DQ_TRADESTATUS " \
+                "S_DQ_AMOUNT,S_DQ_TRADESTATUS,S_DQ_AVGPRICE " \
                 "from wind_filesync.AShareEODPrices"
 
         if (not code_list) and (not start_input) and (not end_input):
@@ -52,7 +52,7 @@ class rdf_data:
 
         self.curs.execute(query)
         ohlc = pd.DataFrame(self.curs.fetchall(),columns=['code','date','preclose','open','high','low',
-                                                          'close','volume','amount','status'])
+                                                          'close','volume','amount','status','vwap'])
         return ohlc
 
 

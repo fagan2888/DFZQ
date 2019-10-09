@@ -60,7 +60,7 @@ class influxdbData:
         for i in range(10):
             try:
                 self.client.write_points(dataframe=data,database=database,measurement=measure,tag_columns=['code'],
-                                         protocol='json',batch_size=5000)
+                                         protocol='json',batch_size=1000)
                 success_flag = True
                 break
             except Exception as excp:
