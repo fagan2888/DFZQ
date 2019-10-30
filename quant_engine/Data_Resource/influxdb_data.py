@@ -78,6 +78,7 @@ class influxdbData:
         dt_end = datetime.datetime.strptime(str(enddate),'%Y%m%d')
         parameter_list = []
 
+        # 针对一个code是一个measure的情况
         if isinstance(measure,list):
             while dt_start <= dt_end:
                 if dt_start + relativedelta(months=1) < dt_end:
@@ -106,7 +107,7 @@ if __name__ == '__main__':
     influx = influxdbData()
     print(influx.getDBs())
     print(datetime.datetime.now())
-    a = influx.getDataMultiprocess('DailyData_backtest','marketData','20100101','20190901',None)
+    a = influx.getDataMultiprocess('DailyData_Gus','marketData','20100101','20150901',None)
     a = pd.concat(a)
     a = a.loc[pd.notnull(a['split_ratio']),:]
     print('finish!')

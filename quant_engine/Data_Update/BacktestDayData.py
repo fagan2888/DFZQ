@@ -163,7 +163,6 @@ class BacktestDayData:
 
         print('industry(SW) loaded!')
 
-
         # 存数据前整理
         merged_data.reset_index(inplace=True)
         merged_data.rename(columns={'level_0':'code','level_1':'date'},inplace=True)
@@ -178,9 +177,9 @@ if __name__ == '__main__':
     print(datetime.datetime.now())
     btd = BacktestDayData()
     start = 20100101
-    end   = 20190901
+    end   = 20110101
     data = btd.process_data(codelist=None,start_input=start,end_input=end)
 
-    btd.influx.saveData(data,'DailyData_backtest','marketData')
+    btd.influx.saveData(data,'DailyData_Gus','marketData')
     print("start: %i ~ end: %i is finish!" % (start, end))
     print(datetime.datetime.now())

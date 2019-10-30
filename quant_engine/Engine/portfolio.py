@@ -26,14 +26,14 @@ class stock_portfolio:
         self.logger.addHandler(handler)
 
     def buy_stks_by_volume(self,time,stock_code,price,volume):
-        actual_price = round(price*(1+self.slippage),3)
-        amount = actual_price * volume
+        actual_price = price*(1+self.slippage)
+        amount = round(actual_price * volume,2)
         transaction_fee = round(self.transaction_fee_ratio * amount,2)
 
         if stock_code in self.stk_positions:
             weighted_volume = self.stk_positions[stock_code]['volume'] + volume
-            weighted_price = round((self.stk_positions[stock_code]['price'] * self.stk_positions[stock_code]['volume'] \
-                             + amount) / weighted_volume,3)
+            weighted_price = (self.stk_positions[stock_code]['price'] * self.stk_positions[stock_code]['volume'] \
+                             + amount) / weighted_volume
             self.stk_positions[stock_code]['volume'] = weighted_volume
             self.stk_positions[stock_code]['price']  = weighted_price
         else:
@@ -41,8 +41,8 @@ class stock_portfolio:
         self.balance = self.balance - amount - transaction_fee
         self.logger.info("TransactionTime: %s, Type: BuyStock, Detail: %s - %f * %i, Balance: %f"
                          % (time, stock_code, price, volume, self.balance))
-        self.transactions_list.append(pd.Series([time,'BUY',stock_code,price,volume,self.balance],
-                                                index=['Time','Type','Code','Price','Volume','Balance']))
+        self.transactions_list.append(pd.Series([time,'BUY',stock_code,price,actual_price,volume,self.balance,transaction_fee],
+                                                index=['Time','Type','Code','RawPrice','ActualPrice','Volume','Balance','Fee']))
 
 
     def buy_stks_by_amount(self,time,stock_code,price,goal_amount):
@@ -61,8 +61,8 @@ class stock_portfolio:
                 volume = self.stk_positions[stock_code]['volume']
             else:
                 pass
-            actual_price = round(price * (1 - self.slippage), 3)
-            amount = actual_price * volume
+            actual_price = price * (1 - self.slippage)
+            amount = round(actual_price * volume,2)
             transaction_fee = round(self.transaction_fee_ratio * amount,2)
             tax = round(self.tax_ratio * amount,2)
             weighted_volume = self.stk_positions[stock_code]['volume'] - volume
@@ -73,8 +73,8 @@ class stock_portfolio:
             self.balance = self.balance + amount - transaction_fee - tax
             self.logger.info("TransactionTime: %s, Type: SellStock, Detail: %s - %f * %i, Balance: %f"
                              % (time, stock_code, price, volume, self.balance))
-            self.transactions_list.append(pd.Series([time, 'SELL', stock_code, price, volume, self.balance],
-                                                    index=['Time', 'Type', 'Code', 'Price', 'Volume', 'Balance']))
+            self.transactions_list.append(pd.Series([time, 'SELL', stock_code, price, actual_price, volume, self.balance, transaction_fee],
+                                                    index=['Time', 'Type', 'Code', 'RawPrice', 'ActualPrice', 'Volume', 'Balance', 'Fee']))
         else:
             self.logger.warning("Error: this stk not in portfolio!")
 
