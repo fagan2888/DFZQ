@@ -74,9 +74,22 @@ class BacktestEngine:
             if swap_info.empty:
                 pass
             else:
-                print('.')
-
-
+                for idx,row in swap_info.iterrows():
+                    swap_price = self.stk_portfolio.stk_positions[idx]['price']/row['swap_ratio']
+                    swap_volume = round(self.stk_portfolio.stk_positions[idx]['volume']*row['swap_ratio'])
+                    if row['swap_code'] in self.stk_portfolio.stk_positions:
+                        merged_volume = self.stk_portfolio.stk_positions[row['swap_code']]['volume'] + swap_volume
+                        merged_price = (self.stk_portfolio.stk_positions[row['swap_code']]['volume'] *
+                                        self.stk_portfolio.stk_positions[row['swap_code']]['price'] +
+                                        swap_volume * swap_price) / merged_volume
+                        self.stk_portfolio.stk_positions[row['swap_code']]['volume'] = merged_volume
+                        self.stk_portfolio.stk_positions[row['swap_code']]['price'] = merged_price
+                    else:
+                        self.stk_portfolio.stk_positions[row['swap_code']]['volume'] = swap_volume
+                        self.stk_portfolio.stk_positions[row['swap_code']]['price'] = swap_price
+                        self.stk_portfolio.stk_positions[row['swap_code']]['latest_close'] = \
+                            self.stk_portfolio.stk_positions[idx]['latest_close']/row['swap_ratio']
+                    self.stk_portfolio.stk_positions.pop(idx)
 
             # 记录 portfolio value
             total_value = self.stk_portfolio.get_portfolio_value(one_day_data['close'])
