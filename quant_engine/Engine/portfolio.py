@@ -93,11 +93,13 @@ class stock_portfolio:
             volume_held = 0
         else:
             volume_held = self.stk_positions[stock_code]['volume']
-        volume_to_trade = round(target_volume - volume_held,-2)
+        volume_to_trade = target_volume - volume_held
         if volume_to_trade > 0:
+            volume_to_trade = round(volume_to_trade,-2)
             self.buy_stks_by_volume(time,stock_code,price,volume_to_trade)
         elif volume_to_trade < 0 and volume_to_trade*(-1) < volume_held :
-            self.sell_stks_by_volume(time,stock_code,price,volume_to_trade*(-1))
+            volume_to_trade = round(volume_to_trade,-2) * -1
+            self.sell_stks_by_volume(time,stock_code,price,volume_to_trade)
         elif volume_to_trade < 0 and volume_to_trade*(-1) >= volume_held :
             self.sell_stks_by_volume(time,stock_code,price,volume_held)
         else:

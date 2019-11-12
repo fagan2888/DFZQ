@@ -85,6 +85,7 @@ class BacktestEngine:
                         self.stk_portfolio.stk_positions[row['swap_code']]['volume'] = merged_volume
                         self.stk_portfolio.stk_positions[row['swap_code']]['price'] = merged_price
                     else:
+                        self.stk_portfolio.stk_positions[row['swap_code']] = {}
                         self.stk_portfolio.stk_positions[row['swap_code']]['volume'] = swap_volume
                         self.stk_portfolio.stk_positions[row['swap_code']]['price'] = swap_price
                         self.stk_portfolio.stk_positions[row['swap_code']]['latest_close'] = \
@@ -129,14 +130,12 @@ class BacktestEngine:
 if __name__ == '__main__':
 
     influx = influxdbData()
-    d = pd.concat(influx.getDataMultiprocess('DailyData_Gus','marketData','20150101','20150831'))
+    d = pd.concat(influx.getDataMultiprocess('DailyData_Gus','marketData','20100901','20190831'))
     d = d.loc[pd.notnull(d['IF_weight']) & (d['volume']>0),['code','IF_weight','vwap']]
     d.columns = ['code','weight','vwap']
-    d.to_pickle('20150101_20150831_IF_weight.pkl')
     d = d.loc[:,['code','weight']]
-
-    #d = pd.read_pickle('20170101_20190831_IF_weight.pkl')
-    d = d.loc[:,['code','weight']]
+    start_time = datetime.datetime.now()
     QE = BacktestEngine(stock_capital=100000000)
-    portfolio_value_dict = QE.run(d,20150101,20150831,price_field='vwap',cash_reserve_rate=0)
+    portfolio_value_dict = QE.run(d,20100901,20190831,price_field='vwap',cash_reserve_rate=0)
     print('backtest finish')
+    print('time used:',datetime.datetime.now()-start_time)

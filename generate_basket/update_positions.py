@@ -21,7 +21,7 @@ class after_trade_task:
         ftrs_vol = int(input('请输入ZL开仓的期货手数:'))
         filename = '综合信息查询_组合证券_ZL_' + self.yyyymmdd + '.xls'
         positions = pd.read_excel(self.local_dir+filename)
-        positions = positions.loc[:,['证券代码','证券名称','持仓']].dropna(subset=['证券代码'])
+        positions = positions.loc[:,['证券代码','证券名称','持仓','最新价']].dropna(subset=['证券代码'])
         positions['证券代码'] = positions['证券代码'].astype('int')
         positions['证券代码'] = positions['证券代码'].apply(lambda x: '0' * (6 - len(str(x))) + str(x))
         positions['code'] = positions['证券代码'].apply(lambda x: x+'.SH' if x[0]=='6' else x+'.SZ')
@@ -40,22 +40,13 @@ class after_trade_task:
         positions = positions.merge(industries,right_on='code',left_on='code',how='outer')
         positions['industry'] = positions['industry'].apply(lambda x:x.split('.')[0])
 
-        # 获取收盘价
-        query = "select S_INFO_WINDCODE,TRADE_DT,S_DQ_CLOSE " \
-                "from wind_filesync.AShareEODPrices " \
-                "where trade_dt = {0} and s_info_windcode in ".format(self.yyyymmdd) + str(tuple(codes))
-        self.rdf.curs.execute(query)
-        close = pd.DataFrame(self.rdf.curs.fetchall(),columns=['code','date','close'])
-        positions = positions.merge(close,right_on='code',left_on='code',how='outer')
-
         # 记入txt
         filename = 'alphacc.txt'
         with open(self.local_dir+filename ,mode='w',encoding='utf-8') as f:
-            f.write('stkcd:System.String'+'\t'+'secname:System.String'+'\t'+'indu:System.String'+'\t'+
-                    'ccnum:System.Decimal'+'\t'+'price:System.Decimal'+'\n')
+            f.write('stkcd:System.String'+'|'+'indu:System.String'+'|'+
+                    'ccnum:System.Decimal'+'|'+'price:System.Decimal'+'\n')
             for idx,row in positions.iterrows():
-                f.write(row['证券代码']+'\t'+row['证券名称']+'\t'+row['industry']+'\t'+row['持仓']+'\t'+
-                        str(row['close'])+'\n')
+                f.write(row['证券代码'] +'|'+row['industry']+'|'+row['持仓']+'|'+ str(row['最新价'])+'\n')
 
         self.ftp.upload_file(self.remote_dir+filename,self.local_dir+filename)
 

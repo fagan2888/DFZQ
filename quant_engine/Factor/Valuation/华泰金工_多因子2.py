@@ -49,7 +49,7 @@ class Huatai_MF_2(FactorBase):
         df['NCFP'] = 1 / df['PNCF']
         df['OCFP'] = 1 / df['POCF']
         df['FCFP'] = df['FCFF'] / df['mv'] / 10000
-        df['EV2EBITDA'] = (df['mv']*10000 - df['total_cash'] - df['total_liab'])/df['EBITDA']
+        df['EV2EBITDA'] = (df['mv']*10000 - df['total_cash'] + df['total_liab'])/df['EBITDA']
         profit_ttm = pd.DataFrame(df.groupby(['report_period'])['profit_ttm'].first())
         if not profit_ttm.empty:
             profit_ttm.reset_index(inplace=True)
