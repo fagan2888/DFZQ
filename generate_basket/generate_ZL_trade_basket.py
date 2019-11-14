@@ -185,7 +185,7 @@ class basket_trade:
         # 读取持仓ZL
         positions_date = self.dt
         folder_name = positions_date.strftime('%Y%m%d')
-        file_name = '综合信息查询_组合证券_ZL_' + folder_name + '.xls'
+        file_name = '综合信息查询_组合证券_S2_' + folder_name + '.xls'
         while True :
             folder_path = root_dir + '张黎/' + folder_name
             if os.path.exists(folder_path) and file_name in os.listdir(folder_path):
@@ -193,10 +193,10 @@ class basket_trade:
             else:
                 positions_date = positions_date - datetime.timedelta(days=1)
                 folder_name = positions_date.strftime('%Y%m%d')
-                file_name = '综合信息查询_组合证券_ZL_' + folder_name + '.xls'
+                file_name = '综合信息查询_组合证券_S2_' + folder_name + '.xls'
 
         print('ZL持仓日期: %s' % folder_name)
-        positions_ZL = pd.read_excel(root_dir + '张黎/'+ folder_name+'/'+'综合信息查询_组合证券_ZL_'+folder_name+'.xls')
+        positions_ZL = pd.read_excel(root_dir + '张黎/'+ folder_name+'/'+'综合信息查询_组合证券_S2_'+folder_name+'.xls')
         positions_ZL = positions_ZL.loc[:, ['日期', '证券代码', '证券名称', '持仓', '最新价']].dropna(subset=['证券代码'])
         positions_ZL['证券代码'] = positions_ZL['证券代码'].astype('int')
         positions_ZL['证券代码'] = positions_ZL['证券代码'].apply(lambda x: '0' * (6 - len(str(x))) + str(x))
@@ -205,7 +205,7 @@ class basket_trade:
         # 读取持仓XF
         positions_date = self.dt
         folder_name = positions_date.strftime('%Y%m%d')
-        file_name = '综合信息查询_组合证券_XF_' + folder_name + '.xls'
+        file_name = '综合信息查询_组合证券_S4_' + folder_name + '.xls'
         while True:
             folder_path = root_dir + '许帆/' + folder_name
             if os.path.exists(folder_path) and file_name in os.listdir(folder_path):
@@ -213,10 +213,10 @@ class basket_trade:
             else:
                 positions_date = positions_date - datetime.timedelta(days=1)
                 folder_name = positions_date.strftime('%Y%m%d')
-                file_name = '综合信息查询_组合证券_XF_' + folder_name + '.xls'
+                file_name = '综合信息查询_组合证券_S4_' + folder_name + '.xls'
 
         print('XF持仓日期: %s' % folder_name)
-        positions_XF = pd.read_excel(root_dir + '许帆/' + folder_name + '/' + '综合信息查询_组合证券_XF_' + folder_name + '.xls')
+        positions_XF = pd.read_excel(root_dir + '许帆/' + folder_name + '/' + '综合信息查询_组合证券_S4_' + folder_name + '.xls')
         positions_XF = positions_XF.loc[:, ['日期', '证券代码', '证券名称', '持仓', '最新价']].dropna(subset=['证券代码'])
         positions_XF['证券代码'] = positions_XF['证券代码'].astype('int')
         positions_XF['证券代码'] = positions_XF['证券代码'].apply(lambda x: '0' * (6 - len(str(x))) + str(x))

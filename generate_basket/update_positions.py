@@ -19,7 +19,7 @@ class after_trade_task:
     def run(self):
         ftrs_per_bsk = int(input('请输入ZL每个篮子对应的期货手数:'))
         ftrs_vol = int(input('请输入ZL开仓的期货手数:'))
-        filename = '综合信息查询_组合证券_ZL_' + self.yyyymmdd + '.xls'
+        filename = '综合信息查询_组合证券_S2_' + self.yyyymmdd + '.xls'
         positions = pd.read_excel(self.local_dir+filename)
         positions = positions.loc[:,['证券代码','证券名称','持仓','最新价']].dropna(subset=['证券代码'])
         positions['证券代码'] = positions['证券代码'].astype('int')
