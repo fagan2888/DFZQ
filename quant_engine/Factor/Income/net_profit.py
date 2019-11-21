@@ -1,10 +1,10 @@
 # 净利润数据
+# 原数据
 
 from factor_base import FactorBase
 import pandas as pd
 import dateutil.parser as dtparser
 from dateutil.relativedelta import relativedelta
-
 
 class net_profit(FactorBase):
     def __init__(self):

@@ -17,6 +17,7 @@ class FCFF_FCFF2CS(FactorBase):
         code_factors['FCFF2CS'] = code_factors['FCFF_own'] / code_factors['float_shares'] /10000
         code_factors = code_factors.dropna(subset=['FCFF2CS'])
         code_factors = code_factors.loc[str(start):str(end),['code','FCFF_own','FCFF2CS']]
+        code_factors = code_factors.where(pd.notnull(code_factors), None)
         print(code)
         self.save_factor_to_influx(code_factors,'DailyFactor_Gus','Value')
 
@@ -74,5 +75,6 @@ class FCFF_FCFF2CS(FactorBase):
 
 
 if __name__ == '__main__':
+    pd.set_option('mode.use_inf_as_na', True)
     fcff = FCFF_FCFF2CS()
     fcff.cal_factors(20100101,20190901)

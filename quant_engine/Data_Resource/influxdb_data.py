@@ -100,15 +100,14 @@ class influxdbData:
         with parallel_backend('multiprocessing', n_jobs=-1):
             result_list =  Parallel()(delayed(self.getData)(database,cd,start_date,end_date,fields)
                                       for start_date,end_date,cd in parameter_list)
-        return result_list
+        df = pd.concat(result_list)
+        return df
 
 
 if __name__ == '__main__':
     influx = influxdbData()
     print(influx.getDBs())
     print(datetime.datetime.now())
-    a = influx.getDataMultiprocess('DailyData_Gus','marketData','20100101','20150901',None)
-    a = pd.concat(a)
+    a = influx.getDataMultiprocess('DailyData_Gus','marketData','20130101','20150901',None)
     a = a.loc[pd.notnull(a['split_ratio']),:]
     print('finish!')
-    print(influx.getDBs())
