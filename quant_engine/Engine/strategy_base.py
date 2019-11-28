@@ -36,7 +36,7 @@ class StrategyBase:
         industry_data = industry_data.loc[~(industry_data==0).all(axis=1),:]
         rtn_data.reset_index(inplace=True)
         industry_data.reset_index(inplace=True)
-        mkt_data = pd.merge(rtn_data,industry_data,how='right',left_on=['date','code'],right_on=['date','code'])
+        mkt_data = pd.merge(rtn_data,industry_data,how='right',on=['date','code'])
 
         size_data = self.influx.getDataMultiprocess('DailyFactor_Gus', 'Size',start,end,None)
         size_data.index.names = ['date']
@@ -45,60 +45,76 @@ class StrategyBase:
         size_data[mkt_cap_field] = DataProcess.Z_standardize(size_data[mkt_cap_field])
 
         mkt_data = pd.merge(mkt_data,size_data,how='inner',on=['date','code'])
+        print('basic info loaded!')
         return mkt_data
 
 
     @staticmethod
     def cross_section_remove_outlier(factor_data,factor_field,date):
-        factor_data = factor_data.loc[date,:]
-        factor_data[factor_field] = DataProcess.remove_outlier(factor_field[factor_field])
-        factor_data = factor_data.dropna(subset=[factor_field])
-        return factor_data
+        day_factor = factor_data.loc[date,:].copy()
+        day_factor[factor_field] = DataProcess.remove_outlier(day_factor[factor_field])
+        day_factor = day_factor.dropna(subset=[factor_field])
+        return day_factor
 
 
     @staticmethod
     def cross_section_Z_standardize(factor_data,factor_field,date):
-        factor_data = factor_data.loc[date, :]
-        factor_data[factor_field] = DataProcess.Z_standardize(factor_field[factor_field])
-        factor_data = factor_data.dropna(subset=[factor_field])
-        return factor_data
+        day_factor = factor_data.loc[date, :].copy()
+        day_factor[factor_field] = DataProcess.Z_standardize(day_factor[factor_field])
+        day_factor = day_factor.dropna(subset=[factor_field])
+        return day_factor
 
 
     @staticmethod
     def cross_section_rank_standardize(factor_data,factor_field,date):
-        factor_data = factor_data.loc[date, :]
-        factor_data[factor_field] = DataProcess.rank_standardize(factor_field[factor_field])
-        factor_data = factor_data.dropna(subset=[factor_field])
-        return factor_data
+        day_factor = factor_data.loc[date, :].copy()
+        day_factor[factor_field] = DataProcess.rank_standardize(day_factor[factor_field])
+        day_factor = day_factor.dropna(subset=[factor_field])
+        return day_factor
 
 
     # factor.index 是date
     # mkt_data 的date在columns里
-    def test_factor(self,factor_data,factor_field,mkt_data,standardize='z',remove_outlier=True):
+    def test_factor(self,factor_data,factor_field,stk_data,standardize='z',remove_outlier=True):
+        dates = factor_data.index.unique()
         # 数据预处理
         if remove_outlier:
             df_list = joblib.Parallel(n_jobs=6)(joblib.delayed(StrategyBase.cross_section_remove_outlier)
                                                 (factor_data,factor_field,date)
-                                                for date in factor_data.index.unique())
+                                                for date in dates)
             factor_data = pd.concat(df_list,ignore_index=False)
             factor_data = factor_data.sort_index()
+            print('outlier remove finish!')
 
         if standardize == 'z':
             df_list = joblib.Parallel(n_jobs=6)(joblib.delayed(StrategyBase.cross_section_Z_standardize)
                                                 (factor_data, factor_field, date)
-                                                for date in factor_data.index.unique())
+                                                for date in dates[0:50])
             factor_data = pd.concat(df_list, ignore_index=False)
             factor_data = factor_data.sort_index()
+            print('Z_standardize finish!')
         elif standardize == 'rank':
             df_list = joblib.Parallel(n_jobs=6)(joblib.delayed(StrategyBase.cross_section_rank_standardize)
                                                 (factor_data, factor_field, date)
-                                                for date in factor_data.index.unique())
+                                                for date in dates)
             factor_data = pd.concat(df_list, ignore_index=False)
             factor_data = factor_data.sort_index()
+            print('rank_standardize finish!')
         else:
             pass
+
+        factor_data.index.names = ['date']
+        factor_data.reset_index(inplace=True)
+        stk_data = pd.merge(stk_data,factor_data,on=['date','code'])
+        print('.')
 
 
 if __name__ == '__main__':
     sb = StrategyBase()
-    sb.get_basic_info(20150101,20160101)
+    start = 20150101
+    end = 20160101
+    mkt_data = sb.get_basic_info(start,end)
+    ep_cut = sb.influx.getDataMultiprocess('DailyFactor_Gus','Value',start,end,None)
+    ep_cut = ep_cut.loc[:,['code','EPcut_TTM']]
+    ep_cut = ep_cut.dropna(subset=['EPcut_TTM'])
+    sb.test_factor(ep_cut,'EPcut_TTM',mkt_data,standardize='z',remove_outlier=False)

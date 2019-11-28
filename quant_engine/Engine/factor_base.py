@@ -64,3 +64,8 @@ class FactorBase:
 
     def save_factor_to_influx(self,data,db,measure):
         self.influx.saveData(data,db,measure)
+
+    @staticmethod
+    def cal_growth(former_data,later_data):
+        growth = (later_data - former_data)/ abs(former_data)
+        return growth
