@@ -70,12 +70,11 @@ class EP_growth(FactorBase):
         start = (dtparser.parse(str(start))-relativedelta(years=1)).strftime('%Y%m%d')
         end = str(end)
         start_time = datetime.datetime.now()
-        print('Start time: ',start_time)
         EP = self.influx.getDataMultiprocess('DailyFactor_Gus','Value',start,end,['code','EP_TTM','EPcut_TTM'])
         print('EP data got')
+        print('Start time: ', start_time)
         codes = EP['code'].unique()
-        with parallel_backend('multiprocessing', n_jobs=-1):
-            Parallel()(delayed(EP_growth.job_factors)(code,EP) for code in codes)
+        Parallel(n_jobs=-1,verbose=0)(delayed(EP_growth.job_factors)(code,EP) for code in codes)
         print('task finish!')
         print('Time token: ',datetime.datetime.now()-start_time)
 

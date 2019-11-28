@@ -59,7 +59,7 @@ class ROE_growth(FactorBase):
             code_ROE['ROE_ddt_Q_growthY'] = np.nan
         else:
             init_ROE.columns = ['date_lastY', 'ROE_lastY', 'ROE_Q_lastY', 'ROE_ddt_lastY', 'ROE_ddt_Q_lastY']
-            code_ROE = pd.merge(code_ROE, init_ROE, on='date_lastQ', how='left')
+            code_ROE = pd.merge(code_ROE, init_ROE, on='date_lastY', how='left')
             code_ROE['ROE_growthY'] = \
                 code_ROE.apply(lambda row: ROE_growth.cal_growth(row['ROE_lastY'], row['ROE']),
                                axis=1).fillna(method='ffill')
@@ -96,8 +96,7 @@ class ROE_growth(FactorBase):
                                               ['code','ROE','ROE_Q','ROE_ddt','ROE_ddt_Q'])
         print('ROE data got')
         codes = ROE['code'].unique()
-        with parallel_backend('multiprocessing', n_jobs=-1):
-            Parallel()(delayed(ROE_growth.job_factors)(code,ROE) for code in codes)
+        Parallel(n_jobs=-1,verbose=0)(delayed(ROE_growth.job_factors)(code,ROE) for code in codes)
         print('task finish!')
         print('Time token: ',datetime.datetime.now()-start_time)
 
@@ -106,4 +105,4 @@ class ROE_growth(FactorBase):
 if __name__ == '__main__':
     pd.set_option('mode.use_inf_as_na', True)
     ROEg = ROE_growth()
-    ROEg.cal_factors(20140101,20150901)
+    ROEg.cal_factors(20100101,20190901)
