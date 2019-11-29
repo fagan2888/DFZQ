@@ -12,8 +12,8 @@ class FactorBase:
         MAD = np.median(abs(series - median))
         ceil = median + 3 * 1.4826 * MAD
         floor = median - 3 * 1.4826 * MAD
-        series[series > ceil] = ceil
-        series[series < floor] = floor
+        series.loc[series > ceil] = ceil
+        series.loc[series < floor] = floor
         return series
 
     @staticmethod
@@ -67,5 +67,8 @@ class FactorBase:
 
     @staticmethod
     def cal_growth(former_data,later_data):
-        growth = (later_data - former_data)/ abs(former_data)
+        if former_data == 0:
+            growth = np.nan
+        else:
+            growth = (later_data - former_data) / abs(former_data)
         return growth

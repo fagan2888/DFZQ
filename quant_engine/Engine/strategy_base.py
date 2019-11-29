@@ -4,7 +4,9 @@ import numpy as np
 from rdf_data import rdf_data
 from influxdb_data import influxdbData
 from data_process import DataProcess
-import joblib
+from joblib import Parallel,delayed,parallel_backend
+import warnings
+import statsmodels.api as sm
 
 class StrategyBase:
     def __init__(self):
@@ -14,6 +16,7 @@ class StrategyBase:
     def get_basic_info(self,start,end,filter_ST=True,industry='citics_lv1_name',mkt_cap_field='ln_market_cap'):
         mkt_data = self.influx.getDataMultiprocess('DailyData_Gus','marketData',start,end,None)
         mkt_data = mkt_data.loc[(mkt_data['status'] != '停牌') & (pd.notnull(mkt_data['status'])), :]
+
         if filter_ST:
             mkt_data = mkt_data.loc[mkt_data['isST']==False,:]
         mkt_data['return'] = mkt_data['close']/mkt_data['preclose'] -1
@@ -42,79 +45,107 @@ class StrategyBase:
         size_data.index.names = ['date']
         size_data.reset_index(inplace=True)
         size_data = size_data.loc[:,['date','code',mkt_cap_field]]
-        size_data[mkt_cap_field] = DataProcess.Z_standardize(size_data[mkt_cap_field])
-
+        size_data.columns = ['date','code','size']
+        # mkt cap 标准化
+        size_data['size'] = DataProcess.Z_standardize(size_data['size'])
         mkt_data = pd.merge(mkt_data,size_data,how='inner',on=['date','code'])
         print('basic info loaded!')
         return mkt_data
 
-
     @staticmethod
-    def cross_section_remove_outlier(factor_data,factor_field,date):
-        day_factor = factor_data.loc[date,:].copy()
-        day_factor[factor_field] = DataProcess.remove_outlier(day_factor[factor_field])
-        day_factor = day_factor.dropna(subset=[factor_field])
-        return day_factor
-
-
-    @staticmethod
-    def cross_section_Z_standardize(factor_data,factor_field,date):
-        day_factor = factor_data.loc[date, :].copy()
-        day_factor[factor_field] = DataProcess.Z_standardize(day_factor[factor_field])
-        day_factor = day_factor.dropna(subset=[factor_field])
-        return day_factor
+    def cross_section_remove_outlier(factor_data,factor_field,dates):
+        res = []
+        for date in dates:
+            day_factor = factor_data.loc[date,:].copy()
+            day_factor.loc[:,factor_field] = DataProcess.remove_outlier(day_factor[factor_field])
+            res.append(day_factor)
+        dates_factor = pd.concat(res)
+        return dates_factor
 
 
     @staticmethod
-    def cross_section_rank_standardize(factor_data,factor_field,date):
-        day_factor = factor_data.loc[date, :].copy()
-        day_factor[factor_field] = DataProcess.rank_standardize(day_factor[factor_field])
-        day_factor = day_factor.dropna(subset=[factor_field])
-        return day_factor
+    def cross_section_Z_standardize(factor_data,factor_field,dates):
+        res = []
+        for date in dates:
+            day_factor = factor_data.loc[date, :].copy()
+            day_factor.loc[:,factor_field] = DataProcess.Z_standardize(day_factor[factor_field])
+            res.append(day_factor)
+        dates_factor = pd.concat(res)
+        return dates_factor
+
+
+    @staticmethod
+    def cross_section_rank_standardize(factor_data,factor_field,dates):
+        res = []
+        for date in dates:
+            day_factor = factor_data.loc[date, :].copy()
+            day_factor.loc[:,factor_field] = DataProcess.rank_standardize(day_factor[factor_field])
+            res.append(day_factor)
+        dates_factor = pd.concat(res)
+        return dates_factor
+
+
+    @staticmethod
+    def filter_indusrty_and_size(mkt_data,factor_field,dates):
+        res = []
+        idsty_size_cols = mkt_data.columns.difference(['code','date','former_trade_day','next_trade_day','return'])
+        for date in dates:
+            day_code = mkt_data.loc[mkt_data['date']==date,'code']
+            day_factor = mkt_data.loc[mkt_data['date']==date,factor_field]
+            day_idsty_size = mkt_data.loc[mkt_data['date']==date,idsty_size_cols]
+            est = sm.OLS(day_factor, day_idsty_size).fit()
+            print('.')
+
 
 
     # factor.index 是date
     # mkt_data 的date在columns里
-    def test_factor(self,factor_data,factor_field,stk_data,standardize='z',remove_outlier=True):
-        dates = factor_data.index.unique()
+    def test_factor(self,factor_data,factor_field,mkt_data,standardize='z',remove_outlier=True):
         # 数据预处理
+        dates = factor_data.index.unique()
+        split_dates = np.array_split(dates, 30)
         if remove_outlier:
-            df_list = joblib.Parallel(n_jobs=6)(joblib.delayed(StrategyBase.cross_section_remove_outlier)
-                                                (factor_data,factor_field,date)
-                                                for date in dates)
-            factor_data = pd.concat(df_list,ignore_index=False)
-            factor_data = factor_data.sort_index()
+            with parallel_backend('multiprocessing', n_jobs=-1):
+                parallel_res = Parallel()(delayed(StrategyBase.cross_section_remove_outlier)
+                                          (factor_data, factor_field,dates) for dates in split_dates)
+            factor_data = pd.concat(parallel_res)
             print('outlier remove finish!')
-
         if standardize == 'z':
-            df_list = joblib.Parallel(n_jobs=6)(joblib.delayed(StrategyBase.cross_section_Z_standardize)
-                                                (factor_data, factor_field, date)
-                                                for date in dates[0:50])
-            factor_data = pd.concat(df_list, ignore_index=False)
-            factor_data = factor_data.sort_index()
+            with parallel_backend('multiprocessing', n_jobs=-1):
+                parallel_res = Parallel()(delayed(StrategyBase.cross_section_Z_standardize)
+                                          (factor_data, factor_field,dates) for dates in split_dates)
+            factor_data = pd.concat(parallel_res)
             print('Z_standardize finish!')
         elif standardize == 'rank':
-            df_list = joblib.Parallel(n_jobs=6)(joblib.delayed(StrategyBase.cross_section_rank_standardize)
-                                                (factor_data, factor_field, date)
-                                                for date in dates)
-            factor_data = pd.concat(df_list, ignore_index=False)
-            factor_data = factor_data.sort_index()
+            with parallel_backend('multiprocessing', n_jobs=-1):
+                parallel_res = Parallel()(delayed(StrategyBase.cross_section_rank_standardize)
+                                          (factor_data, factor_field,dates) for dates in split_dates)
+            factor_data = pd.concat(parallel_res)
             print('rank_standardize finish!')
         else:
             pass
 
         factor_data.index.names = ['date']
         factor_data.reset_index(inplace=True)
-        stk_data = pd.merge(stk_data,factor_data,on=['date','code'])
+        mkt_data = pd.merge(mkt_data,factor_data,on=['date','code'])
+
+        # 去除行业和市值，得到新因子
+        dates = mkt_data['date'].unique()
+        split_dates = np.array_split(dates,30)
+        with parallel_backend('multiprocessing', n_jobs=-1):
+            parallel_res = Parallel()(delayed(StrategyBase.filter_indusrty_and_size)
+                                      (mkt_data, factor_field, dates) for dates in split_dates)
+
         print('.')
 
 
 if __name__ == '__main__':
-    sb = StrategyBase()
+    warnings.filterwarnings("ignore")
+    strategy = StrategyBase()
     start = 20150101
     end = 20160101
-    mkt_data = sb.get_basic_info(start,end)
-    ep_cut = sb.influx.getDataMultiprocess('DailyFactor_Gus','Value',start,end,None)
-    ep_cut = ep_cut.loc[:,['code','EPcut_TTM']]
+    mkt_data = strategy.get_basic_info(start,end)
+    ep_cut = strategy.influx.getDataMultiprocess('DailyFactor_Gus','Value',start,end,['code','EPcut_TTM'])
     ep_cut = ep_cut.dropna(subset=['EPcut_TTM'])
-    sb.test_factor(ep_cut,'EPcut_TTM',mkt_data,standardize='z',remove_outlier=False)
+    print('epcut loaded!')
+    strategy.test_factor(ep_cut,'EPcut_TTM',mkt_data,standardize='z',remove_outlier=False)

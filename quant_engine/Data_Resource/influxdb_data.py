@@ -76,30 +76,19 @@ class influxdbData:
     def getDataMultiprocess(self,database,measure,startdate,enddate,fields=None):
         dt_start = datetime.datetime.strptime(str(startdate),'%Y%m%d')
         dt_end = datetime.datetime.strptime(str(enddate),'%Y%m%d')
-        parameter_list = []
 
-        # 针对一个code是一个measure的情况
-        if isinstance(measure,list):
-            while dt_start <= dt_end:
-                if dt_start + relativedelta(months=1) < dt_end:
-                    period_end = dt_start+relativedelta(months=1)
-                else:
-                    period_end = dt_end
-                for code in measure:
-                    parameter_list.append((dt_start.strftime('%Y%m%d'),period_end.strftime('%Y%m%d'),code))
-                dt_start += relativedelta(months=1)
-        else:
-            while dt_start <= dt_end:
-                if dt_start + relativedelta(months=1) < dt_end:
-                    period_end = dt_start + relativedelta(months=1)
-                else:
-                    period_end = dt_end
-                parameter_list.append((dt_start.strftime('%Y%m%d'),period_end.strftime('%Y%m%d'),measure))
-                dt_start += relativedelta(months=1)
+        parameter_list = []
+        while dt_start <= dt_end:
+            if dt_start + relativedelta(months=1) < dt_end:
+                period_end = dt_start + relativedelta(months=1)
+            else:
+                period_end = dt_end
+            parameter_list.append((dt_start.strftime('%Y%m%d'),period_end.strftime('%Y%m%d'),measure))
+            dt_start += relativedelta(months=1)
 
         with parallel_backend('multiprocessing', n_jobs=-1):
-            result_list =  Parallel()(delayed(self.getData)(database,cd,start_date,end_date,fields)
-                                      for start_date,end_date,cd in parameter_list)
+            result_list =  Parallel()(delayed(self.getData)(database,measure,start_date,end_date,fields)
+                                      for start_date,end_date,measure in parameter_list)
         df = pd.concat(result_list)
         return df
 
@@ -108,6 +97,6 @@ if __name__ == '__main__':
     influx = influxdbData()
     print(influx.getDBs())
     print(datetime.datetime.now())
-    a = influx.getDataMultiprocess('DailyData_Gus','marketData','20130101','20150901',None)
+    a = influx.getDataMultiprocess('DailyFactor_Gus','Value','20130101','20150901',None)
     a = a.loc[pd.notnull(a['split_ratio']),:]
     print('finish!')
