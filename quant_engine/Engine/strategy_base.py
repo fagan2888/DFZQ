@@ -43,7 +43,8 @@ class StrategyBase:
 
     @staticmethod
     def regression(mkt_data,factor_field,dates):
-        res = []
+        RLM_res = []
+        filtered_factor_res = []
         idsty_size_cols = mkt_data.columns.difference(['code','date','former_trade_day','next_trade_day','return',factor_field])
         for date in dates:
             day_code = mkt_data.loc[mkt_data['date']==date,'code']
@@ -56,12 +57,15 @@ class StrategyBase:
             RLM_est = sm.RLM(day_return, day_filtered_factor, M=sm.robust.norms.HuberT()).fit()
             day_RLM_para = RLM_est.params
             day_Tvalue = RLM_est.tvalues
-            #day_filtered_factor = pd.concat([day_code,day_filtered_factor],axis=1)
-            #day_filtered_factor['date'] = date
-            RLM_result = pd.DataFrame({'Fvalue':day_RLM_para.iloc[0],'Tvalue':day_Tvalue.iloc[0]},index=[date])
-            res.append(RLM_result)
-        res_df = pd.concat(res)
-        return res_df
+            # 得到正交化后的因子值
+            day_filtered_factor = pd.concat([day_code,day_filtered_factor],axis=1)
+            day_filtered_factor['date'] = date
+            day_RLM_result = pd.DataFrame({'Fvalue':day_RLM_para.iloc[0],'Tvalue':day_Tvalue.iloc[0]},index=[date])
+            RLM_res.append(day_RLM_result)
+            filtered_factor_res.append(day_filtered_factor)
+        RLM_result = pd.concat(RLM_res)
+        filtered_factor = pd.concat(filtered_factor_res)
+        return {'RLM_result':RLM_result,'filtered_factor':filtered_factor}
 
 
     def __init__(self):
@@ -69,24 +73,36 @@ class StrategyBase:
         self.influx = influxdbData()
 
 
-    def get_basic_info(self,start,end,filter_st=True,industry='citics_lv1_name',mkt_cap_field='ln_market_cap'):
-        mkt_data = self.influx.getDataMultiprocess('DailyData_Gus','marketData',start,end,None)
+    def get_former_trade_day(self,mkt_data):
+        calendar = self.rdf.get_trading_calendar()
+        trade_day = pd.DataFrame(mkt_data.index.unique().tolist(), columns=['date'])
+        trade_day['former_trade_day'] = trade_day['date'].apply(lambda x: calendar[calendar < x].iloc[-1])
+        trade_day.set_index('date', inplace=True)
+        return trade_day
+
+
+    def get_next_trade_day(self,mkt_data):
+        calendar = self.rdf.get_trading_calendar()
+        trade_day = pd.DataFrame(mkt_data.index.unique().tolist(), columns=['date'])
+        trade_day['next_trade_day'] = trade_day['date'].apply(lambda x: calendar[calendar > x].iloc[0])
+        trade_day.set_index('date', inplace=True)
+        return trade_day
+
+
+    def get_test_info(self,mkt_data,filter_st=True,industry='citics_lv1_name',mkt_cap_field='ln_market_cap'):
+        # 过滤停牌(停牌没有收益率)
         mkt_data = mkt_data.loc[(mkt_data['status'] != '停牌') & (pd.notnull(mkt_data['status'])), :]
 
+        # 过滤st
         if filter_st:
             mkt_data = mkt_data.loc[mkt_data['isST']==False,:]
         mkt_data['return'] = mkt_data['close']/mkt_data['preclose'] -1
         # 超过0.11或-0.11的return标记为异常数据，置为nan(新股本身剔除)
-        mkt_data.loc[(mkt_data['return']>0.11) | (mkt_data['return']<-0.11),'return'] = np.nan
-        mkt_data = mkt_data.dropna(subset=['return'])
+        mkt_data = mkt_data.loc[(mkt_data['return']<0.11) | (mkt_data['return']>-0.11),:]
+        # 计算former date 和 next date
+        mkt_data = pd.merge(mkt_data,self.get_former_trade_day(mkt_data),left_index=True,right_index=True,how='left')
+        mkt_data = pd.merge(mkt_data,self.get_next_trade_day(mkt_data),left_index=True,right_index=True,how='left')
 
-        calendar = self.rdf.get_trading_calendar()
-        trade_day = pd.DataFrame(mkt_data.index.unique().tolist(),columns=['date'])
-        trade_day['former_trade_day'] = trade_day['date'].apply(lambda x: calendar[calendar<x].iloc[-1])
-        trade_day['next_trade_day'] = trade_day['date'].apply(lambda x: calendar[calendar>x].iloc[0])
-        trade_day.set_index('date',inplace=True)
-
-        mkt_data = pd.merge(mkt_data,trade_day,left_index=True,right_index=True,how='left')
         mkt_data.set_index([mkt_data.index,'code'],inplace=True)
         mkt_data.index.names = ['date','code']
         rtn_data = mkt_data.loc[:,['former_trade_day','next_trade_day','return']]
@@ -105,13 +121,13 @@ class StrategyBase:
         # mkt cap 标准化
         size_data['size'] = DataProcess.Z_standardize(size_data['size'])
         mkt_data = pd.merge(mkt_data,size_data,how='inner',on=['date','code'])
-        print('basic info loaded!')
+        print('test info loaded!')
         return mkt_data
 
 
     # factor.index 是date
     # mkt_data 的date在columns里
-    def test_factor(self,factor_data,factor_field,mkt_data,standardize='z',remove_outlier=True):
+    def test_factor(self,factor_data,factor_field,test_info,standardize='z',remove_outlier=True):
         # 数据预处理
         dates = factor_data.index.unique()
         split_dates = np.array_split(dates, 30)
@@ -138,22 +154,43 @@ class StrategyBase:
 
         factor_data.index.names = ['date']
         factor_data.reset_index(inplace=True)
-        mkt_data = pd.merge(mkt_data,factor_data,on=['date','code'])
+        test_info = pd.merge(test_info,factor_data,on=['date','code'])
 
         # 去除行业和市值，得到新因子
-        dates = mkt_data['date'].unique()
+        dates = test_info['date'].unique()
         split_dates = np.array_split(dates,30)
         with parallel_backend('multiprocessing', n_jobs=-1):
             parallel_res = Parallel()(delayed(StrategyBase.regression)
-                                      (mkt_data, factor_field, dates) for dates in split_dates)
+                                      (test_info, factor_field, dates) for dates in split_dates)
         print('regression process finish!')
-        RLM_res = pd.concat(parallel_res)
-        F_over_0_pct = RLM_res.loc[RLM_res['Fvalue']>0,:].shape[0] / RLM_res.shape[0]
-        avg_abs_T = abs(RLM_res['Tvalue']).sum() / RLM_res.shape[0]
-        abs_T_over_2_pct = RLM_res.loc[abs(RLM_res['Tvalue'])>=2,:].shape[0] / RLM_res.shape[0]
+        RLM_res = []
+        filtered_factor_res = []
+        for r in parallel_res:
+            RLM_res.append(r['RLM_result'])
+            filtered_factor_res.append(r['filtered_factor'])
+        RLM_result = pd.concat(RLM_res)
+        F_over_0_pct = RLM_result.loc[RLM_result['Fvalue']>0,:].shape[0] / RLM_result.shape[0]
+        avg_abs_T = abs(RLM_result['Tvalue']).sum() / RLM_result.shape[0]
+        abs_T_over_2_pct = RLM_result.loc[abs(RLM_result['Tvalue'])>=2,:].shape[0] / RLM_result.shape[0]
         print('-'*30)
         print('REGRESSION RESULT: \n   F_over_0_pct: %f \n   avg_abs_T: %f \n   abs_T_over_2_pct: %f \n' %
               (F_over_0_pct,avg_abs_T,abs_T_over_2_pct))
+        filtered_factor = pd.concat(filtered_factor_res)
+        return filtered_factor
+        # 后续需添加因子收益率输出
+        # 后续需添加因子ic值计算
+
+    def group_backtest(self,factor,mkt_data,start,end,groups=5,benchmark='IC',industry_field='citics_lv1_name'):
+        benchmark_field = benchmark+'_weight'
+        mkt_data = mkt_data.loc[:,[benchmark_field,industry_field,'code','status']]
+        mkt_data = pd.merge(mkt_data,self.get_next_trade_day(mkt_data),right_index=True,left_index=True,how='left')
+        nxt_day_status = mkt_data.loc[:,['code','status']].copy()
+        nxt_day_status.reset_index(inplace=True)
+        nxt_day_status.rename(columns={'index':'next_trade_day','status':'next_day_status'},inplace=True)
+        mkt_data.reset_index(inplace=True)
+        mkt_data.rename(columns={'index':'date'},inplace=True)
+        mkt_data = pd.merge(mkt_data,nxt_day_status,right_on=['next_trade_day','code'],left_on=['next_trade_day','code'],how='left')
+        print('.')
 
 
 
@@ -163,8 +200,11 @@ if __name__ == '__main__':
     strategy = StrategyBase()
     start = 20130101
     end = 20160101
-    mkt_data = strategy.get_basic_info(start,end)
+    mkt_data = strategy.influx.getDataMultiprocess('DailyData_Gus', 'marketData', start, end, None)
+    mkt_data = mkt_data.tz_convert(None)
+    test_info = strategy.get_test_info(mkt_data)
     ep_cut = strategy.influx.getDataMultiprocess('DailyFactor_Gus','Value',start,end,['code','EPcut_TTM'])
     ep_cut = ep_cut.dropna(subset=['EPcut_TTM'])
     print('epcut loaded!')
-    strategy.test_factor(ep_cut,'EPcut_TTM',mkt_data,standardize='z',remove_outlier=False)
+    filtered_factor = strategy.test_factor(ep_cut,'EPcut_TTM',test_info,standardize='z',remove_outlier=False)
+    strategy.group_backtest(filtered_factor,mkt_data,20130101,20151231)
