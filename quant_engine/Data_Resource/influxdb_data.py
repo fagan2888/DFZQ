@@ -90,6 +90,7 @@ class influxdbData:
             result_list =  Parallel()(delayed(self.getData)(database,measure,start_date,end_date,fields)
                                       for start_date,end_date,measure in parameter_list)
         df = pd.concat(result_list)
+        df = df.tz_convert(None)
         return df
 
 
@@ -97,6 +98,6 @@ if __name__ == '__main__':
     influx = influxdbData()
     print(influx.getDBs())
     print(datetime.datetime.now())
-    a = influx.getDataMultiprocess('DailyFactor_Gus','Value','20130101','20150901',None)
+    a = influx.getDataMultiprocess('DailyData_Gus','marketData','20130101','20150901',None)
     a = a.loc[pd.notnull(a['split_ratio']),:]
     print('finish!')

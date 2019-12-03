@@ -7,12 +7,16 @@ import datetime
 import copy
 
 class BacktestEngine:
-    def __init__(self,stock_capital=1000000,stk_slippage=0.001,stk_fee=0.0001):
+    def __init__(self,stock_capital=1000000,stk_slippage=0.001,stk_fee=0.0001,save_name=None,logger_lvl=logging.INFO):
         self.stk_portfolio = stock_portfolio(capital_input=stock_capital,slippage_input=stk_slippage,transaction_fee_input=stk_fee)
         self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(level=logging.INFO)
+        self.logger.setLevel(level=logger_lvl)
+        self.save_name = save_name
         dir = 'D:/github/quant_engine/Backtest_Result/Portfolio_Value/'
-        file_name = 'Backtest_' + datetime.datetime.now().strftime("%Y%m%d-%H%M") + '.log'
+        if not self.save_name:
+            file_name = 'Backtest_' + datetime.datetime.now().strftime("%Y%m%d-%H%M") + '.log'
+        else:
+            file_name = save_name + '.log'
         handler = logging.FileHandler(dir + file_name)
         handler.setLevel(logging.INFO)
         console = logging.StreamHandler()
@@ -27,7 +31,7 @@ class BacktestEngine:
         influx = influxdbData()
         DB = 'DailyData_Gus'
         measure = 'marketData'
-        daily_data = pd.concat(influx.getDataMultiprocess(DB,measure,str(start),str(end)))
+        daily_data = influx.getDataMultiprocess(DB,measure,str(start),str(end))
         self.logger.info('Data loaded! %s' %datetime.datetime.now())
         self.logger.info('****************************************\n')
 
@@ -104,8 +108,12 @@ class BacktestEngine:
         # 输出交易记录
         transactions = pd.concat(self.stk_portfolio.transactions_list, axis=1 ,ignore_index=True).T
         transactions.set_index('Time',inplace=True)
-        filename = 'D:/github/quant_engine/Transaction_Log/' + \
-                   'Transactions_' + backtest_starttime.strftime("%Y%m%d-%H%M") + '.csv'
+        if not self.save_name:
+            filename = 'D:/github/quant_engine/Transaction_Log/' + \
+                       'Transactions_' + backtest_starttime.strftime("%Y%m%d-%H%M") + '.csv'
+        else:
+            filename = 'D:/github/quant_engine/Transaction_Log/' + \
+                       'Transactions_' + self.save_name + '.csv'
         transactions.to_csv(filename,encoding='gbk')
         # 输出持仓记录
         positions_dfs = []
@@ -116,26 +124,33 @@ class BacktestEngine:
             positions_dfs.append(trade_day_position.reset_index())
         positions = pd.concat(positions_dfs,ignore_index=True)
         positions.set_index('Time',inplace=True)
-        filename = 'D:/github/quant_engine/Backtest_Result/Positions/' + \
-                   'Positions_' + backtest_starttime.strftime("%Y%m%d-%H%M") + '.csv'
+        if not self.save_name:
+            filename = 'D:/github/quant_engine/Backtest_Result/Positions/' + \
+                       'Positions_' + backtest_starttime.strftime("%Y%m%d-%H%M") + '.csv'
+        else:
+            filename = 'D:/github/quant_engine/Backtest_Result/Positions/' + \
+                       'Positions_' + self.save_name + '.csv'
         positions.to_csv(filename,encoding='gbk')
         # 输出净值
         portfolio_value = pd.DataFrame(portfolio_value_dict).T
-        filename = 'D:/github/quant_engine/Backtest_Result/Portfolio_Value/' + \
-                   'Backtest_' + backtest_starttime.strftime("%Y%m%d-%H%M") + '.csv'
+        if not self.save_name:
+            filename = 'D:/github/quant_engine/Backtest_Result/Portfolio_Value/' + \
+                       'Backtest_' + backtest_starttime.strftime("%Y%m%d-%H%M") + '.csv'
+        else:
+            filename = 'D:/github/quant_engine/Backtest_Result/Portfolio_Value/' + \
+                       'Backtest_' + self.save_name + '.csv'
         portfolio_value.to_csv(filename,encoding='gbk')
-        return
+        return portfolio_value
 
 
 if __name__ == '__main__':
-
     influx = influxdbData()
-    d = pd.concat(influx.getDataMultiprocess('DailyData_Gus','marketData','20100901','20190831'))
+    d = influx.getDataMultiprocess('DailyData_Gus','marketData','20100901','20190831')
     d = d.loc[pd.notnull(d['IF_weight']) & (d['volume']>0),['code','IF_weight','vwap']]
     d.columns = ['code','weight','vwap']
     d = d.loc[:,['code','weight']]
     start_time = datetime.datetime.now()
-    QE = BacktestEngine(stock_capital=100000000)
+    QE = BacktestEngine(stock_capital=100000000,save_name='test',logger_lvl=logging.ERROR)
     portfolio_value_dict = QE.run(d,20100901,20190831,price_field='vwap',cash_reserve_rate=0)
     print('backtest finish')
     print('time used:',datetime.datetime.now()-start_time)
