@@ -19,7 +19,7 @@ class ROE(FactorBase):
         code_ROE = code_ROE.loc[pd.notnull(code_ROE['ROE'])|pd.notnull(code_ROE['ROE_Q']),:]
         code_ROE = code_ROE.where(pd.notnull(code_ROE), None)
         print('ROE task: %s' %code)
-        self.save_factor_to_influx(code_ROE, 'DailyFactor_Gus', 'FinancialQuality')
+        #self.save_factor_to_influx(code_ROE, 'DailyFactor_Gus', 'FinancialQuality')
         return
 
 
@@ -33,7 +33,7 @@ class ROE(FactorBase):
         code_ROE_ddt = code_ROE_ddt.loc[pd.notnull(code_ROE_ddt['ROE_ddt'])|pd.notnull(code_ROE_ddt['ROE_ddt_Q']),:]
         code_ROE_ddt = code_ROE_ddt.where(pd.notnull(code_ROE_ddt),None)
         print('ROE ddt task: %s' %code)
-        self.save_factor_to_influx(code_ROE_ddt, 'DailyFactor_Gus', 'FinancialQuality')
+        #self.save_factor_to_influx(code_ROE_ddt, 'DailyFactor_Gus', 'FinancialQuality')
         return
 
 
@@ -64,9 +64,9 @@ class ROE(FactorBase):
         self.ROE.set_index('index',inplace=True)
         self.ROE_ddt.set_index('index',inplace=True)
 
-        joblib.Parallel()(joblib.delayed(self.job_ROE)(code)
+        joblib.Parallel(n_jobs=-1)(joblib.delayed(self.job_ROE)(code)
                           for code in self.ROE['code'].unique())
-        joblib.Parallel()(joblib.delayed(self.job_ROE_ddt)(code)
+        joblib.Parallel(n_jobs=-1)(joblib.delayed(self.job_ROE_ddt)(code)
                           for code in self.ROE_ddt['code'].unique())
         print('task finish!')
         print(datetime.datetime.now()-start_time)

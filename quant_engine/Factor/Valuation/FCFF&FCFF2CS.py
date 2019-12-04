@@ -19,7 +19,7 @@ class FCFF_FCFF2CS(FactorBase):
         code_factors = code_factors.loc[str(start):str(end),['code','FCFF_own','FCFF2CS']]
         code_factors = code_factors.where(pd.notnull(code_factors), None)
         print(code)
-        self.save_factor_to_influx(code_factors,'DailyFactor_Gus','Value')
+        #self.save_factor_to_influx(code_factors,'DailyFactor_Gus','Value')
 
 
     def cal_factors(self,start,end):

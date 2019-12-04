@@ -3,8 +3,6 @@ import logging
 import datetime
 import futures_constant
 import pandas as pd
-import global_constant
-
 
 class stock_portfolio:
     def __init__(self,capital_input=1000000,slippage_input=0.001,transaction_fee_input=0.0001):
@@ -19,7 +17,7 @@ class stock_portfolio:
         self.transactions_list = []
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(level=logging.INFO)
-        dir = global_constant.ROOT_DIR+'Transaction_Log/'
+        dir = 'C:/Users/trader_9/PycharmProjects/DFZQ/quant_engine/Transaction_Log/'
         file_name = 'StkTransactions_'+ datetime.datetime.now().strftime("%Y%m%d-%H%M") +'.log'
         handler = logging.FileHandler(dir+file_name)
         handler.setLevel(logging.INFO)
@@ -34,9 +32,8 @@ class stock_portfolio:
 
         if stock_code in self.stk_positions:
             weighted_volume = self.stk_positions[stock_code]['volume'] + volume
-            weighted_price = \
-                (self.stk_positions[stock_code]['price'] * self.stk_positions[stock_code]['volume'] + amount) \
-                / weighted_volume
+            weighted_price = (self.stk_positions[stock_code]['price'] * self.stk_positions[stock_code]['volume'] \
+                             + amount) / weighted_volume
             self.stk_positions[stock_code]['volume'] = weighted_volume
             self.stk_positions[stock_code]['price']  = weighted_price
         else:
@@ -92,15 +89,17 @@ class stock_portfolio:
 
 
     def trade_stks_to_target_volume(self,time,stock_code,price,target_volume):
-        try:
-            volume_held = self.stk_positions[stock_code]['volume']
-        except KeyError:
+        if stock_code not in self.stk_positions:
             volume_held = 0
-        volume_to_trade = round(target_volume - volume_held,-2)
+        else:
+            volume_held = self.stk_positions[stock_code]['volume']
+        volume_to_trade = target_volume - volume_held
         if volume_to_trade > 0:
+            volume_to_trade = round(volume_to_trade,-2)
             self.buy_stks_by_volume(time,stock_code,price,volume_to_trade)
         elif volume_to_trade < 0 and volume_to_trade*(-1) < volume_held :
-            self.sell_stks_by_volume(time,stock_code,price,volume_to_trade*-1)
+            volume_to_trade = round(volume_to_trade,-2) * -1
+            self.volume = self.sell_stks_by_volume(time, stock_code, price, volume_to_trade)
         elif volume_to_trade < 0 and volume_to_trade*(-1) >= volume_held :
             self.sell_stks_by_volume(time,stock_code,price,volume_held)
         else:
@@ -168,7 +167,6 @@ class stock_portfolio:
         return total_value
 
 
-# 尚未启用
 class futures_portfolio:
     def __init__(self,capital_input=1000000):
         self.account_right = capital_input
@@ -178,7 +176,7 @@ class futures_portfolio:
 
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(level=logging.INFO)
-        #dir = global_constant.ROOT_DIR+'Log/'
+        dir = 'C:/Users/trader_9/PycharmProjects/DFZQ/quant_engine/Log/'
         file_name = 'ftrs_log_' + datetime.datetime.now().strftime("%Y%m%d") + '.log'
         handler = logging.FileHandler(dir + file_name)
         handler.setLevel(logging.INFO)
