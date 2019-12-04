@@ -5,6 +5,7 @@ from factor_base import FactorBase
 import pandas as pd
 import dateutil.parser as dtparser
 from dateutil.relativedelta import relativedelta
+import global_constant
 
 class net_profit(FactorBase):
     def __init__(self):
@@ -40,11 +41,11 @@ if __name__ == '__main__':
     print('data got')
     net_profit = r[0]
     net_profit_ddt = r[1]
-    h5 = pd.HDFStore('D:/github/quant_engine/Data_Resource/Income/net_profit.h5', 'w')
+    h5 = pd.HDFStore(global_constant.ROOT_DIR+'Data_Resource/Income/net_profit.h5', 'w')
     h5['data'] = net_profit
     h5.close()
     print('net profit saved')
-    h5 = pd.HDFStore('D:/github/quant_engine/Data_Resource/Income/net_profit_ddt.h5', 'w')
+    h5 = pd.HDFStore(global_constant.ROOT_DIR+'Data_Resource/Income/net_profit_ddt.h5', 'w')
     h5['data'] = net_profit_ddt
     h5.close()
     print('net profit ddt saved')

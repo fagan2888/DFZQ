@@ -77,6 +77,7 @@ class EP_growth(FactorBase):
         print('Start time: ', start_time)
         codes = EP['code'].unique()
         splited_codes = np.array_split(codes, 30)
+
         Parallel(n_jobs=-1,verbose=0)(delayed(EP_growth.job_factors)(codes,EP) for codes in splited_codes)
         print('task finish!')
         print('Time token: ',datetime.datetime.now()-start_time)

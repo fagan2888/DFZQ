@@ -5,6 +5,7 @@ import dateutil.parser as dtparser
 import logging
 import datetime
 import copy
+import global_constant
 
 class BacktestEngine:
     def __init__(self,stock_capital=1000000,stk_slippage=0.001,stk_fee=0.0001,save_name=None,logger_lvl=logging.INFO):
@@ -12,7 +13,7 @@ class BacktestEngine:
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(level=logger_lvl)
         self.save_name = save_name
-        dir = 'D:/github/quant_engine/Backtest_Result/Portfolio_Value/'
+        dir = global_constant.ROOT_DIR+'Backtest_Result/Portfolio_Value/'
         if not self.save_name:
             file_name = 'Backtest_' + datetime.datetime.now().strftime("%Y%m%d-%H%M") + '.log'
         else:
@@ -44,10 +45,12 @@ class BacktestEngine:
         daily_data[['bonus_share_ratio', 'cash_dvd_ratio', 'conversed_ratio', 'rightissue_price', 'rightissue_ratio']] = \
             daily_data[['bonus_share_ratio', 'cash_dvd_ratio', 'conversed_ratio', 'rightissue_price', 'rightissue_ratio']].fillna(0)
 
-        daily_data.set_index([daily_data.index,'code'],inplace=True)
-        stk_weight.set_index([stk_weight.index,'code'],inplace=True)
-        daily_data = daily_data.join(stk_weight)
-        daily_data = daily_data.reset_index().set_index('level_0')
+        daily_data.index.names = ['index']
+        stk_weight.index.names = ['index']
+        daily_data.reset_index(inplace=True)
+        stk_weight.reset_index(inplace=True)
+        daily_data = pd.merge(daily_data,stk_weight,on=['index','code'])
+        daily_data.set_index('index',inplace=True)
         daily_data['weight'] = daily_data['weight'].fillna(0)
         daily_data['swap_date'] = pd.to_datetime(daily_data['swap_date'])
         daily_data.sort_index(inplace=True)
@@ -109,10 +112,10 @@ class BacktestEngine:
         transactions = pd.concat(self.stk_portfolio.transactions_list, axis=1 ,ignore_index=True).T
         transactions.set_index('Time',inplace=True)
         if not self.save_name:
-            filename = 'D:/github/quant_engine/Transaction_Log/' + \
+            filename = global_constant.ROOT_DIR + 'Transaction_Log/' + \
                        'Transactions_' + backtest_starttime.strftime("%Y%m%d-%H%M") + '.csv'
         else:
-            filename = 'D:/github/quant_engine/Transaction_Log/' + \
+            filename = global_constant.ROOT_DIR + 'Transaction_Log/' + \
                        'Transactions_' + self.save_name + '.csv'
         transactions.to_csv(filename,encoding='gbk')
         # 输出持仓记录
@@ -125,19 +128,19 @@ class BacktestEngine:
         positions = pd.concat(positions_dfs,ignore_index=True)
         positions.set_index('Time',inplace=True)
         if not self.save_name:
-            filename = 'D:/github/quant_engine/Backtest_Result/Positions/' + \
+            filename = global_constant.ROOT_DIR + 'Backtest_Result/Positions/' + \
                        'Positions_' + backtest_starttime.strftime("%Y%m%d-%H%M") + '.csv'
         else:
-            filename = 'D:/github/quant_engine/Backtest_Result/Positions/' + \
+            filename = global_constant.ROOT_DIR + 'Backtest_Result/Positions/' + \
                        'Positions_' + self.save_name + '.csv'
         positions.to_csv(filename,encoding='gbk')
         # 输出净值
         portfolio_value = pd.DataFrame(portfolio_value_dict).T
         if not self.save_name:
-            filename = 'D:/github/quant_engine/Backtest_Result/Portfolio_Value/' + \
+            filename = global_constant.ROOT_DIR + 'Backtest_Result/Portfolio_Value/' + \
                        'Backtest_' + backtest_starttime.strftime("%Y%m%d-%H%M") + '.csv'
         else:
-            filename = 'D:/github/quant_engine/Backtest_Result/Portfolio_Value/' + \
+            filename = global_constant.ROOT_DIR + 'Backtest_Result/Portfolio_Value/' + \
                        'Backtest_' + self.save_name + '.csv'
         portfolio_value.to_csv(filename,encoding='gbk')
         return portfolio_value
@@ -145,12 +148,12 @@ class BacktestEngine:
 
 if __name__ == '__main__':
     influx = influxdbData()
-    d = influx.getDataMultiprocess('DailyData_Gus','marketData','20100901','20190831')
+    d = influx.getDataMultiprocess('DailyData_Gus','marketData','20160901','20170831')
     d = d.loc[pd.notnull(d['IF_weight']) & (d['volume']>0),['code','IF_weight','vwap']]
     d.columns = ['code','weight','vwap']
     d = d.loc[:,['code','weight']]
     start_time = datetime.datetime.now()
-    QE = BacktestEngine(stock_capital=100000000,save_name='test',logger_lvl=logging.ERROR)
-    portfolio_value_dict = QE.run(d,20100901,20190831,price_field='vwap',cash_reserve_rate=0)
+    QE = BacktestEngine(stock_capital=1000000,save_name='test',logger_lvl=logging.INFO)
+    portfolio_value_dict = QE.run(d,20140101,20170831,price_field='vwap',cash_reserve_rate=0)
     print('backtest finish')
     print('time used:',datetime.datetime.now()-start_time)

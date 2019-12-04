@@ -4,6 +4,7 @@ from factor_base import FactorBase
 import pandas as pd
 import dateutil.parser as dtparser
 from dateutil.relativedelta import relativedelta
+import global_constant
 
 
 class net_equity(FactorBase):
@@ -34,6 +35,6 @@ if __name__ == '__main__':
     neteqy_data = net_equity()
     r = neteqy_data.cal_factors(20100101,20190901)
     print('data got')
-    h5 = pd.HDFStore('D:/github/quant_engine/Data_Resource/Balance_Sheet/net_equity.h5', 'w')
+    h5 = pd.HDFStore(global_constant.ROOT_DIR+'Data_Resource/Balance_Sheet/net_equity.h5', 'w')
     h5['data'] = r
     h5.close()

@@ -2,6 +2,7 @@ from factor_base import FactorBase
 import pandas as pd
 import numpy as np
 import joblib
+import global_constant
 
 class net_equity_revise(FactorBase):
     def __init__(self):
@@ -44,7 +45,7 @@ class net_equity_revise(FactorBase):
         self.start = str(start)
         self.end = str(end)
         self.calendar = set(self.calendar.loc[(self.calendar >= self.start) & (self.calendar <= self.end)])
-        self.net_equity = pd.read_hdf('D:/github/quant_engine/Data_Resource/Balance_Sheet/net_equity.h5', key='data')
+        self.net_equity = pd.read_hdf(global_constant.ROOT_DIR+'Data_Resource/Balance_Sheet/net_equity.h5', key='data')
         self.net_equity = self.net_equity.sort_values(by=['report_period', 'date'])
         self.net_equity['date'] = pd.to_datetime(self.net_equity['date'])
         self.net_equity['report_period'] = pd.to_datetime(self.net_equity['report_period'])

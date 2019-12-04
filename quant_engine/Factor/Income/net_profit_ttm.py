@@ -2,6 +2,7 @@ from factor_base import FactorBase
 import pandas as pd
 import numpy as np
 import joblib
+import global_constant
 
 class net_profit_ttm(FactorBase):
     def __init__(self):
@@ -56,7 +57,7 @@ class net_profit_ttm(FactorBase):
         self.start = str(start)
         self.end = str(end)
         self.calendar = set(self.calendar.loc[(self.calendar>=self.start)&(self.calendar<=self.end)])
-        self.net_profit = pd.read_hdf('D:/github/quant_engine/Data_Resource/Income/net_profit_revised.h5', key='data')
+        self.net_profit = pd.read_hdf(global_constant.ROOT_DIR+'Data_Resource/Income/net_profit_revised.h5', key='data')
         self.net_profit = self.net_profit.sort_values(by=['report_period','date'])
         self.net_profit['date'] = pd.to_datetime(self.net_profit['date'])
         self.net_profit['report_period'] = pd.to_datetime(self.net_profit['report_period'])

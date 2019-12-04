@@ -105,4 +105,4 @@ class ROE_growth(FactorBase):
 if __name__ == '__main__':
     pd.set_option('mode.use_inf_as_na', True)
     ROEg = ROE_growth()
-    ROEg.cal_factors(20100101,20190901)
+    ROEg.cal_factors(20190101,20190901)

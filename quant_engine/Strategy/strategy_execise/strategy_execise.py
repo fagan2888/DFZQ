@@ -3,24 +3,15 @@
 from strategy_base import StrategyBase
 import pandas as pd
 from data_process import DataProcess
+from influxdb_data import influxdbData
 
-class strategy_exercise(StrategyBase):
+class strategy_exercise:
     def __init__(self):
-        super().__init__()
+        self.influx = influxdbData()
 
-    def run(self,start,end):
-        stk_info = self.get_basic_info(start,end)
-        ep_cut = self.influx.getDataMultiprocess('DailyFactor_Gus','Value',start,end,None)
-        ep_cut.index.names = ['date']
-        ep_cut.reset_index(inplace=True)
-        ep_cut = ep_cut.loc[:,['date','code','EPcut_TTM']]
-        ep_cut = ep_cut.loc[pd.notnull(ep_cut['EPcut_TTM']),:]
-        ep_cut['EPcut_TTM'] = DataProcess.Z_standardize(ep_cut['EPcut_TTM'])
-        stk_info = pd.merge(stk_info,ep_cut,on=['date','code'])
-
-
-
-        print('.')
+    def run(self):
+        a = self.influx.getDataMultiprocess('DailyData_Gus','marketData',20180101,20190501,None)
+        return a
 
 
 
@@ -30,4 +21,5 @@ class strategy_exercise(StrategyBase):
 
 if __name__ == '__main__':
     exe = strategy_exercise()
-    exe.run(20150101,20160101)
+    a = exe.run()
+    print('.')
