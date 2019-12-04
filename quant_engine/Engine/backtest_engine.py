@@ -49,7 +49,7 @@ class BacktestEngine:
         stk_weight.index.names = ['index']
         daily_data.reset_index(inplace=True)
         stk_weight.reset_index(inplace=True)
-        daily_data = pd.merge(daily_data,stk_weight,on=['index','code'])
+        daily_data = pd.merge(daily_data,stk_weight,on=['index','code'],how='outer')
         daily_data.set_index('index',inplace=True)
         daily_data['weight'] = daily_data['weight'].fillna(0)
         daily_data['swap_date'] = pd.to_datetime(daily_data['swap_date'])

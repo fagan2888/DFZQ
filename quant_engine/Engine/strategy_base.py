@@ -95,7 +95,7 @@ class StrategyBase:
                     group_counts = day_industry_factor['group'].value_counts()
                     day_industry_factor['target_weight'] = \
                         day_industry_factor.apply(lambda row:row['industry_weight']/group_counts[row['group']],axis=1)
-                r = day_industry_factor.loc[:,['code','next_trade_day','group','target_weight']]
+                r = day_industry_factor.loc[:,['code','next_trade_day','group','industry','target_weight']]
                 res.append(r)
         res_df = pd.concat(res)
         res_df.rename(columns={'target_weight':'weight'},inplace=True)
@@ -181,19 +181,19 @@ class StrategyBase:
         dates = factor_data.index.unique()
         split_dates = np.array_split(dates, 30)
         if remove_outlier:
-            with parallel_backend('multiprocessing', n_jobs=5):
+            with parallel_backend('multiprocessing', n_jobs=6):
                 parallel_res = Parallel()(delayed(StrategyBase.cross_section_remove_outlier)
                                           (factor_data, factor_field,dates) for dates in split_dates)
             factor_data = pd.concat(parallel_res)
             print('outlier remove finish!')
         if standardize == 'z':
-            with parallel_backend('multiprocessing', n_jobs=5):
+            with parallel_backend('multiprocessing', n_jobs=6):
                 parallel_res = Parallel()(delayed(StrategyBase.cross_section_Z_standardize)
                                           (factor_data, factor_field,dates) for dates in split_dates)
             factor_data = pd.concat(parallel_res)
             print('Z_standardize finish!')
         elif standardize == 'rank':
-            with parallel_backend('multiprocessing', n_jobs=5):
+            with parallel_backend('multiprocessing', n_jobs=6):
                 parallel_res = Parallel()(delayed(StrategyBase.cross_section_rank_standardize)
                                           (factor_data, factor_field,dates) for dates in split_dates)
             factor_data = pd.concat(parallel_res)
@@ -208,7 +208,7 @@ class StrategyBase:
         # 去除行业和市值，得到新因子
         dates = test_info['date'].unique()
         split_dates = np.array_split(dates,30)
-        with parallel_backend('multiprocessing', n_jobs=5):
+        with parallel_backend('multiprocessing', n_jobs=6):
             parallel_res = Parallel()(delayed(StrategyBase.regression)
                                       (test_info, factor_field, dates) for dates in split_dates)
         print('regression process finish!')
@@ -229,27 +229,31 @@ class StrategyBase:
         # 后续需添加因子收益率输出
         # 后续需添加因子ic值计算
 
+
     def group_factor(self,factor,factor_field,mkt_data,groups=5,benchmark='IC',industry_field='citics_lv1_name'):
         benchmark_field = benchmark+'_weight'
         mkt_data.dropna(subset=[industry_field],inplace=True)
         mkt_data = mkt_data.loc[:,[benchmark_field,industry_field,'code','status']]
         mkt_data = pd.merge(mkt_data,self.get_next_trade_day(mkt_data),right_index=True,left_index=True,how='left')
-        nxt_day_status = mkt_data.loc[:,['code','status']].copy()
+        nxt_day_status = mkt_data.loc[:,['code','status',benchmark_field]].copy()
         nxt_day_status.reset_index(inplace=True)
-        nxt_day_status.rename(columns={'index':'next_trade_day','status':'next_day_status'},inplace=True)
+        nxt_day_status.rename(columns={'index':'next_trade_day','status':'next_day_status',
+                                       benchmark_field:'next_'+benchmark_field},inplace=True)
         mkt_data.reset_index(inplace=True)
         mkt_data.rename(columns={'index':'date'},inplace=True)
-        mkt_data = pd.merge(mkt_data,nxt_day_status,on=['next_trade_day','code'],how='left')
+        # how用inner为了过滤第二天没有数据的情况
+        mkt_data = pd.merge(mkt_data,nxt_day_status,on=['next_trade_day','code'],how='inner')
         factor = pd.merge(factor,mkt_data,on=['date','code'])
-        factor.rename(columns={benchmark_field:'weight',industry_field:'industry'},inplace=True)
-        industry_weight = pd.DataFrame(mkt_data.groupby(['date',industry_field])[benchmark_field].sum())
+        # 使用后一天的权重来计算
+        factor.rename(columns={'next_'+benchmark_field:'weight',industry_field:'industry'},inplace=True)
+        industry_weight = pd.DataFrame(mkt_data.groupby(['date',industry_field])['next_'+benchmark_field].sum())
         industry_weight.reset_index(inplace=True)
-        industry_weight.rename(columns={benchmark_field:'industry_weight',industry_field:'industry'},inplace=True)
+        industry_weight.rename(columns={'next_'+benchmark_field:'industry_weight',industry_field:'industry'},inplace=True)
         factor = pd.merge(factor,industry_weight,on=['date','industry'])
 
         dates = factor['date'].unique()
         split_dates = np.array_split(dates,30)
-        with parallel_backend('multiprocessing', n_jobs=7):
+        with parallel_backend('multiprocessing', n_jobs=6):
             result_list =  Parallel()(delayed(StrategyBase.get_group_weight)(dates,groups,factor,factor_field)
                                       for dates in split_dates)
         grouped_weight = pd.concat(result_list)
@@ -277,12 +281,11 @@ class StrategyBase:
 
 
 
-
 if __name__ == '__main__':
     print(datetime.datetime.now())
     warnings.filterwarnings("ignore")
     strategy = StrategyBase()
-    '''
+
     start = 20120101
     end = 20160901
     mkt_data = strategy.influx.getDataMultiprocess('DailyData_Gus', 'marketData', start, end, None)
@@ -292,10 +295,5 @@ if __name__ == '__main__':
     print('factor loaded!')
     filtered_factor = strategy.orth_factor(ep_cut,'EPcut_TTM',test_info,standardize='z',remove_outlier=False)
     grouped_weight = strategy.group_factor(filtered_factor,'EPcut_TTM',mkt_data)
-    '''
-    grouped_weight = pd.read_csv(
-        global_constant.ROOT_DIR + 'Backtest_Result/Factor_Group_Weight/' + 'EPcut_TTM_5groups' + '.csv',
-        encoding='gbk')
-    grouped_weight['next_trade_day'] = pd.to_datetime(grouped_weight['next_trade_day'])
-    grouped_weight.set_index('next_trade_day', inplace=True)
+
     strategy.group_backtest(5000000,grouped_weight,5,'EPcut_test')

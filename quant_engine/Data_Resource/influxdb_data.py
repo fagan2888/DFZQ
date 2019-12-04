@@ -98,6 +98,6 @@ if __name__ == '__main__':
     influx = influxdbData()
     print(influx.getDBs())
     print(datetime.datetime.now())
-    a = influx.getDataMultiprocess('DailyData_Gus','marketData','20130101','20150901',None)
+    a = influx.getDataMultiprocess('DailyData_Gus','marketData','20100101','20190901',None)
     a = a.loc[pd.notnull(a['split_ratio']),:]
     print('finish!')
