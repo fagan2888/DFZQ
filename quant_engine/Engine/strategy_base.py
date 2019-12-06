@@ -59,30 +59,38 @@ class StrategyBase:
 
 
     @staticmethod
-    def regression(mkt_data,factor_field,dates):
-        RLM_res = []
-        filtered_factor_res = []
-        idsty_size_cols = mkt_data.columns.difference(['code','date','former_1_day','next_1_day','return',factor_field])
+    # 正交后的factor中date在columns里
+    def job_orth(processed_factor,factor_field,dates):
+        orth_factor_res = []
+        idsty_size_cols = processed_factor.columns.difference(['code','date','former_1_day','next_1_day','return',factor_field])
         for date in dates:
-            day_code = mkt_data.loc[mkt_data['date']==date,'code']
-            day_factor = mkt_data.loc[mkt_data['date']==date,factor_field]
-            day_return = mkt_data.loc[mkt_data['date']==date,'return']
-            day_idsty_size = mkt_data.loc[mkt_data['date']==date,idsty_size_cols]
-            OLS_est = sm.OLS(day_factor, day_idsty_size).fit()
-            day_filtered_factor = OLS_est.resid
-            day_filtered_factor.name = factor_field
-            RLM_est = sm.RLM(day_return, day_filtered_factor, M=sm.robust.norms.HuberT()).fit()
+            day_code       = processed_factor.loc[processed_factor['date']==date,'code']
+            day_factor     = processed_factor.loc[processed_factor['date']==date,factor_field]
+            day_idsty_size = processed_factor.loc[processed_factor['date']==date,idsty_size_cols]
+            OLS_est           = sm.OLS(day_factor, day_idsty_size).fit()
+            day_orthed_factor = OLS_est.resid
+            day_orthed_factor.name = factor_field
+            # 得到正交化后的因子值
+            day_orthed_factor = pd.concat([day_code, day_orthed_factor], axis=1)
+            day_orthed_factor['date'] = date
+            orth_factor_res.append(day_orthed_factor)
+        orth_factor = pd.concat(orth_factor_res)
+        return orth_factor
+
+
+    @staticmethod
+    def job_T_test(processed_factor,factor_field,dates):
+        RLM_res = []
+        for date in dates:
+            day_factor = processed_factor.loc[processed_factor['date'] == date, factor_field]
+            day_return = processed_factor.loc[processed_factor['date'] == date, 'return']
+            RLM_est = sm.RLM(day_return, day_factor, M=sm.robust.norms.HuberT()).fit()
             day_RLM_para = RLM_est.params
             day_Tvalue = RLM_est.tvalues
-            # 得到正交化后的因子值
-            day_filtered_factor = pd.concat([day_code,day_filtered_factor],axis=1)
-            day_filtered_factor['date'] = date
             day_RLM_result = pd.DataFrame({'Fvalue':day_RLM_para.iloc[0],'Tvalue':day_Tvalue.iloc[0]},index=[date])
             RLM_res.append(day_RLM_result)
-            filtered_factor_res.append(day_filtered_factor)
         RLM_result = pd.concat(RLM_res)
-        filtered_factor = pd.concat(filtered_factor_res)
-        return {'RLM_result':RLM_result,'filtered_factor':filtered_factor}
+        return RLM_result
 
 
     @staticmethod
@@ -148,7 +156,8 @@ class StrategyBase:
         return trade_day
 
 
-    def get_test_info(self,mkt_data,filter_st=True,industry='citics_lv1_name',mkt_cap_field='ln_market_cap'):
+    # 股票行情预处理，过滤st，行业字段，市值字段
+    def mkt_data_preprocess(self,mkt_data,filter_st=True,industry='citics_lv1_name',mkt_cap_field='ln_market_cap'):
         # 过滤停牌(停牌没有收益率)
         mkt_data = mkt_data.loc[(mkt_data['status'] != '停牌') & (pd.notnull(mkt_data['status'])), :]
         # 过滤st
@@ -169,25 +178,33 @@ class StrategyBase:
         rtn_data.reset_index(inplace=True)
         industry_data.reset_index(inplace=True)
         mkt_data = pd.merge(rtn_data,industry_data,how='right',on=['date','code'])
-
         # 今天的结果用于后一天交易，最后一天的数据不可用，所以end提前一天
-        start = mkt_data['next_1_day'].iloc[0].strftime('%Y%m%d')
-        end = mkt_data['date'].iloc[-1].strftime('%Y%m%d')
+        start = mkt_data['date'].iloc[0].strftime('%Y%m%d')
+        end = mkt_data['next_1_day'].iloc[-1].strftime('%Y%m%d')
         size_data = self.influx.getDataMultiprocess('DailyFactor_Gus', 'Size',start,end,None)
         size_data.index.names = ['date']
         size_data.reset_index(inplace=True)
         size_data = size_data.loc[:,['date','code',mkt_cap_field]]
-        size_data.columns = ['date','code','size']
+        size_data.rename(columns={mkt_cap_field:'size'},inplace=True)
         # mkt cap 标准化
-        size_data['size'] = DataProcess.Z_standardize(size_data['size'])
+        dates = size_data['date'].unique()
+        split_dates = np.array_split(dates, 30)
+        with parallel_backend('multiprocessing', n_jobs=6):
+            parallel_res = Parallel()(delayed(StrategyBase.cross_section_remove_outlier)
+                                      (size_data, 'size', dates) for dates in split_dates)
+        size_data = pd.concat(parallel_res)
+        with parallel_backend('multiprocessing', n_jobs=6):
+            parallel_res = Parallel()(delayed(StrategyBase.cross_section_Z_standardize)
+                                      (size_data, 'size', dates) for dates in split_dates)
+        size_data = pd.concat(parallel_res)
         mkt_data = pd.merge(mkt_data,size_data,how='inner',on=['date','code'])
-        print('test info loaded!')
         return mkt_data
 
 
     # factor.index 是date
-    # mkt_data 的date在columns里
-    def orth_factor(self,factor_data,factor_field,test_info,standardize='z',remove_outlier=True):
+    # preprocessed_mkt_data 的date在columns里
+    # 输出的正交化因子 date在columns里
+    def orth_factor(self,factor_data,factor_field,preprocessed_mkt_data,standardize,remove_outlier):
         # 数据预处理
         dates = factor_data.index.unique()
         split_dates = np.array_split(dates, 30)
@@ -198,7 +215,7 @@ class StrategyBase:
             factor_data = pd.concat(parallel_res)
             print('outlier remove finish!')
         if standardize == 'z':
-            with parallel_backend('multiprocessing', n_jobs=1):
+            with parallel_backend('multiprocessing', n_jobs=6):
                 parallel_res = Parallel()(delayed(StrategyBase.cross_section_Z_standardize)
                                           (factor_data, factor_field,dates) for dates in split_dates)
             factor_data = pd.concat(parallel_res)
@@ -214,34 +231,40 @@ class StrategyBase:
 
         factor_data.index.names = ['date']
         factor_data.reset_index(inplace=True)
-        test_info = pd.merge(test_info,factor_data,on=['date','code'])
+        processed_factor = pd.merge(preprocessed_mkt_data,factor_data,on=['date','code'])
 
         # 去除行业和市值，得到新因子
-        dates = test_info['date'].unique()
+        dates = processed_factor['date'].unique()
         split_dates = np.array_split(dates,30)
         with parallel_backend('multiprocessing', n_jobs=5):
-            parallel_res = Parallel()(delayed(StrategyBase.regression)
-                                      (test_info, factor_field, dates) for dates in split_dates)
-        print('regression process finish!')
-        RLM_res = []
-        filtered_factor_res = []
-        for r in parallel_res:
-            RLM_res.append(r['RLM_result'])
-            filtered_factor_res.append(r['filtered_factor'])
-        RLM_result = pd.concat(RLM_res)
+            parallel_res = Parallel()(delayed(StrategyBase.job_orth)
+                                      (processed_factor, factor_field, dates) for dates in split_dates)
+        orth_factor = pd.concat(parallel_res)
+        return orth_factor
+
+
+    def T_test(self,orth_factor,factor_field,preprocessed_mkt_data):
+        processed_factor = pd.merge(preprocessed_mkt_data,orth_factor,on=['date','code'])
+        dates = processed_factor['date'].unique()
+        split_dates = np.array_split(dates, 30)
+        with parallel_backend('multiprocessing', n_jobs=5):
+            parallel_res = Parallel()(delayed(StrategyBase.job_T_test)
+                                      (processed_factor, factor_field, dates) for dates in split_dates)
+        RLM_result = pd.concat(parallel_res)
         F_over_0_pct = RLM_result.loc[RLM_result['Fvalue']>0,:].shape[0] / RLM_result.shape[0]
         avg_abs_T = abs(RLM_result['Tvalue']).sum() / RLM_result.shape[0]
         abs_T_over_2_pct = RLM_result.loc[abs(RLM_result['Tvalue'])>=2,:].shape[0] / RLM_result.shape[0]
         print('-'*30)
         print('REGRESSION RESULT: \n   F_over_0_pct: %f \n   avg_abs_T: %f \n   abs_T_over_2_pct: %f \n' %
               (F_over_0_pct,avg_abs_T,abs_T_over_2_pct))
-        filtered_factor = pd.concat(filtered_factor_res)
-        return filtered_factor
+        return RLM_result
+
+
         # 后续需添加因子收益率输出
         # 后续需添加因子ic值计算
 
 
-    def group_factor(self,factor,factor_field,mkt_data,groups=5,benchmark='IC',industry_field='citics_lv1_name'):
+    def group_factor(self,orth_factor,factor_field,mkt_data,groups=5,benchmark='IC',industry_field='citics_lv1_name'):
         benchmark_field = benchmark+'_weight'
         mkt_data.dropna(subset=[industry_field],inplace=True)
         mkt_data = mkt_data.loc[:,[benchmark_field,industry_field,'code','status']]
@@ -264,22 +287,22 @@ class StrategyBase:
         # how用inner为了过滤第二天没有数据的情况
         mkt_data = pd.merge(mkt_data,nxt_1_day_status,on=['next_1_day','code'],how='inner')
         mkt_data = pd.merge(mkt_data,nxt_2_day_status,on=['next_2_day','code'],how='inner')
-        factor = pd.merge(factor,mkt_data,on=['date','code'])
+        orth_factor = pd.merge(orth_factor,mkt_data,on=['date','code'])
         # 使用后一天的权重来计算
-        factor.rename(columns={'next_1_day_'+benchmark_field:'weight',industry_field:'industry'},inplace=True)
+        orth_factor.rename(columns={'next_1_day_'+benchmark_field:'weight',industry_field:'industry'},inplace=True)
         industry_weight = pd.DataFrame(mkt_data.groupby(['date',industry_field])['next_1_day_'+benchmark_field].sum())
         industry_weight.reset_index(inplace=True)
         industry_weight.rename(columns={'next_1_day_'+benchmark_field:'industry_weight',industry_field:'industry'},inplace=True)
-        factor = pd.merge(factor,industry_weight,on=['date','industry'])
+        orth_factor = pd.merge(orth_factor,industry_weight,on=['date','industry'])
         # 去掉 next_1_day_status/next_2_day_status 停牌或者为空的股票
-        factor = factor.loc[~((factor['next_1_day_status']=='停牌')|pd.isnull(factor['next_1_day_status'])|
-                              (factor['next_2_day_status']=='停牌')|pd.isnull(factor['next_2_day_status'])),
-                            ['date','code','next_1_day',factor_field,'industry','industry_weight']]
+        orth_factor = orth_factor.loc[~((orth_factor['next_1_day_status']=='停牌')|pd.isnull(orth_factor['next_1_day_status'])|
+                                        (orth_factor['next_2_day_status']=='停牌')|pd.isnull(orth_factor['next_2_day_status'])),
+                                      ['date','code','next_1_day',factor_field,'industry','industry_weight']]
 
-        dates = factor['date'].unique()
+        dates = orth_factor['date'].unique()
         split_dates = np.array_split(dates,30)
         with parallel_backend('multiprocessing', n_jobs=6):
-            result_list =  Parallel()(delayed(StrategyBase.get_group_weight)(dates,groups,factor,factor_field)
+            result_list =  Parallel()(delayed(StrategyBase.get_group_weight)(dates,groups,orth_factor,factor_field)
                                       for dates in split_dates)
         grouped_weight = pd.concat(result_list)
         grouped_weight = grouped_weight.sort_index()
@@ -287,7 +310,6 @@ class StrategyBase:
         filename = global_constant.ROOT_DIR + 'Backtest_Result/Factor_Group_Weight/' + \
                    factor_field + '_' + str(groups) + 'groups' + '.csv'
         grouped_weight.to_csv(filename,encoding='gbk')
-        print('grouped weight process finish!')
         return grouped_weight
 
 
@@ -306,6 +328,20 @@ class StrategyBase:
         print('group backtest finish!')
 
 
+    def run_factor_test(self,mkt_data,factor_data,factor_field,save_name,groups=5,standardize='z',remove_outlier=True,
+                        benchmark='IC',industry_field='citics_lv1_name',capital=5000000):
+        preprocessed_mkt_data = self.mkt_data_preprocess(mkt_data)
+        print('mkt data preprocessing finish')
+        orth_factor = self.orth_factor(factor_data,factor_field,preprocessed_mkt_data,standardize,remove_outlier)
+        print('factor orthing finish')
+        T_test_result = self.T_test(orth_factor,factor_field,preprocessed_mkt_data)
+        print('T-test finish')
+        grouped_weight = self.group_factor(orth_factor,factor_field,mkt_data,groups,benchmark,industry_field)
+        print('factor grouping finish')
+        self.group_backtest(capital,grouped_weight,groups,save_name)
+
+
+
 
 if __name__ == '__main__':
     print(datetime.datetime.now())
@@ -315,11 +351,7 @@ if __name__ == '__main__':
     start = 20120101
     end = 20160901
     mkt_data = strategy.influx.getDataMultiprocess('DailyData_Gus', 'marketData', start, end, None)
-    test_info = strategy.get_test_info(mkt_data)
-    factor = strategy.influx.getDataMultiprocess('DailyFactor_Gus','Growth',start,end,['code','ROE_ddt_growthQ'])
-    factor = factor.dropna(subset=['ROE_ddt_growthQ'])
+    factor = strategy.influx.getDataMultiprocess('DailyFactor_Gus','Value',start,end,['code','EPcut_TTM'])
+    factor = factor.dropna(subset=['EPcut_TTM'])
     print('factor loaded!')
-    filtered_factor = strategy.orth_factor(factor,'ROE_ddt_growthQ',test_info,standardize='z',remove_outlier=False)
-    grouped_weight = strategy.group_factor(filtered_factor,'ROE_ddt_growthQ',mkt_data)
-
-    strategy.group_backtest(5000000,grouped_weight,5,'ROE_ddt_growthQ')
+    strategy.run_factor_test(mkt_data,factor,'EPcut_TTM','EPcut')
