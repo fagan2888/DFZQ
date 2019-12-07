@@ -52,7 +52,6 @@ class BacktestEngine:
         daily_data = pd.merge(daily_data,stk_weight,on=['index','code'],how='outer')
         daily_data.set_index('index',inplace=True)
         daily_data['weight'] = daily_data['weight'].fillna(0)
-        daily_data['swap_date'] = pd.to_datetime(daily_data['swap_date'])
         daily_data.sort_index(inplace=True)
 
         trade_days = daily_data.index.unique()
@@ -148,12 +147,24 @@ class BacktestEngine:
 
 if __name__ == '__main__':
     influx = influxdbData()
-    d = influx.getDataMultiprocess('DailyData_Gus','marketData','20160901','20170831')
+
+    d = influx.getDataMultiprocess('DailyData_Gus','marketData','20120105','20160831')
     d = d.loc[pd.notnull(d['IF_weight']) & (d['volume']>0),['code','IF_weight','vwap']]
     d.columns = ['code','weight','vwap']
     d = d.loc[:,['code','weight']]
     start_time = datetime.datetime.now()
-    QE = BacktestEngine(stock_capital=1000000,save_name='test',logger_lvl=logging.INFO)
-    portfolio_value_dict = QE.run(d,20140101,20170831,price_field='vwap',cash_reserve_rate=0)
+    QE = BacktestEngine(stock_capital=5000000,save_name='test',logger_lvl=logging.INFO)
+    portfolio_value_dict = QE.run(d,20120106,20160831,price_field='vwap',cash_reserve_rate=0)
     print('backtest finish')
     print('time used:',datetime.datetime.now()-start_time)
+    '''
+    weight = pd.read_csv('D:/github/quant_engine/Backtest_Result/Factor_Group_Weight/EPcut_TTM_5groups.csv',encoding='gbk')
+    weight.set_index('next_trade_day',inplace=True)
+    weight.index = pd.to_datetime(weight.index)
+    weight = weight.loc[weight['group']=='group_5',['code','weight']]
+    start_time = datetime.datetime.now()
+    QE = BacktestEngine(stock_capital=5000000, save_name='g5', logger_lvl=logging.INFO)
+    portfolio_value_dict = QE.run(weight, 20120105, 20160831, price_field='vwap', cash_reserve_rate=0)
+    print('backtest finish')
+    print('time used:', datetime.datetime.now() - start_time)
+    '''
