@@ -121,13 +121,13 @@ class StrategyBase:
 
 
     @staticmethod
-    def job_backtest(grouped_weight,group_name,cash_reserve,stock_capital=1000000,stk_slippage=0,stk_fee=0,
-                     logger_lvl=logging.INFO):
+    def job_backtest(grouped_weight,group_name,cash_reserve,data_input,price_field='vwap',stock_capital=1000000,
+                     stk_slippage=0,stk_fee=0,logger_lvl=logging.INFO):
         weight = grouped_weight.loc[grouped_weight['group']==group_name,['code','weight']].copy()
         BE = BacktestEngine(stock_capital,stk_slippage,stk_fee,group_name,logger_lvl)
         start = weight.index[0].strftime('%Y%m%d')
         end = weight.index[-1].strftime('%Y%m%d')
-        portfolio_value = BE.run(weight,start,end,cash_reserve)
+        portfolio_value = BE.run(weight,start,end,cash_reserve,data_input=data_input,price_field=price_field)
         portfolio_value.columns = group_name + '_' + portfolio_value.columns
         print('%s backtest finish!' %group_name)
         return portfolio_value
@@ -177,26 +177,23 @@ class StrategyBase:
         industry_data = industry_data.loc[~(industry_data==0).all(axis=1),:]
         rtn_data.reset_index(inplace=True)
         industry_data.reset_index(inplace=True)
-        mkt_data = pd.merge(rtn_data,industry_data,how='right',on=['date','code'])
+        mkt_data = pd.merge(rtn_data,industry_data,on=['date','code'])
         # 今天的结果用于后一天交易，最后一天的数据不可用，所以end提前一天
         start = mkt_data['date'].iloc[0].strftime('%Y%m%d')
         end = mkt_data['next_1_day'].iloc[-1].strftime('%Y%m%d')
         size_data = self.influx.getDataMultiprocess('DailyFactor_Gus', 'Size',start,end,None)
-        size_data.index.names = ['date']
-        size_data.reset_index(inplace=True)
-        size_data = size_data.loc[:,['date','code',mkt_cap_field]]
+        size_data = size_data.loc[:,['code',mkt_cap_field]]
         size_data.rename(columns={mkt_cap_field:'size'},inplace=True)
         # mkt cap 标准化
-        dates = size_data['date'].unique()
+        dates = size_data.index.unique()
         split_dates = np.array_split(dates, 30)
-        with parallel_backend('multiprocessing', n_jobs=6):
-            parallel_res = Parallel()(delayed(StrategyBase.cross_section_remove_outlier)
-                                      (size_data, 'size', dates) for dates in split_dates)
-        size_data = pd.concat(parallel_res)
+        # mkt_cap 不需要remove outlier
         with parallel_backend('multiprocessing', n_jobs=6):
             parallel_res = Parallel()(delayed(StrategyBase.cross_section_Z_standardize)
                                       (size_data, 'size', dates) for dates in split_dates)
         size_data = pd.concat(parallel_res)
+        size_data.index.names = ['date']
+        size_data.reset_index(inplace=True)
         mkt_data = pd.merge(mkt_data,size_data,how='inner',on=['date','code'])
         return mkt_data
 
@@ -314,13 +311,16 @@ class StrategyBase:
 
 
     def group_backtest(self,capital,grouped_weight,groups,f_name):
+        start = grouped_weight.index.min().strftime('%Y%m%d')
+        end = grouped_weight.index.max().strftime('%Y%m%d')
+        bt_data = self.influx.getDataMultiprocess('DailyData_Gus','marketData',start,end)
         group = []
         for i in range(1,groups+1):
             group.append('group_'+str(i))
         with parallel_backend('multiprocessing', n_jobs=5):
             parallel_res = Parallel()(delayed(StrategyBase.job_backtest)
                                       (grouped_weight=grouped_weight,group_name=g,cash_reserve=0,stock_capital=capital,
-                                       logger_lvl=logging.ERROR)
+                                       logger_lvl=logging.ERROR,data_input=bt_data)
                                       for g in group)
         tot_res = pd.concat(parallel_res,axis=1)
         filename = global_constant.ROOT_DIR + '/Backtest_Result/Factor_Test/' + f_name + '.csv'

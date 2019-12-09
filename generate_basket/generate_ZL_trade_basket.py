@@ -111,6 +111,7 @@ class basket_trade:
 
     def process_change_volume(self,holding_vol,target_vol,price,ftrs,ftrs_per_bsk):
         vol_diff = target_vol - holding_vol
+        '''
         if (target_vol == 100 * ftrs/ftrs_per_bsk) & (abs(vol_diff) >= 100):
             to_trade_vol = round(vol_diff,-2)
         elif target_vol == 0:
@@ -120,10 +121,15 @@ class basket_trade:
                 to_trade_vol = 0
             else:
                 to_trade_vol = round(vol_diff,-2)
+        '''
+        to_trade_vol = round(vol_diff, -2)
         return to_trade_vol
 
 
     def process_change_bsk(self,positions,basket,ftrs_per_bsk,ftrs):
+        # 滤除转债
+        positions = positions.loc[(positions['证券代码'].str[0] == '0') | (positions['证券代码'].str[0] == '3') |
+                                  (positions['证券代码'].str[0] == '6'), :]
         positions = positions.merge(basket, left_on='证券代码', right_on='证券代码', how='outer')
         positions['持仓'] = positions['持仓'].fillna(0)
         positions['证券名称'] = positions.apply(lambda row: row['name'] if pd.isnull(row['证券名称']) else row['证券名称'],

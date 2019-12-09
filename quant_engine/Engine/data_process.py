@@ -7,8 +7,7 @@ class DataProcess:
         MAD = np.median(abs(series - median))
         ceil = median + 3 * 1.4826 * MAD
         floor = median - 3 * 1.4826 * MAD
-        series.loc[series > ceil] = ceil
-        series.loc[series < floor] = floor
+        series.clip(floor,ceil,inplace=True)
         return series
 
     @staticmethod
@@ -16,7 +15,7 @@ class DataProcess:
         mean = np.mean(series)
         std = np.std(series)
         if std == 0:
-            series.loc[series != 0] = 0
+            series.clip(0,0,inplace=True)
         else:
             series = (series-mean)/std
         return series
