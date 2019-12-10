@@ -106,16 +106,15 @@ class StrategyBase:
                 day_industry_factor = day_factor.loc[day_factor['industry']==ind,:].copy()
                 # 行业成分不足10支票时，所有group配置一样
                 if day_industry_factor.shape[0] < 10:
-                    day_industry_factor['target_weight'] = day_industry_factor['industry_weight'] / day_industry_factor.shape[0]
+                    day_industry_factor['weight'] = day_industry_factor['industry_weight'] / day_industry_factor.shape[0]
                     day_industry_factor['group'] = 'same group'
                 else:
                     day_industry_factor['group'] = pd.qcut(day_industry_factor[factor_field],5,labels=labels)
                     group_counts = day_industry_factor['group'].value_counts()
-                    day_industry_factor['target_weight'] = \
+                    day_industry_factor['weight'] = \
                         day_industry_factor.apply(lambda row:row['industry_weight']/group_counts[row['group']],axis=1)
                 res.append(day_industry_factor)
         res_df = pd.concat(res)
-        res_df.rename(columns={'target_weight':'weight'},inplace=True)
         res_df.set_index('next_1_day',inplace=True)
         return res_df
 
@@ -187,8 +186,8 @@ class StrategyBase:
         # mkt cap 标准化
         dates = size_data.index.unique()
         split_dates = np.array_split(dates, 30)
-        # mkt_cap 不需要remove outlier
-        with parallel_backend('multiprocessing', n_jobs=6):
+        # mkt_cap 不需要remove outlier，否则银行板块全被抹平
+        with parallel_backend('multiprocessing', n_jobs=4):
             parallel_res = Parallel()(delayed(StrategyBase.cross_section_Z_standardize)
                                       (size_data, 'size', dates) for dates in split_dates)
         size_data = pd.concat(parallel_res)
@@ -206,19 +205,19 @@ class StrategyBase:
         dates = factor_data.index.unique()
         split_dates = np.array_split(dates, 30)
         if remove_outlier:
-            with parallel_backend('multiprocessing', n_jobs=6):
+            with parallel_backend('multiprocessing', n_jobs=4):
                 parallel_res = Parallel()(delayed(StrategyBase.cross_section_remove_outlier)
                                           (factor_data, factor_field,dates) for dates in split_dates)
             factor_data = pd.concat(parallel_res)
             print('outlier remove finish!')
         if standardize == 'z':
-            with parallel_backend('multiprocessing', n_jobs=6):
+            with parallel_backend('multiprocessing', n_jobs=4):
                 parallel_res = Parallel()(delayed(StrategyBase.cross_section_Z_standardize)
                                           (factor_data, factor_field,dates) for dates in split_dates)
             factor_data = pd.concat(parallel_res)
             print('Z_standardize finish!')
         elif standardize == 'rank':
-            with parallel_backend('multiprocessing', n_jobs=6):
+            with parallel_backend('multiprocessing', n_jobs=4):
                 parallel_res = Parallel()(delayed(StrategyBase.cross_section_rank_standardize)
                                           (factor_data, factor_field,dates) for dates in split_dates)
             factor_data = pd.concat(parallel_res)
@@ -233,7 +232,7 @@ class StrategyBase:
         # 去除行业和市值，得到新因子
         dates = processed_factor['date'].unique()
         split_dates = np.array_split(dates,30)
-        with parallel_backend('multiprocessing', n_jobs=5):
+        with parallel_backend('multiprocessing', n_jobs=4):
             parallel_res = Parallel()(delayed(StrategyBase.job_orth)
                                       (processed_factor, factor_field, dates) for dates in split_dates)
         orth_factor = pd.concat(parallel_res)
@@ -244,7 +243,7 @@ class StrategyBase:
         processed_factor = pd.merge(preprocessed_mkt_data,orth_factor,on=['date','code'])
         dates = processed_factor['date'].unique()
         split_dates = np.array_split(dates, 30)
-        with parallel_backend('multiprocessing', n_jobs=5):
+        with parallel_backend('multiprocessing', n_jobs=4):
             parallel_res = Parallel()(delayed(StrategyBase.job_T_test)
                                       (processed_factor, factor_field, dates) for dates in split_dates)
         RLM_result = pd.concat(parallel_res)
@@ -265,40 +264,32 @@ class StrategyBase:
         benchmark_field = benchmark+'_weight'
         mkt_data.dropna(subset=[industry_field],inplace=True)
         mkt_data = mkt_data.loc[:,[benchmark_field,industry_field,'code','status']]
-        # 今天的因子用于明天，明天需要check后天是否停牌，所以今天需要往后看两天
         next_1_day = self.get_next_trade_day(mkt_data,1)
-        next_2_day = self.get_next_trade_day(mkt_data,2)
-        next_days = pd.merge(next_1_day,next_2_day,right_index=True,left_index=True)
-        mkt_data = pd.merge(mkt_data,next_days,right_index=True,left_index=True,how='left')
-        # 需用到后1天的status和权重信息
-        nxt_1_day_status = mkt_data.loc[:,['code','status',benchmark_field]].copy()
-        nxt_1_day_status.reset_index(inplace=True)
-        nxt_1_day_status.rename(columns={'index':'next_1_day','status':'next_1_day_status',
-                                         benchmark_field:'next_1_day_'+benchmark_field},inplace=True)
-        # 需用到后2天的status信息
-        nxt_2_day_status = mkt_data.loc[:,['code','status']].copy()
-        nxt_2_day_status.reset_index(inplace=True)
-        nxt_2_day_status.rename(columns={'index':'next_2_day','status':'next_2_day_status'},inplace=True)
+        mkt_data = pd.merge(mkt_data,next_1_day,right_index=True,left_index=True,how='left')
+        # 需用到后1天的权重信息
+        # 如果这个股票今天停牌，则它不在今天的选股池内（就算明天复牌也不在）
+        nxt_1_day_weight = mkt_data.loc[:,['code',benchmark_field]].copy()
+        nxt_1_day_weight.reset_index(inplace=True)
+        nxt_1_day_weight.rename(columns={'index':'next_1_day',benchmark_field:'next_1_day_'+benchmark_field},inplace=True)
+        mkt_data.index.names = ['date']
         mkt_data.reset_index(inplace=True)
-        mkt_data.rename(columns={'index':'date'},inplace=True)
-        # how用inner为了过滤第二天没有数据的情况
-        mkt_data = pd.merge(mkt_data,nxt_1_day_status,on=['next_1_day','code'],how='inner')
-        mkt_data = pd.merge(mkt_data,nxt_2_day_status,on=['next_2_day','code'],how='inner')
-        orth_factor = pd.merge(orth_factor,mkt_data,on=['date','code'])
-        # 使用后一天的权重来计算
-        orth_factor.rename(columns={'next_1_day_'+benchmark_field:'weight',industry_field:'industry'},inplace=True)
-        industry_weight = pd.DataFrame(mkt_data.groupby(['date',industry_field])['next_1_day_'+benchmark_field].sum())
+        mkt_data = pd.merge(mkt_data,nxt_1_day_weight,on=['next_1_day','code'],how='left')
+        # 计算后一天的行业权重
+        industry_weight = pd.DataFrame(mkt_data.groupby(['date', industry_field])['next_1_day_' + benchmark_field].sum())
         industry_weight.reset_index(inplace=True)
-        industry_weight.rename(columns={'next_1_day_'+benchmark_field:'industry_weight',industry_field:'industry'},inplace=True)
-        orth_factor = pd.merge(orth_factor,industry_weight,on=['date','industry'])
-        # 去掉 next_1_day_status/next_2_day_status 停牌或者为空的股票
-        orth_factor = orth_factor.loc[~((orth_factor['next_1_day_status']=='停牌')|pd.isnull(orth_factor['next_1_day_status'])|
-                                        (orth_factor['next_2_day_status']=='停牌')|pd.isnull(orth_factor['next_2_day_status'])),
+        industry_weight.rename(columns={'next_1_day_' + benchmark_field: 'industry_weight', industry_field: 'industry'},
+                               inplace=True)
+        industry_weight = industry_weight.loc[industry_weight['industry_weight']>0,:]
+        mkt_data.rename(columns={industry_field: 'industry'},inplace=True)
+        mkt_data = pd.merge(mkt_data,industry_weight,on=['date','industry'])
+        # 合并得到当天因子，行业，状态，下一交易日benchmark权重，下一交易日行业总权重
+        orth_factor = pd.merge(orth_factor,mkt_data,on=['date','code'])
+        # 去掉当天停牌的股票
+        orth_factor = orth_factor.loc[~((orth_factor['status']=='停牌')|pd.isnull(orth_factor['status'])),
                                       ['date','code','next_1_day',factor_field,'industry','industry_weight']]
-
         dates = orth_factor['date'].unique()
         split_dates = np.array_split(dates,30)
-        with parallel_backend('multiprocessing', n_jobs=6):
+        with parallel_backend('multiprocessing', n_jobs=4):
             result_list =  Parallel()(delayed(StrategyBase.get_group_weight)(dates,groups,orth_factor,factor_field)
                                       for dates in split_dates)
         grouped_weight = pd.concat(result_list)
@@ -317,7 +308,7 @@ class StrategyBase:
         group = []
         for i in range(1,groups+1):
             group.append('group_'+str(i))
-        with parallel_backend('multiprocessing', n_jobs=5):
+        with parallel_backend('multiprocessing', n_jobs=4):
             parallel_res = Parallel()(delayed(StrategyBase.job_backtest)
                                       (grouped_weight=grouped_weight,group_name=g,cash_reserve=0,stock_capital=capital,
                                        logger_lvl=logging.ERROR,data_input=bt_data)
