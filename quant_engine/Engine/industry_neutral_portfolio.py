@@ -76,7 +76,8 @@ class industry_neutral_portfolio:
                 self.stk_positions.pop(stock_code)
             else:
                 self.stk_positions[stock_code]['volume'] = weighted_volume
-                self.stk_positions[stock_code]['industry'] = stock_industry
+                if stock_industry:
+                    self.stk_positions[stock_code]['industry'] = stock_industry
             self.balance = self.balance + amount - transaction_fee - tax
             self.logger.info("TransactionTime: %s, Type: SellStock, Detail: %s - %f * %i, Balance: %f"
                              % (time, stock_code, price, volume, self.balance))
@@ -104,14 +105,19 @@ class industry_neutral_portfolio:
             volume_held = 0
         volume_to_trade = round(target_volume - volume_held,-2)
         # 考虑了涨跌停一字板的情况
-        if volume_to_trade > 0 and price_limit != 'high':
-            self.buy_stks_by_volume(time,stock_code,stock_industry,price,volume_to_trade)
-        elif volume_to_trade < 0 and volume_to_trade*(-1) < volume_held and price_limit != 'low':
-            self.sell_stks_by_volume(time,stock_code,stock_industry,price,volume_to_trade*-1)
-        elif volume_to_trade < 0 and volume_to_trade*(-1) >= volume_held and price_limit != 'low':
-            self.sell_stks_by_volume(time,stock_code,stock_industry,price,volume_held)
-        else:
-            pass
+        if volume_to_trade > 0:
+            if price_limit == 'high':
+                return 'Trade Fail'
+            else:
+                self.buy_stks_by_volume(time, stock_code, stock_industry, price, volume_to_trade)
+                return 'Trade Succeed'
+        if volume_to_trade < 0:
+            volume_to_trade = min(volume_to_trade*-1,volume_held)
+            if price_limit == 'low':
+                return 'Trade Fail'
+            else:
+                self.sell_stks_by_volume(time, stock_code, stock_industry, price, volume_to_trade)
+                return 'Trade Succeed'
 
 
     def process_ex_right(self,ex_right:pd.DataFrame):

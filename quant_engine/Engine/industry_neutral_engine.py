@@ -41,8 +41,8 @@ class IndustryNeutralEngine:
 
 
     # 传入stk在该行业的权重
-    def run(self,stk_indu_weight,start,end,benchmark,cash_reserve_rate=0.05,price_field='vwap',
-            indu_field='citics_lv1_name',data_input=None):
+    def run(self,stk_indu_weight,start,end,benchmark,adj_interval,
+            cash_reserve_rate=0.05,price_field='vwap',indu_field='citics_lv1_name',data_input=None):
         backtest_starttime = datetime.datetime.now()
         if not isinstance(data_input,pd.DataFrame):
             self.logger.info('Start loading Data! %s' %backtest_starttime)
@@ -95,72 +95,115 @@ class IndustryNeutralEngine:
         trade_days = daily_data.index.unique()
         positions_dict = {}
         portfolio_value_dict = {}
-        stk_weights = []
+        day_counter = 0
         total_value = self.stk_portfolio.get_portfolio_value(price_input=None)
         for trade_day in trade_days:
-            self.logger.info('Trade Day: %s' %trade_day)
-            one_day_data = daily_data.loc[trade_day,:].copy()
-            one_day_data.set_index('code',inplace=True)
+            self.logger.info('Trade Day: %s' % trade_day)
+            # 处理除权除息
+            one_day_data = daily_data.loc[trade_day, :].copy()
+            one_day_data.set_index('code', inplace=True)
             ex_right = \
-                one_day_data.loc[:,['bonus_share_ratio','cash_dvd_ratio','conversed_ratio','rightissue_price','rightissue_ratio']]
+                one_day_data.loc[:,
+                ['bonus_share_ratio', 'cash_dvd_ratio', 'conversed_ratio', 'rightissue_price', 'rightissue_ratio']]
             self.stk_portfolio.process_ex_right(ex_right)
-
-            # 对有目标权重，却停牌或者没有行情的情况，重新分配行业内部权重
-            one_day_pause_data = one_day_data.loc[(one_day_data['weight_in_industry']>0) &
-                                                  ((one_day_data['status']=='停牌') | pd.isnull(one_day_data['status'])),:]
-            one_day_indu_pause_weight = pd.DataFrame(one_day_pause_data.groupby('industry')['weight_in_industry'].sum())
-            # 将停牌股票权重扣除，将剩余股票权重等比放大
-            for industry,row in one_day_indu_pause_weight.iterrows():
-                one_day_data.loc[one_day_data['industry']==industry,'weight_in_industry'] = \
-                    one_day_data.loc[one_day_data['industry']==industry,'weight_in_industry'] / \
-                    (100-row['weight_in_industry']) *100
-            # 权重放大后，将停牌的票的weight_in_industry置为nan
-            one_day_data.loc[(one_day_data['status']=='停牌') | pd.isnull(one_day_data['status']),'weight_in_industry'] = np.nan
             # 没有行情且在pos里的stks记为退市
+            # 统计退市金额
             delist_amount = 0
             locked_amount = {}
-            no_quote_stks = set(self.stk_portfolio.stk_positions.keys())-set(one_day_data.index)
+            no_quote_stks = set(self.stk_portfolio.stk_positions.keys()) - set(one_day_data.index)
             for stk in no_quote_stks:
                 delist_amount += self.stk_portfolio.stk_positions[stk]['volume'] * \
                                  self.stk_portfolio.stk_positions[stk]['latest_close']
             # 退市股票的金额需在stock_value中剔除，以免资金占用
             target_capital = (1 - cash_reserve_rate) * (total_value + delist_amount)
             # 在pos中且状态为停牌的stks
-            suspend_stks_in_pos = one_day_data.loc[((one_day_data['status']=='停牌')|pd.isnull(one_day_data['status'])) &
-                                                   one_day_data.index.isin(self.stk_portfolio.stk_positions.keys()),:].index
-            # 统计行业的停牌金额
-            for stk in suspend_stks_in_pos:
-                stk_industry = self.stk_portfolio.stk_positions[stk]['industry']
-                if stk_industry in locked_amount:
-                    locked_amount[stk_industry] += self.stk_portfolio.stk_positions[stk]['volume'] * \
-                                                   self.stk_portfolio.stk_positions[stk]['latest_close']
-                else:
-                    locked_amount[stk_industry] = self.stk_portfolio.stk_positions[stk]['volume'] * \
-                                                  self.stk_portfolio.stk_positions[stk]['latest_close']
-            # 通过weight计算当天股票的目标volume
-            one_day_data['industry_amount'] = \
-                one_day_data.apply(
-                    # 如果该行业持仓停牌的金额已超过行业需配的金额，置为0
-                    lambda row: max(target_capital * row['industry_weight']/100 - locked_amount[row['industry']],0)
-                    if row['industry'] in locked_amount
-                    else target_capital * row['industry_weight'] / 100, axis=1)
-            one_day_data['target_volume'] = \
-                one_day_data['industry_amount'] * one_day_data['weight_in_industry']/100 / one_day_data['preclose']
+            suspend_stks_in_pos = one_day_data.loc[
+                                  ((one_day_data['status'] == '停牌') | pd.isnull(one_day_data['status'])) &
+                                  one_day_data.index.isin(self.stk_portfolio.stk_positions.keys()), :].index
+            # -----------------------------------------------------------------------------------------------
+            # 每隔x天调仓
+            if day_counter % adj_interval == 0:
+                # 对有目标权重，却停牌或者没有行情的情况，重新分配行业内部权重
+                one_day_pause_data = one_day_data.loc[(one_day_data['weight_in_industry']>0) &
+                                                      ((one_day_data['status']=='停牌') | pd.isnull(one_day_data['status'])),:]
+                one_day_indu_pause_weight = pd.DataFrame(one_day_pause_data.groupby('industry')['weight_in_industry'].sum())
+                # 将停牌股票权重扣除，将剩余股票权重等比放大
+                for industry,row in one_day_indu_pause_weight.iterrows():
+                    one_day_data.loc[one_day_data['industry']==industry,'weight_in_industry'] = \
+                        one_day_data.loc[one_day_data['industry']==industry,'weight_in_industry'] / \
+                        (100-row['weight_in_industry']) *100
+                # 权重放大后，将停牌的票的weight_in_industry置为nan
+                one_day_data.loc[(one_day_data['status']=='停牌') | pd.isnull(one_day_data['status']),
+                                 'weight_in_industry'] = np.nan
+                # 统计行业的停牌金额
+                for stk in suspend_stks_in_pos:
+                    stk_industry = self.stk_portfolio.stk_positions[stk]['industry']
+                    if stk_industry in locked_amount:
+                        locked_amount[stk_industry] += self.stk_portfolio.stk_positions[stk]['volume'] * \
+                                                       self.stk_portfolio.stk_positions[stk]['latest_close']
+                    else:
+                        locked_amount[stk_industry] = self.stk_portfolio.stk_positions[stk]['volume'] * \
+                                                      self.stk_portfolio.stk_positions[stk]['latest_close']
+                # 通过weight计算当天股票的目标volume
+                one_day_data['industry_amount'] = \
+                    one_day_data.apply(
+                        # 如果该行业持仓停牌的金额已超过行业需配的金额，置为0
+                        lambda row: max(target_capital * row['industry_weight']/100 - locked_amount[row['industry']],0)
+                        if row['industry'] in locked_amount
+                        else target_capital * row['industry_weight']/100, axis=1)
+                one_day_data['target_volume'] = \
+                    one_day_data['industry_amount'] * one_day_data['weight_in_industry']/100 / one_day_data['preclose']
 
-            # 可交易的且有weight的stks + 可交易的且在pos里却没有weight的stks
-            trade_data = one_day_data.loc[((one_day_data['status']!='停牌')&(pd.notnull(one_day_data['status']))) &
-                                          (pd.notnull(one_day_data['target_volume'])|
-                                          (one_day_data.index.isin(self.stk_portfolio.stk_positions.keys()))),:].copy()
-            trade_data['target_volume'] = trade_data['target_volume'].fillna(0)
-            for idx,row in trade_data.iterrows():
-                if (row['low'] == row['high']) and (row['high'] >=round(row['preclose']*1.1,2)):
-                    price_limit = 'high'
-                elif (row['low'] == row['high']) and (row['low'] <=round(row['preclose']*0.9,2)):
-                    price_limit = 'low'
+                # 可交易的且有weight的stks + 可交易的且在pos里却没有weight的stks
+                trade_data = one_day_data.loc[((one_day_data['status']!='停牌')&(pd.notnull(one_day_data['status']))) &
+                                              (pd.notnull(one_day_data['target_volume'])|
+                                              (one_day_data.index.isin(self.stk_portfolio.stk_positions.keys()))),:].copy()
+                trade_data['target_volume'] = trade_data['target_volume'].fillna(0)
+                fail_to_trade_stks = {}
+                for idx,row in trade_data.iterrows():
+                    if (row['low'] == row['high']) and (row['high'] >=round(row['preclose']*1.1,2)):
+                        price_limit = 'high'
+                    elif (row['low'] == row['high']) and (row['low'] <=round(row['preclose']*0.9,2)):
+                        price_limit = 'low'
+                    else:
+                        price_limit = 'no_limit'
+                    # 因涨跌停没有交易成功的股票代码会返回
+                    trade_res = self.stk_portfolio.trade_stks_to_target_volume(trade_day,idx,row['industry'],
+                                row[price_field],row['target_volume'],price_limit)
+                    if trade_res == 'Trade Fail':
+                        stk_amount = row['preclose'] * row['target_volume']
+                        fail_to_trade_stks[idx] = stk_amount
+                    else:
+                        pass
+            else:
+                # 不是调仓日时，之前因涨跌停没买到的stks也要补
+                # 没有行情的认为已退市，从失败列表中剔除
+
+                no_quote_fail_stks = set(fail_to_trade_stks.keys()) - set(one_day_data.index)
+                for stk in no_quote_fail_stks:
+                    fail_to_trade_stks.pop(stk)
+                if not fail_to_trade_stks:
+                    pass
                 else:
-                    price_limit = 'no_limit'
-                self.stk_portfolio.trade_stks_to_target_volume(trade_day,idx,row['industry'],row[price_field],
-                                                               row['target_volume'],price_limit)
+                    trade_data = one_day_data.loc[
+                        ((one_day_data['status'] != '停牌') & (pd.notnull(one_day_data['status']))) &
+                        one_day_data.index.isin(fail_to_trade_stks.keys()),:].copy()
+                    trade_data['target_volume'] = \
+                        trade_data.apply(lambda row:fail_to_trade_stks[row.name]/row['preclose'],axis=1)
+                    for idx,row in trade_data.iterrows():
+                        if (row['low'] == row['high']) and (row['high'] >=round(row['preclose']*1.1,2)):
+                            price_limit = 'high'
+                        elif (row['low'] == row['high']) and (row['low'] <=round(row['preclose']*0.9,2)):
+                            price_limit = 'low'
+                        else:
+                            price_limit = 'no_limit'
+                        trade_res = self.stk_portfolio.trade_stks_to_target_volume(trade_day, idx, row['industry'],
+                                    row[price_field], row['target_volume'], price_limit)
+                        if trade_res == 'Trade Succeed':
+                            fail_to_trade_stks.pop(idx)
+                        else:
+                            pass
+            #-------------------------------------------------------------------------------
             # 处理 吸收合并
             swap_info = one_day_data.loc[(one_day_data['swap_date']==trade_day) &
                                          (one_day_data.index.isin(self.stk_portfolio.stk_positions)), :]
@@ -195,6 +238,8 @@ class IndustryNeutralEngine:
                                total_value, delist_amount, suspend_stks_in_pos.shape[0]))
             # 记录持仓
             positions_dict[trade_day] = copy.deepcopy(self.stk_portfolio.stk_positions)
+            day_counter += 1
+
         # 输出交易记录
         transactions = pd.concat(self.stk_portfolio.transactions_list, axis=1 ,ignore_index=True).T
         transactions.set_index('Time',inplace=True)
@@ -239,7 +284,8 @@ if __name__ == '__main__':
     d['next_1_day'] = pd.to_datetime(d['next_1_day'])
     d.set_index('next_1_day',inplace=True)
     start_time = datetime.datetime.now()
-    QE = IndustryNeutralEngine(stock_capital=5000000,save_name='g5',logger_lvl=logging.INFO)
-    portfolio_value_dict = QE.run(d,20120112,20160831,benchmark='IC',price_field='vwap',cash_reserve_rate=0.03)
+    QE = IndustryNeutralEngine(stock_capital=5000000,save_name='g5_5',logger_lvl=logging.INFO)
+    portfolio_value_dict = QE.run(d,20120112,20160831,adj_interval=5,
+                                  benchmark='IC',price_field='vwap',cash_reserve_rate=0.03)
     print('backtest finish')
     print('time used:',datetime.datetime.now()-start_time)
