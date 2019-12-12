@@ -106,13 +106,15 @@ class StrategyBase:
                 day_industry_factor = day_factor.loc[day_factor['industry']==ind,:].copy()
                 # 行业成分不足10支票时，所有group配置一样
                 if day_industry_factor.shape[0] < 10:
-                    day_industry_factor['weight'] = day_industry_factor['industry_weight'] / day_industry_factor.shape[0]
+                    #day_industry_factor['weight'] = day_industry_factor['industry_weight'] / day_industry_factor.shape[0]
+                    day_industry_factor['weight_in_industry'] = 100 / day_industry_factor.shape[0]
                     day_industry_factor['group'] = 'same group'
                 else:
                     day_industry_factor['group'] = pd.qcut(day_industry_factor[factor_field],5,labels=labels)
                     group_counts = day_industry_factor['group'].value_counts()
-                    day_industry_factor['weight'] = \
-                        day_industry_factor.apply(lambda row:row['industry_weight']/group_counts[row['group']],axis=1)
+                    #day_industry_factor['weight'] = \
+                    #    day_industry_factor.apply(lambda row:row['industry_weight']/group_counts[row['group']],axis=1)
+                    day_industry_factor['weight_in_industry'] = day_industry_factor.apply(lambda row:100/group_counts[row['group']],axis=1)
                 res.append(day_industry_factor)
         res_df = pd.concat(res)
         res_df.set_index('next_1_day',inplace=True)
@@ -294,11 +296,37 @@ class StrategyBase:
                                       for dates in split_dates)
         grouped_weight = pd.concat(result_list)
         grouped_weight = grouped_weight.sort_index()
-        grouped_weight = grouped_weight.loc[grouped_weight['weight']>0,:]
+        grouped_weight = grouped_weight.loc[grouped_weight['weight_in_industry']>0,:]
         filename = global_constant.ROOT_DIR + 'Backtest_Result/Factor_Group_Weight/' + \
                    factor_field + '_' + str(groups) + 'groups' + '.csv'
         grouped_weight.to_csv(filename,encoding='gbk')
         return grouped_weight
+
+    '''
+    def get_actual_weight(self,grouped_weight,mkt_data,group):
+        mkt_data = mkt_data.loc[:,['code','status','open','high','low','close']].copy()
+        mkt_data.index.names = 'date'
+        mkt_data.reset_index(inplace=True)
+        grouped_weight.drop('date',axis=1,inplace=True)
+        grp_weight = grouped_weight.loc[grouped_weight['group']==group,:]
+        grp_weight.index.names = 'date'
+        grp_weight.reset_index(inplace=True)
+        dates = grp_weight['date'].unique()
+        # 记录最新的持仓股票和量
+        latest_postions = pd.DataFrame()
+        for date in dates:
+            day_grp_weight = grp_weight.loc[grp_weight[date]==date,:]
+            day_grp_weight = pd.merge(day_grp_weight,mkt_data,on=['date','code'],how='left')
+            if latest_postions.empty:
+                # 仓位为空时，认为买入了当天没有停牌且没有涨停的股票
+                day_grp_weight = \
+                    day_grp_weight.loc[~((day_grp_weight['status']=='停牌')|(pd.isnull(day_grp_weight['status']))) &
+                                       ~((day_grp_weight['high']==round(day_grp_weight['open']*1.1,2)) &
+                                         (day_grp_weight['high']==day_grp_weight['low'])),:]
+            else:
+    '''
+
+
 
 
     def group_backtest(self,capital,grouped_weight,groups,f_name):
