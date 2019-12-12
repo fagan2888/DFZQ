@@ -91,17 +91,18 @@ class stock_portfolio:
             self.sell_stks_by_volume(time,stock_code,price,goal_volume)
 
 
-    def trade_stks_to_target_volume(self,time,stock_code,price,target_volume):
+    def trade_stks_to_target_volume(self,time,stock_code,price,target_volume,price_limit='no_limit'):
         try:
             volume_held = self.stk_positions[stock_code]['volume']
         except KeyError:
             volume_held = 0
         volume_to_trade = round(target_volume - volume_held,-2)
-        if volume_to_trade > 0:
+        # 考虑了涨跌停一字板的情况
+        if volume_to_trade > 0 and price_limit != 'high':
             self.buy_stks_by_volume(time,stock_code,price,volume_to_trade)
-        elif volume_to_trade < 0 and volume_to_trade*(-1) < volume_held :
+        elif volume_to_trade < 0 and volume_to_trade*(-1) < volume_held and price_limit != 'low':
             self.sell_stks_by_volume(time,stock_code,price,volume_to_trade*-1)
-        elif volume_to_trade < 0 and volume_to_trade*(-1) >= volume_held :
+        elif volume_to_trade < 0 and volume_to_trade*(-1) >= volume_held and price_limit != 'low':
             self.sell_stks_by_volume(time,stock_code,price,volume_held)
         else:
             pass
