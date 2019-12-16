@@ -210,6 +210,8 @@ class StrategyBase:
                 parallel_res = Parallel()(delayed(StrategyBase.cross_section_remove_outlier)
                                           (factor_data, self.factor_field, dates) for dates in split_dates)
             factor_data = pd.concat(parallel_res)
+            dates = factor_data.index.unique()
+            split_dates = np.array_split(dates, 30)
             print('outlier remove finish!')
         if self.standardize == 'z':
             with parallel_backend('multiprocessing', n_jobs=4):
@@ -378,7 +380,7 @@ if __name__ == '__main__':
     end = 20151231
     mkt_data = strategy.influx.getDataMultiprocess('DailyData_Gus', 'marketData', start, end, None)
     mkt_data = mkt_data.loc[pd.notnull(mkt_data['IF_weight'])|pd.notnull(mkt_data['IC_weight']),:]
-    factor = strategy.influx.getDataMultiprocess('DailyFactor_Gus','Value',start,end,['code','BP'])
-    factor = factor.dropna(subset=['BP'])
+    factor = strategy.influx.getDataMultiprocess('DailyFactor_Gus','FinancialQuality',start,end,['code','ROE'])
+    factor = factor.dropna(subset=['ROE'])
     print('factor loaded!')
-    strategy.run_factor_test(mkt_data,factor,'BP','BP',benchmark='IF')
+    strategy.run_factor_test(mkt_data,factor,'ROE','ROE',benchmark='IF')
