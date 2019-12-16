@@ -26,13 +26,16 @@ class BacktestEngine:
         self.logger.addHandler(handler)
         self.logger.addHandler(console)
 
-    def run(self,stk_weight,start,end,cash_reserve_rate=0.05,price_field='vwap'):
+    def run(self,stk_weight,start,end,cash_reserve_rate=0.05,price_field='vwap',data_input=None):
         backtest_starttime = datetime.datetime.now()
-        self.logger.info('Start loading Data! %s' %backtest_starttime)
-        influx = influxdbData()
-        DB = 'DailyData_Gus'
-        measure = 'marketData'
-        daily_data = influx.getDataMultiprocess(DB,measure,str(start),str(end))
+        if not isinstance(data_input,pd.DataFrame):
+            self.logger.info('Start loading Data! %s' %backtest_starttime)
+            influx = influxdbData()
+            DB = 'DailyData_Gus'
+            measure = 'marketData'
+            daily_data = influx.getDataMultiprocess(DB,measure,str(start),str(end))
+        else:
+            daily_data = data_input
         self.logger.info('Data loaded! %s' %datetime.datetime.now())
         self.logger.info('****************************************\n')
 
@@ -148,13 +151,13 @@ class BacktestEngine:
 if __name__ == '__main__':
     influx = influxdbData()
 
-    d = influx.getDataMultiprocess('DailyData_Gus','marketData','20120105','20160831')
-    d = d.loc[pd.notnull(d['IF_weight']) & (d['volume']>0),['code','IF_weight','vwap']]
+    mkt = influx.getDataMultiprocess('DailyData_Gus','marketData','20120105','20160831')
+    d = mkt.loc[pd.notnull(mkt['IF_weight']) & (mkt['volume']>0),['code','IF_weight','vwap']]
     d.columns = ['code','weight','vwap']
     d = d.loc[:,['code','weight']]
     start_time = datetime.datetime.now()
     QE = BacktestEngine(stock_capital=5000000,save_name='test',logger_lvl=logging.INFO)
-    portfolio_value_dict = QE.run(d,20120106,20160831,price_field='vwap',cash_reserve_rate=0)
+    portfolio_value_dict = QE.run(d,20120106,20160831,price_field='vwap',cash_reserve_rate=0,data_input=mkt)
     print('backtest finish')
     print('time used:',datetime.datetime.now()-start_time)
     '''

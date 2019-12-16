@@ -5,10 +5,13 @@ import pandas as pd
 from rdf_data import rdf_data
 
 class after_trade_task:
-    def __init__(self):
+    def __init__(self,date_input=None):
         self.ftp = FTP_service(host='192.168.38.213', username='index', password='dfzq1234')
         self.rdf = rdf_data()
-        self.yyyymmdd = datetime.datetime.now().strftime('%Y%m%d')
+        if not date_input:
+            self.yyyymmdd = datetime.datetime.now().strftime('%Y%m%d')
+        else:
+            self.yyyymmdd = str(date_input)
         self.local_dir = 'D:/alpha/张黎/' + self.yyyymmdd + '/'
         if os.path.exists(self.local_dir):
             pass
@@ -25,6 +28,8 @@ class after_trade_task:
         positions['证券代码'] = positions['证券代码'].astype('int')
         positions['证券代码'] = positions['证券代码'].apply(lambda x: '0' * (6 - len(str(x))) + str(x))
         positions['code'] = positions['证券代码'].apply(lambda x: x+'.SH' if x[0]=='6' else x+'.SZ')
+        # 过滤转债
+        positions = positions.loc[(positions['code'].str[0]=='0')|(positions['code'].str[0]=='3')|(positions['code'].str[0]=='6'),:]
         positions['持仓'] = positions['持仓'].astype('int')
         positions['持仓'] = round(positions['持仓']*ftrs_per_bsk/ftrs_vol,-2)
         positions = positions.loc[positions['持仓']>0,:]
