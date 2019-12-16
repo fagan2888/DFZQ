@@ -178,7 +178,6 @@ class IndustryNeutralEngine:
             else:
                 # 不是调仓日时，之前因涨跌停没买到的stks也要补
                 # 没有行情的认为已退市，从失败列表中剔除
-
                 no_quote_fail_stks = set(fail_to_trade_stks.keys()) - set(one_day_data.index)
                 for stk in no_quote_fail_stks:
                     fail_to_trade_stks.pop(stk)
@@ -188,21 +187,24 @@ class IndustryNeutralEngine:
                     trade_data = one_day_data.loc[
                         ((one_day_data['status'] != '停牌') & (pd.notnull(one_day_data['status']))) &
                         one_day_data.index.isin(fail_to_trade_stks.keys()),:].copy()
-                    trade_data['target_volume'] = \
-                        trade_data.apply(lambda row:fail_to_trade_stks[row.name]/row['preclose'],axis=1)
-                    for idx,row in trade_data.iterrows():
-                        if (row['low'] == row['high']) and (row['high'] >=round(row['preclose']*1.1,2)):
-                            price_limit = 'high'
-                        elif (row['low'] == row['high']) and (row['low'] <=round(row['preclose']*0.9,2)):
-                            price_limit = 'low'
-                        else:
-                            price_limit = 'no_limit'
-                        trade_res = self.stk_portfolio.trade_stks_to_target_volume(trade_day, idx, row['industry'],
-                                    row[price_field], row['target_volume'], price_limit)
-                        if trade_res == 'Trade Succeed':
-                            fail_to_trade_stks.pop(idx)
-                        else:
-                            pass
+                    if trade_data.empty:
+                        pass
+                    else:
+                        trade_data['target_volume'] = \
+                            trade_data.apply(lambda row:fail_to_trade_stks[row.name]/row['preclose'],axis=1)
+                        for idx,row in trade_data.iterrows():
+                            if (row['low'] == row['high']) and (row['high'] >=round(row['preclose']*1.1,2)):
+                                price_limit = 'high'
+                            elif (row['low'] == row['high']) and (row['low'] <=round(row['preclose']*0.9,2)):
+                                price_limit = 'low'
+                            else:
+                                price_limit = 'no_limit'
+                            trade_res = self.stk_portfolio.trade_stks_to_target_volume(trade_day, idx, row['industry'],
+                                        row[price_field], row['target_volume'], price_limit)
+                            if trade_res == 'Trade Succeed':
+                                fail_to_trade_stks.pop(idx)
+                            else:
+                                pass
             #-------------------------------------------------------------------------------
             # 处理 吸收合并
             swap_info = one_day_data.loc[(one_day_data['swap_date']==trade_day) &
