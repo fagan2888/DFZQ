@@ -1,4 +1,5 @@
 import numpy as np
+import math
 
 class DataProcess:
     @staticmethod
@@ -31,3 +32,29 @@ class DataProcess:
             rank = (rank-mean)/std
         return rank
 
+    @staticmethod
+    def calc_ann_return(series):
+        return (series.iloc[-1]/series.iloc[0] -1)**(250/series.shape[0])
+
+    @staticmethod
+    def calc_alpha_ann_return(series1,series2):
+        ret1 = (series1.iloc[-1]/series1.iloc[0] -1)**(250/series1.shape[0])
+        ret2 = (series2.iloc[-1]/series2.iloc[0] -1)**(250/series2.shape[0])
+        return ret1-ret2
+
+    @staticmethod
+    def calc_max_draw_down(series):
+        index_low = np.argmax(np.maximum.accumulate(series) - series)
+        index_high = np.argmax(series[:index_low])
+        return (series[index_high]-series[index_low])/series[index_high]
+
+    @staticmethod
+    def calc_sharpe(series):
+        return math.sqrt(252) * series.pct_change().mean()/series.pct_change().std()
+
+    @staticmethod
+    def calc_alpha_sharpe(series1,series2):
+        ret_series1 = series1.pct_change()
+        ret_series2 = series2.pct_change()
+        alpha = ret_series1 - ret_series2
+        return math.sqrt(252) * alpha.mean() / alpha.std()
