@@ -1,3 +1,4 @@
+import pandas as pd
 import numpy as np
 import math
 
@@ -58,3 +59,27 @@ class DataProcess:
         ret_series2 = series2.pct_change()
         alpha = ret_series1 - ret_series2
         return math.sqrt(252) * alpha.mean() / alpha.std()
+
+    @staticmethod
+    def get_next_date(calendar,today,days):
+        return {today:calendar[calendar>today].iloc[days-1]}
+
+    @staticmethod
+    def get_next_period_return(mkt_data,calendar,days):
+        # 默认index是日期
+        idxs = mkt_data.index.unique()
+        next_date_dict = {}
+        for idx in idxs:
+            next_date_dict.update(DataProcess.get_next_date(calendar,idx,days))
+        field = 'next_' + str(days) + '_date'
+        mkt_data[field] = mkt_data.apply(lambda row: next_date_dict[row.name],axis=1)
+        mkt_data.index.names = ['date']
+        mkt_data.reset_index(inplace=True)
+        fq_close = mkt_data.loc[:,['date','code','adj_factor','close']].copy()
+        fq_close['next_fq_close'] = fq_close['adj_factor'] * fq_close['close']
+        fq_close = fq_close.loc[:,['date','code','next_fq_close']]
+        fq_close.rename(columns={'date':field},inplace=True)
+        mkt_data = pd.merge(mkt_data,fq_close,how='left',on=[field,'code'])
+        mkt_data['next_period_return'] = mkt_data['next_fq_close'] / mkt_data['adj_factor'] / mkt_data['close'] - 1
+        mkt_data = mkt_data.set_index('date')
+        return mkt_data
