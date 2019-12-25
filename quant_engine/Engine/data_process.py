@@ -68,7 +68,8 @@ class DataProcess:
         return {today: calendar[calendar > today].iloc[days - 1]}
 
     @staticmethod
-    def get_next_period_return(mkt_data, calendar, days):
+    # 返回的date在columns里
+    def add_next_period_return(mkt_data, calendar, days):
         # 默认index是日期
         idxs = mkt_data.index.unique()
         next_date_dict = {}
@@ -84,7 +85,6 @@ class DataProcess:
         fq_close.rename(columns={'date': field}, inplace=True)
         mkt_data = pd.merge(mkt_data, fq_close, how='left', on=[field, 'code'])
         mkt_data['next_period_return'] = mkt_data['next_fq_close'] / mkt_data['adj_factor'] / mkt_data['close'] - 1
-        mkt_data = mkt_data.set_index('date')
         return mkt_data
 
     @staticmethod
@@ -98,8 +98,8 @@ class DataProcess:
 
     @staticmethod
     # 市值行业中性化
-    # 返回的date在index中
-    def neurtralize(factor_data, factor_field, mkt_data, size_data, industry_field='improved_lv1',
+    # 返回的date在columns里
+    def neutralize(factor_data, factor_field, mkt_data, size_data, industry_field='improved_lv1',
                     size_field='ln_market_cap'):
         industry = DataProcess.get_industry_dummies(mkt_data, industry_field)
         industry.index.names = ['date']
