@@ -69,8 +69,9 @@ class DataProcess:
 
     @staticmethod
     # 返回的date在columns里
-    def add_next_period_return(mkt_data, calendar, days):
+    def add_next_period_return(data, calendar, days):
         # 默认index是日期
+        mkt_data = data.copy()
         idxs = mkt_data.index.unique()
         next_date_dict = {}
         for idx in idxs:
@@ -89,7 +90,7 @@ class DataProcess:
 
     @staticmethod
     # 获取行业哑变量
-    def get_industry_dummies(mkt_data, industry_field):
+    def get_industry_dummies(mkt_data, industry_field='improved_lv1'):
         industry_data = pd.get_dummies(mkt_data[industry_field])
         industry_data = pd.concat([mkt_data['code'], industry_data], axis=1)
         # 过滤掉没有行业信息的数据
@@ -97,17 +98,15 @@ class DataProcess:
         return industry_data
 
     @staticmethod
-    # 市值行业中性化
+    # 市值行业中性化: 因子先去极值标准化，ln市值标准化，行业变换哑变量，回归完取残差
     # 返回的date在columns里
-    def neutralize(factor_data, factor_field, mkt_data, size_data, industry_field='improved_lv1',
-                    size_field='ln_market_cap'):
-        industry = DataProcess.get_industry_dummies(mkt_data, industry_field)
-        industry.index.names = ['date']
+    def neutralize(factor_data, factor_field, industry_dummies, size_data, size_field='ln_market_cap'):
+        industry_dummies.index.names = ['date']
         factor_data.index.names = ['date']
         size_data.index.names = ['date']
         size_data.rename(columns={size_field: 'size'}, inplace=True)
         factor = factor_data.reset_index().loc[:, ['date', 'code', factor_field]].copy()
-        industry = industry.reset_index()
+        industry = industry_dummies.reset_index()
         size = size_data.reset_index().loc[:, ['date', 'code', 'size']].copy()
         factor = pd.merge(factor, industry, on=['date', 'code'])
         factor = pd.merge(factor, size, on=['date', 'code'])
