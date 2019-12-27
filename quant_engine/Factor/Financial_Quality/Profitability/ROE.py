@@ -1,3 +1,5 @@
+# 盈利能力因子 ROE,ROE_Q,ROE_ddt,ROE_ddt_Q的计算
+
 from factor_base import FactorBase
 import pandas as pd
 import numpy as np
