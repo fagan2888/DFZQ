@@ -50,10 +50,10 @@ class tot_assets_revise(FactorBase):
             save_inf.saveData(code_tot_assets, 'Financial_Report_Gus', 'tot_assets')
 
     def cal_factors(self, start, end):
-        self.calendar = self.rdf.get_trading_calendar()
+        calendar = self.rdf.get_trading_calendar()
         start = str(start)
         end = str(end)
-        calendar = set(self.calendar.loc[(self.calendar >= start) & (self.calendar <= end)])
+        calendar = set(calendar.loc[(calendar >= start) & (calendar <= end)])
         tot_assets = pd.read_hdf(global_constant.ROOT_DIR + 'Data_Resource/Balance_Sheet/tot_assets.h5', key='data')
         tot_assets = tot_assets.sort_values(by=['report_period', 'date'])
         tot_assets['date'] = pd.to_datetime(tot_assets['date'])
