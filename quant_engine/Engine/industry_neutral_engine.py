@@ -52,6 +52,8 @@ class IndustryNeutralEngine:
             daily_data = influx.getDataMultiprocess(DB,measure,str(start),str(end))
         else:
             daily_data = data_input
+        if 'swap_date' not in daily_data.columns:
+            daily_data['swap_date'] = None
         self.logger.info('Data loaded! %s' %datetime.datetime.now())
         self.logger.info('****************************************\n')
 
