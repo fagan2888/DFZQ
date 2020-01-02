@@ -210,7 +210,7 @@ class momentum_p1(FactorBase):
                 code_merge = pd.merge(code_merge, code_res_m6, how='outer', on=['date', 'code'])
             if not code_res_m12.empty:
                 code_merge = pd.merge(code_merge, code_res_m12, how='outer', on=['date', 'code'])
-            code_merge.set_index('date')
+            code_merge.set_index('date',inplace=True)
             code_merge = code_merge.where(pd.notnull(code_merge), None)
             # save
             print('code: %s' % code)
