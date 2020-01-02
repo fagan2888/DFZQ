@@ -177,6 +177,7 @@ class momentum_p1(FactorBase):
             code_merge.set_index('date')
             code_merge = code_merge.where(pd.notnull(code_merge), None)
             # save
+            print('code: %s' % code)
             influx = influxdbData()
             influx.saveData(code_merge, 'DailyFactor_Gus', 'Momentum')
 
