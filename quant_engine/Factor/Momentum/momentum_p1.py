@@ -65,9 +65,9 @@ class momentum_p1(FactorBase):
                             / (period_m1_df['free_turnover'] * period_m1_df['exp_wgt']).sum()
                     m1.append(pd.Series([idx, code, rtn_m1, wgt_rtn_m1, float_wgt_rtn_m1, free_wgt_rtn_m1,
                                          exp_wgt_rtn_m1, float_exp_wgt_rtn_m1, free_exp_wgt_rtn_m1],
-                                        index=['date', 'code', 'rtn_m1', 'wgt_rtn_m1', 'float_wgt_rtn_m1',
-                                               'free_wgt_rtn_m1', 'exp_wgt_rtn_m1', 'float_exp_wgt_rtn_m1',
-                                               'free_exp_wgt_rtn_m1']))
+                                        index=['date', 'code', 'rtn_1m', 'wgt_rtn_1m', 'float_wgt_rtn_1m',
+                                               'free_wgt_rtn_1m', 'exp_wgt_rtn_1m', 'float_exp_wgt_rtn_1m',
+                                               'free_exp_wgt_rtn_1m']))
                 # -----------------------------------------------------------------------------------------
                 period_m3_df = code_df.loc[m3_before_idx:str_idx, :].copy()
                 if period_m3_df.shape[0] < 30:
@@ -103,9 +103,9 @@ class momentum_p1(FactorBase):
                             / (period_m3_df['free_turnover'] * period_m3_df['exp_wgt']).sum()
                     m3.append(pd.Series([idx, code, rtn_m3, wgt_rtn_m3, float_wgt_rtn_m3, free_wgt_rtn_m3,
                                          exp_wgt_rtn_m3, float_exp_wgt_rtn_m3, free_exp_wgt_rtn_m3],
-                                        index=['date', 'code', 'rtn_m3', 'wgt_rtn_m3', 'float_wgt_rtn_m3',
-                                               'free_wgt_rtn_m3', 'exp_wgt_rtn_m3', 'float_exp_wgt_rtn_m3',
-                                               'free_exp_wgt_rtn_m3']))
+                                        index=['date', 'code', 'rtn_3m', 'wgt_rtn_3m', 'float_wgt_rtn_3m',
+                                               'free_wgt_rtn_3m', 'exp_wgt_rtn_3m', 'float_exp_wgt_rtn_3m',
+                                               'free_exp_wgt_rtn_3m']))
                 # -----------------------------------------------------------------------------------------
                 period_m6_df = code_df.loc[m6_before_idx:str_idx, :].copy()
                 if period_m6_df.shape[0] < 60:
@@ -141,9 +141,9 @@ class momentum_p1(FactorBase):
                             / (period_m6_df['free_turnover'] * period_m6_df['exp_wgt']).sum()
                     m6.append(pd.Series([idx, code, rtn_m6, wgt_rtn_m6, float_wgt_rtn_m6, free_wgt_rtn_m6,
                                          exp_wgt_rtn_m6, float_exp_wgt_rtn_m6, free_exp_wgt_rtn_m6],
-                                        index=['date', 'code', 'rtn_m6', 'wgt_rtn_m6', 'float_wgt_rtn_m6',
-                                               'free_wgt_rtn_m6', 'exp_wgt_rtn_m6', 'float_exp_wgt_rtn_m6',
-                                               'free_exp_wgt_rtn_m6']))
+                                        index=['date', 'code', 'rtn_6m', 'wgt_rtn_6m', 'float_wgt_rtn_6m',
+                                               'free_wgt_rtn_6m', 'exp_wgt_rtn_6m', 'float_exp_wgt_rtn_6m',
+                                               'free_exp_wgt_rtn_6m']))
                 # ---------------------------------------------------------------------------------------
                 period_m12_df = code_df.loc[m12_before_idx:str_idx, :].copy()
                 if period_m12_df.shape[0] < 120:
@@ -179,9 +179,9 @@ class momentum_p1(FactorBase):
                             / (period_m12_df['free_turnover'] * period_m12_df['exp_wgt']).sum()
                     m12.append(pd.Series([idx, code, rtn_m12, wgt_rtn_m12, float_wgt_rtn_m12, free_wgt_rtn_m12,
                                           exp_wgt_rtn_m12, float_exp_wgt_rtn_m12, free_exp_wgt_rtn_m12],
-                                         index=['date', 'code', 'rtn_m12', 'wgt_rtn_m12', 'float_wgt_rtn_m12',
-                                                'free_wgt_rtn_m12', 'exp_wgt_rtn_m12', 'float_exp_wgt_rtn_m12',
-                                                'free_exp_wgt_rtn_m12']))
+                                         index=['date', 'code', 'rtn_12m', 'wgt_rtn_12m', 'float_wgt_rtn_12m',
+                                                'free_wgt_rtn_12m', 'exp_wgt_rtn_12m', 'float_exp_wgt_rtn_12m',
+                                                'free_exp_wgt_rtn_12m']))
             code_res_m1 = pd.concat(m1, axis=1).T
             code_res_m1.set_index('date', inplace=True)
             m1_after_start = (start + relativedelta(months=1)).strftime('%Y%m%d')
@@ -211,6 +211,8 @@ class momentum_p1(FactorBase):
             if not code_res_m12.empty:
                 code_merge = pd.merge(code_merge, code_res_m12, how='outer', on=['date', 'code'])
             code_merge.set_index('date',inplace=True)
+            code_merge[code_merge.columns.difference(['code'])] = \
+                code_merge[code_merge.columns.difference(['code'])].astype('float')
             code_merge = code_merge.where(pd.notnull(code_merge), None)
             # save
             print('code: %s' % code)
