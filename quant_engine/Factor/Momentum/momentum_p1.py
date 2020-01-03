@@ -182,33 +182,33 @@ class momentum_p1(FactorBase):
                                          index=['date', 'code', 'rtn_12m', 'wgt_rtn_12m', 'float_wgt_rtn_12m',
                                                 'free_wgt_rtn_12m', 'exp_wgt_rtn_12m', 'float_exp_wgt_rtn_12m',
                                                 'free_exp_wgt_rtn_12m']))
-            code_res_m1 = pd.concat(m1, axis=1).T
-            code_res_m1.set_index('date', inplace=True)
-            m1_after_start = (start + relativedelta(months=1)).strftime('%Y%m%d')
-            code_res_m1 = code_res_m1.loc[m1_after_start:, :]
-            code_res_m1.reset_index(inplace=True)
-            code_res_m3 = pd.concat(m3, axis=1).T
-            code_res_m3.set_index('date', inplace=True)
-            m3_after_start = (start + relativedelta(months=3)).strftime('%Y%m%d')
-            code_res_m3 = code_res_m3.loc[m3_after_start:, :]
-            code_res_m3.reset_index(inplace=True)
-            code_res_m6 = pd.concat(m6, axis=1).T
-            code_res_m6.set_index('date', inplace=True)
-            m6_after_start = (start + relativedelta(months=6)).strftime('%Y%m%d')
-            code_res_m6 = code_res_m6.loc[m6_after_start:, :]
-            code_res_m6.reset_index(inplace=True)
-            code_res_m12 = pd.concat(m12, axis=1).T
-            code_res_m12.set_index('date', inplace=True)
-            m12_after_start = (start + relativedelta(months=12)).strftime('%Y%m%d')
-            code_res_m12 = code_res_m12.loc[m12_after_start:, :]
-            code_res_m12.reset_index(inplace=True)
-            if not code_res_m1.empty:
+            if m1:
+                code_res_m1 = pd.concat(m1, axis=1).T
+                code_res_m1.set_index('date', inplace=True)
+                m1_after_start = (start + relativedelta(months=1)).strftime('%Y%m%d')
+                code_res_m1 = code_res_m1.loc[m1_after_start:, :]
+                code_res_m1.reset_index(inplace=True)
                 code_merge = code_res_m1
-            if not code_res_m3.empty:
+            if m3:
+                code_res_m3 = pd.concat(m3, axis=1).T
+                code_res_m3.set_index('date', inplace=True)
+                m3_after_start = (start + relativedelta(months=3)).strftime('%Y%m%d')
+                code_res_m3 = code_res_m3.loc[m3_after_start:, :]
+                code_res_m3.reset_index(inplace=True)
                 code_merge = pd.merge(code_merge, code_res_m3, how='outer', on=['date', 'code'])
-            if not code_res_m6.empty:
+            if m6:
+                code_res_m6 = pd.concat(m6, axis=1).T
+                code_res_m6.set_index('date', inplace=True)
+                m6_after_start = (start + relativedelta(months=6)).strftime('%Y%m%d')
+                code_res_m6 = code_res_m6.loc[m6_after_start:, :]
+                code_res_m6.reset_index(inplace=True)
                 code_merge = pd.merge(code_merge, code_res_m6, how='outer', on=['date', 'code'])
-            if not code_res_m12.empty:
+            if m12:
+                code_res_m12 = pd.concat(m12, axis=1).T
+                code_res_m12.set_index('date', inplace=True)
+                m12_after_start = (start + relativedelta(months=12)).strftime('%Y%m%d')
+                code_res_m12 = code_res_m12.loc[m12_after_start:, :]
+                code_res_m12.reset_index(inplace=True)
                 code_merge = pd.merge(code_merge, code_res_m12, how='outer', on=['date', 'code'])
             code_merge.set_index('date',inplace=True)
             code_merge[code_merge.columns.difference(['code'])] = \
