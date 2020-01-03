@@ -170,7 +170,7 @@ class turnover_p1(FactorBase):
             # save
             print('code: %s' % code)
             influx = influxdbData()
-            influx.saveData(code_merge, 'DailyFactor_Gus', 'Momentum')
+            influx.saveData(code_merge, 'DailyFactor_Gus', 'Turnover')
 
     def cal_factors(self, start, end):
         turnover = self.influx.getDataMultiprocess('DailyData_Gus', 'indicators', start, end,
