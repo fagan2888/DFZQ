@@ -43,6 +43,7 @@ class shares_and_turnover(FactorBase):
         merge['float_turnover'] = merge['volume'] / merge['float_shares']
         merge['free_turnover'] = merge['volume'] / merge['free_shares']
         merge = merge.drop('volume', axis=1)
+        merge.set_index('date', inplace=True)
         merge = merge.where(pd.notnull(merge), None)
         codes = merge['code'].unique()
         split_codes = np.array_split(codes, 10)
