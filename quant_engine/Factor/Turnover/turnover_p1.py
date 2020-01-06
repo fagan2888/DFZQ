@@ -75,6 +75,9 @@ class turnover_p1(FactorBase):
                     pass
                 else:
                     turn_2y = period_y2_df['turnover'].mean()
+                    # 股票长期停牌的情况 eg. 000029.SZ
+                    if turn_2y == 0:
+                        continue
                     float_turn_2y = period_y2_df['float_turnover'].mean()
                     free_turn_2y = period_y2_df['free_turnover'].mean()
                     std_turn_2y = period_y2_df['turnover'].std()
