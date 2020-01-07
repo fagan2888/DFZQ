@@ -91,10 +91,9 @@ class DataProcess:
     @staticmethod
     # 获取行业哑变量
     def get_industry_dummies(mkt_data, industry_field='improved_lv1'):
-        industry_data = pd.get_dummies(mkt_data[industry_field])
-        industry_data = pd.concat([mkt_data['code'], industry_data], axis=1)
-        # 过滤掉没有行业信息的数据
-        industry_data = industry_data.loc[~(industry_data == 0).all(axis=1), :]
+        df = mkt_data.dropna(subset=[industry_field])
+        industry_data = pd.get_dummies(df[industry_field])
+        industry_data = pd.concat([df['code'], industry_data], axis=1)
         return industry_data
 
     @staticmethod
