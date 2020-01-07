@@ -94,10 +94,10 @@ class FactorTest:
 
     @staticmethod
     def job_backtest(group_name, grouped_weight, benchmark, adj_interval, cash_reserve, price_field, indu_field,
-                     data_input,
-                     stock_capital, stk_slippage, stk_fee, logger_lvl=logging.INFO):
+                     data_input, stock_capital, stk_slippage, stk_fee, logger_lvl=logging.INFO):
         weight = grouped_weight.loc[
-            grouped_weight['group'] == group_name, ['code', 'industry', 'weight_in_industry']].copy()
+            (grouped_weight['group'] == group_name) | (grouped_weight['group'] == 'same_group'),
+            ['code', 'industry', 'weight_in_industry']].copy()
         BE = IndustryNeutralEngine(stock_capital, stk_slippage, stk_fee, save_name=group_name, logger_lvl=logger_lvl)
         start = weight.index[0].strftime('%Y%m%d')
         end = weight.index[-1].strftime('%Y%m%d')
@@ -173,7 +173,7 @@ class FactorTest:
         mkt_data.index.names = ['date']
         mkt_data.reset_index(inplace=True)
         mkt_data.rename(columns={self.industry_field: 'industry'}, inplace=True)
-        merge_df = pd.merge(neutral_factor,mkt_data,on=['date','code'])
+        merge_df = pd.merge(neutral_factor, mkt_data, on=['date', 'code'])
         res_dict = {}
         # 先按等权测试
         dates = merge_df['date'].unique()
@@ -206,10 +206,9 @@ class FactorTest:
         res_dict['NonEquW'] = grouped_weight.copy()
         return res_dict
 
-
-    def group_backtest(self, grouped_weight_dict,mkt_data):
+    def group_backtest(self, grouped_weight_dict, mkt_data):
         for weight_mode in grouped_weight_dict.keys():
-            print('%s groups is backtesting' %weight_mode)
+            print('%s groups is backtesting' % weight_mode)
             grouped_weight = grouped_weight_dict[weight_mode]
             group = []
             for i in range(1, self.groups + 1):
@@ -217,8 +216,8 @@ class FactorTest:
             with parallel_backend('multiprocessing', n_jobs=5):
                 parallel_res = Parallel()(delayed(FactorTest.job_backtest)
                                           (g, grouped_weight, self.benchmark, self.adj_interval,
-                                           self.cash_reserve,self.price_field, self.industry_field, mkt_data,
-                                           self.capital,self.stk_slippage, self.stk_fee, self.logger_lvl)
+                                           self.cash_reserve, self.price_field, self.industry_field, mkt_data,
+                                           self.capital, self.stk_slippage, self.stk_fee, self.logger_lvl)
                                           for g in group)
             tot_res = pd.concat(parallel_res, axis=1)
             # 合并指数value
@@ -230,7 +229,7 @@ class FactorTest:
             for col in index_value.columns:
                 index_value[col] = index_value[col] / index_value[col].iloc[0] * self.capital
             tot_res = pd.merge(tot_res, index_value, left_index=True, right_index=True)
-            filename = global_constant.ROOT_DIR + '/Backtest_Result/Group_Value/' + self.save_name + '_' +\
+            filename = global_constant.ROOT_DIR + '/Backtest_Result/Group_Value/' + self.save_name + '_' + \
                        weight_mode + '.csv'
             tot_res.to_csv(filename, encoding='gbk')
             self.summary_dict['AnnRet_high_group_' + weight_mode] = \
@@ -268,7 +267,7 @@ class FactorTest:
     def generate_report(self, summary_dict):
         rep = {self.factor_field: summary_dict}
         rep = pd.DataFrame(rep)
-        rep = rep.reindex(index=['Start_Time','End_Time', 'F_over_0_pct', 'avg_abs_T', 'abs_T_over_2_pct', 'IC_mean',
+        rep = rep.reindex(index=['Start_Time', 'End_Time', 'F_over_0_pct', 'avg_abs_T', 'abs_T_over_2_pct', 'IC_mean',
                                  'IC_std', 'IC_over_0_pct', 'abs_IC_over_20pct_pct', 'IR', 'AnnRet_high_group_EquW',
                                  'AnnRet_high_group_NonEquW', 'AnnRet_300', 'AnnRet_500', 'AnnRet_800',
                                  'alpha_300_EquW', 'alpha_300_NonEquW', 'alpha_500_EquW', 'alpha_500_NonEquW',
@@ -282,8 +281,9 @@ class FactorTest:
 
     def run_factor_test(self, mkt_data, factor_data, factor_field, size_data, save_name, change_days=5, groups=5,
                         filter_st=True, standardize='z', remove_outlier=True, mkt_cap_field='ln_market_cap',
-                        benchmark='IC', industry_field='citics_lv1_name', capital=5000000, cash_reserve=0.03,
-                        stk_slippage=0.001, stk_fee=0.0001, price_field='vwap', adj_interval=5, logger_lvl=logging.ERROR):
+                        benchmark='IF', industry_field='improved_lv1', capital=5000000, cash_reserve=0.03,
+                        stk_slippage=0.001, stk_fee=0.0001, price_field='vwap', adj_interval=5,
+                        logger_lvl=logging.ERROR):
         self.factor_field = factor_field
         self.save_name = save_name
         self.change_days = change_days
@@ -307,13 +307,13 @@ class FactorTest:
         neutral_factor = DataProcess.neutralize(factor_data, factor_field, industry_dummies, size_data)
         print('factor neutralization finish')
         print('-' * 30)
-        self.validity_check(neutral_factor, mkt_data, T_test=True)
+        #self.validity_check(neutral_factor, mkt_data, T_test=True)
         print('validity checking finish')
         print('-' * 30)
-        grouped_weight_dict = self.group_factor(neutral_factor,mkt_data,size_data,'market_cap')
+        grouped_weight_dict = self.group_factor(neutral_factor, mkt_data, size_data, 'market_cap')
         print('factor grouping finish')
         print('-' * 30)
-        summary_dict = self.group_backtest(grouped_weight_dict,mkt_data)
+        summary_dict = self.group_backtest(grouped_weight_dict, mkt_data)
         print('group backtest finish')
         print('-' * 30)
         self.generate_report(summary_dict)
@@ -326,11 +326,19 @@ if __name__ == '__main__':
     strategy = FactorTest()
 
     start = 20120101
-    end = 20131231
+    end = 20121231
     mkt_data = strategy.influx.getDataMultiprocess('DailyData_Gus', 'marketData', start, end, None)
-    factor = strategy.influx.getDataMultiprocess('DailyFactor_Gus', 'Growth', start, end, ['code', 'EPcut_TTM_growthY'])
-    factor = factor.dropna(subset=['EPcut_TTM_growthY'])
+    # 只取800成分股
+    code_800 = pd.DataFrame(mkt_data.loc[pd.notnull(mkt_data['IF_weight']) | pd.notnull(mkt_data['IC_weight']), 'code'])
+    code_800.index.names = ['date']
+    code_800.reset_index(inplace=True)
+    factor = strategy.influx.getDataMultiprocess('DailyFactor_Gus', 'Value', start, end, ['code', 'BP'])
+    factor = factor.dropna(subset=['BP'])
+    factor.index.names = ['date']
+    factor.reset_index(inplace=True)
+    factor = pd.merge(factor, code_800, how='right', on=['date', 'code'])
+    factor.set_index('date',inplace=True)
     print('factor loaded!')
     size_data = strategy.influx.getDataMultiprocess('DailyFactor_Gus', 'Size', start, end, None)
-    strategy.run_factor_test(mkt_data, factor, 'EPcut_TTM_growthY', size_data, 'EPcut_TTM_growthY', benchmark='IF',
+    strategy.run_factor_test(mkt_data, factor, 'BP', size_data, 'BP', benchmark='IF',
                              mkt_cap_field='ln_market_cap')
