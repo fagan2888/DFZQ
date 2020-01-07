@@ -38,12 +38,12 @@ class DataProcess:
 
     @staticmethod
     def calc_ann_return(series):
-        return (series.iloc[-1] / series.iloc[0] - 1) ** (250 / series.shape[0])
+        return (series.iloc[-1] / series.iloc[0] - 1) * 250 / series.shape[0]
 
     @staticmethod
     def calc_alpha_ann_return(series1, series2):
-        ret1 = (series1.iloc[-1] / series1.iloc[0] - 1) ** (250 / series1.shape[0])
-        ret2 = (series2.iloc[-1] / series2.iloc[0] - 1) ** (250 / series2.shape[0])
+        ret1 = (series1.iloc[-1] / series1.iloc[0] - 1) * 250 / series1.shape[0]
+        ret2 = (series2.iloc[-1] / series2.iloc[0] - 1) * 250 / series2.shape[0]
         return ret1 - ret2
 
     @staticmethod
