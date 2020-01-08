@@ -69,8 +69,9 @@ class DataProcess:
 
     @staticmethod
     # 返回的date在columns里
-    def add_next_period_return(data, calendar, days):
+    def add_next_period_return(data, calendar, days, benchmark):
         # 默认index是日期
+        bm_dict = {'IH': '000016.SH', 'IF': '000300.SH', 'IC': '000905.SH'}
         mkt_data = data.copy()
         idxs = mkt_data.index.unique()
         next_date_dict = {}
@@ -86,6 +87,15 @@ class DataProcess:
         fq_close.rename(columns={'date': field}, inplace=True)
         mkt_data = pd.merge(mkt_data, fq_close, how='left', on=[field, 'code'])
         mkt_data['next_period_return'] = mkt_data['next_fq_close'] / mkt_data['adj_factor'] / mkt_data['close'] - 1
+        bm_close = mkt_data.loc[mkt_data['code'] == bm_dict[benchmark], ['date', 'close', field]].copy()
+        bm_close.rename(columns={'close': 'benchmark_close'}, inplace=True)
+        nxt_bm_close = bm_close.loc[:, ['date', 'benchmark_close']].copy()
+        nxt_bm_close.rename(columns={'date': field, 'benchmark_close': 'next_benchmark_close'}, inplace=True)
+        bm_return = pd.merge(bm_close, nxt_bm_close, on=field, how='left')
+        bm_return['next_benchmark_return'] = bm_return['next_benchmark_close'] / bm_return['benchmark_close'] - 1
+        bm_return = bm_return.loc[:, ['date', 'next_benchmark_return']]
+        mkt_data = pd.merge(mkt_data, bm_return, how='left', on='date')
+        mkt_data['next_period_alpha'] = mkt_data['next_period_return'] - mkt_data['next_benchmark_return']
         return mkt_data
 
     @staticmethod
