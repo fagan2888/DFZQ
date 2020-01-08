@@ -177,3 +177,12 @@ class industry_neutral_portfolio:
         self.logger.info('Total Value: %f' % total_value)
         self.logger.info('***************************************')
         return total_value
+
+    def refresh_portfolio_industry(self, industry_input: pd.Series):
+        self.logger.info('****************************************')
+        for stk in self.stk_positions:
+            if stk not in industry_input.index:
+                pass
+            else:
+                if pd.notnull(industry_input[stk]):
+                    self.stk_positions[stk]['industry'] = industry_input[stk]

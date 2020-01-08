@@ -88,9 +88,9 @@ class IndustryNeutralEngine:
         stk_indu_weight.index.names = ['date']
         stk_indu_weight.reset_index(inplace=True)
         stk_indu_weight.drop('industry', axis=1, inplace=True)
-        daily_data = pd.merge(stk_indu_weight, daily_data, on=['date', 'code'], how='outer')
         # 把行情数据中的industry删掉，以免跟权重中的industry字段冲突
         # 合并stk indu weight
+        daily_data = pd.merge(daily_data, stk_indu_weight, on=['date', 'code'], how='left')
         daily_data.set_index('date', inplace=True)
         daily_data['weight_in_industry'] = daily_data['weight_in_industry'].fillna(0)
 
@@ -235,7 +235,8 @@ class IndustryNeutralEngine:
                         self.stk_portfolio.stk_positions[row['swap_code']]['latest_close'] = \
                             self.stk_portfolio.stk_positions[idx]['latest_close'] / row['swap_ratio']
                     self.stk_portfolio.stk_positions.pop(idx)
-
+            # 刷新所属行业
+            self.stk_portfolio.refresh_portfolio_industry(one_day_data['industry'])
             # 记录 portfolio value 和 locked amount
             total_value = self.stk_portfolio.get_portfolio_value(one_day_data['close'])
             portfolio_value_dict[trade_day] = \
