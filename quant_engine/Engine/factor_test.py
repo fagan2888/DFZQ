@@ -15,17 +15,25 @@ import datetime
 class FactorTest:
     @staticmethod
     def job_T_test(processed_factor, factor_field, dates):
-        F = []
-        T = []
+        F_return = []
+        T_return = []
+        F_alpha = []
+        T_alpha = []
         for date in dates:
             day_factor = processed_factor.loc[processed_factor['date'] == date, factor_field]
             day_return = processed_factor.loc[processed_factor['date'] == date, 'next_period_return']
+            day_alpha = processed_factor.loc[processed_factor['date'] == date, 'next_period_alpha']
             RLM_est = sm.RLM(day_return, day_factor, M=sm.robust.norms.HuberT()).fit()
             day_RLM_para = RLM_est.params
             day_Tvalue = RLM_est.tvalues
-            F.append(day_RLM_para.iloc[0])
-            T.append(day_Tvalue.iloc[0])
-        return np.array([F, T])
+            F_return.append(day_RLM_para.iloc[0])
+            T_return.append(day_Tvalue.iloc[0])
+            RLM_est = sm.RLM(day_alpha, day_factor, M=sm.robust.norms.HuberT()).fit()
+            day_RLM_para = RLM_est.params
+            day_Tvalue = RLM_est.tvalues
+            F_alpha.append(day_RLM_para.iloc[0])
+            T_alpha.append(day_Tvalue.iloc[0])
+        return np.array([F_return, T_return, F_alpha, T_alpha])
 
     @staticmethod
     def job_IC(processed_factor, factor_field, dates):
@@ -115,12 +123,12 @@ class FactorTest:
 
     # days 决定next_period_return 的周期
     def validity_check(self, neutral_factor, mkt_data, T_test=True):
-        mkt_next_return = DataProcess.add_next_period_return(mkt_data, self.calendar, self.change_days)
+        mkt_next_return = DataProcess.add_next_period_return(mkt_data, self.calendar, self.change_days, self.benchmark)
         processed_factor = pd.merge(mkt_next_return, neutral_factor, on=['date', 'code'])
         # 超过0.11或-0.11的return标记为异常数据，置为nan(新股本身剔除)
         processed_factor.dropna(subset=['next_period_return'], inplace=True)
-        processed_factor = processed_factor.loc[(processed_factor['next_period_return'] < 0.11) &
-                                                (processed_factor['next_period_return'] > -0.11), :]
+        processed_factor = processed_factor.loc[(processed_factor['next_period_return'] < 0.11 * self.change_days) &
+                                                (processed_factor['next_period_return'] > -0.11 * self.change_days), :]
         dates = processed_factor['date'].unique()
         split_dates = np.array_split(dates, 10)
         if T_test:
@@ -130,17 +138,27 @@ class FactorTest:
                                           (processed_factor, self.factor_field, dates) for dates in split_dates)
             # 第一行F，第二行T
             RLM_result = np.concatenate(parallel_res, axis=1)
-            Fvalues = RLM_result[0]
-            Tvalues = RLM_result[1]
-            F_over_0_pct = Fvalues[Fvalues > 0].shape[0] / Fvalues.shape[0]
-            avg_abs_T = abs(Tvalues).mean()
-            abs_T_over_2_pct = abs(Tvalues)[abs(Tvalues) >= 2].shape[0] / Tvalues.shape[0]
-            self.summary_dict['F_over_0_pct'] = F_over_0_pct
-            self.summary_dict['avg_abs_T'] = avg_abs_T
-            self.summary_dict['abs_T_over_2_pct'] = abs_T_over_2_pct
+            F_return_values = RLM_result[0]
+            T_return_values = RLM_result[1]
+            F_alpha_values = RLM_result[2]
+            T_alpha_values = RLM_result[3]
+            Fret_over_0_pct = F_return_values[F_return_values > 0].shape[0] / F_return_values.shape[0]
+            Falp_over_0_pct = F_alpha_values[F_alpha_values > 0].shape[0] / F_alpha_values.shape[0]
+            avg_abs_Tret = abs(T_return_values).mean()
+            avg_abs_Talp = abs(T_alpha_values).mean()
+            abs_Tret_over_2_pct = abs(T_return_values)[abs(T_return_values) >= 2].shape[0] / T_return_values.shape[0]
+            abs_Talp_over_2_pct = abs(T_alpha_values)[abs(T_alpha_values) >= 2].shape[0] / T_alpha_values.shape[0]
+            self.summary_dict['Fret_over_0_pct'] = Fret_over_0_pct
+            self.summary_dict['Falp_over_0_pct'] = Falp_over_0_pct
+            self.summary_dict['avg_abs_Tret'] = avg_abs_Tret
+            self.summary_dict['avg_abs_Talp'] = avg_abs_Talp
+            self.summary_dict['abs_Tret_over_2_pct'] = abs_Tret_over_2_pct
+            self.summary_dict['abs_Talp_over_2_pct'] = abs_Talp_over_2_pct
             print('-' * 30)
-            print('REGRESSION RESULT: \n   F_over_0_pct: %f \n   avg_abs_T: %f \n   abs_T_over_2_pct: %f \n' %
-                  (F_over_0_pct, avg_abs_T, abs_T_over_2_pct))
+            print('REGRESSION RESULT: \n   Fret_over_0_pct: %f \n   Falp_over_0_pct: %f \n   avg_abs_Tret: %f \n   '
+                  'avg_abs_Talp: %f \n   abs_Tret_over_2_pct: %f \n   abs_Talp_over_2_pct: %f \n'
+                  % (Fret_over_0_pct, Falp_over_0_pct, avg_abs_Tret, avg_abs_Talp,
+                     abs_Tret_over_2_pct, abs_Talp_over_2_pct))
         # 计算IC
         with parallel_backend('multiprocessing', n_jobs=4):
             parallel_res = Parallel()(delayed(FactorTest.job_IC)
@@ -154,10 +172,11 @@ class FactorTest:
         self.summary_dict['IC_over_0_pct'] = IC_over_0_pct
         self.summary_dict['abs_IC_over_20pct_pct'] = abs_IC_over_20pct_pct
         self.summary_dict['IR'] = IR
+        self.summary_dict['ICIR'] = IC.mean() / IR
         print('-' * 30)
         print('ICIR RESULT: \n   IC mean: %f \n   IC std: %f \n   IC_over_0_pct: %f \n   '
-              'abs_IC_over_20pct_pct: %f \n   IR: %f \n' %
-              (IC.mean(), IC.std(), IC_over_0_pct, abs_IC_over_20pct_pct, IR))
+              'abs_IC_over_20pct_pct: %f \n   IR: %f \n   ICIR: %f \n' %
+              (IC.mean(), IC.std(), IC_over_0_pct, abs_IC_over_20pct_pct, IR, IC.mean() / IR))
         IC.name = 'IC'
         return IC
 
@@ -173,6 +192,7 @@ class FactorTest:
         mkt_data.index.names = ['date']
         mkt_data.reset_index(inplace=True)
         mkt_data.rename(columns={self.industry_field: 'industry'}, inplace=True)
+        # 组合得到当天未停牌因子的code，中性后的因子值，行业
         merge_df = pd.merge(neutral_factor, mkt_data, on=['date', 'code'])
         res_dict = {}
         # 先按等权测试
@@ -194,7 +214,7 @@ class FactorTest:
         size_data.reset_index(inplace=True)
         merge_df = pd.merge(merge_df, size_data, on=['date', 'code'])
         dates = merge_df['date'].unique()
-        split_dates = np.array_split(dates, 30)
+        split_dates = np.array_split(dates, 10)
         with parallel_backend('multiprocessing', n_jobs=4):
             result_list = Parallel()(delayed(FactorTest.job_group_nonequal_weight)
                                      (dates, self.groups, merge_df, self.factor_field) for dates in split_dates)
@@ -229,6 +249,12 @@ class FactorTest:
             for col in index_value.columns:
                 index_value[col] = index_value[col] / index_value[col].iloc[0] * self.capital
             tot_res = pd.merge(tot_res, index_value, left_index=True, right_index=True)
+            tot_res['low_300_alpha'] = (tot_res['group_1_TotalValue'] - tot_res['000300.SH']) / self.capital
+            tot_res['low_500_alpha'] = (tot_res['group_1_TotalValue'] - tot_res['000905.SH']) / self.capital
+            tot_res['low_800_alpha'] = (tot_res['group_1_TotalValue'] - tot_res['300+500']) / self.capital
+            tot_res['high_300_alpha'] = (tot_res['group_5_TotalValue'] - tot_res['000300.SH']) / self.capital
+            tot_res['high_500_alpha'] = (tot_res['group_5_TotalValue'] - tot_res['000905.SH']) / self.capital
+            tot_res['high_800_alpha'] = (tot_res['group_5_TotalValue'] - tot_res['300+500']) / self.capital
             filename = global_constant.ROOT_DIR + '/Backtest_Result/Group_Value/' + self.save_name + '_' + \
                        weight_mode + '.csv'
             tot_res.to_csv(filename, encoding='gbk')
@@ -267,15 +293,17 @@ class FactorTest:
     def generate_report(self, summary_dict):
         rep = {self.factor_field: summary_dict}
         rep = pd.DataFrame(rep)
-        rep = rep.reindex(index=['Start_Time', 'End_Time', 'F_over_0_pct', 'avg_abs_T', 'abs_T_over_2_pct', 'IC_mean',
-                                 'IC_std', 'IC_over_0_pct', 'abs_IC_over_20pct_pct', 'IR', 'AnnRet_high_group_EquW',
-                                 'AnnRet_high_group_NonEquW', 'AnnRet_300', 'AnnRet_500', 'AnnRet_800',
-                                 'alpha_300_EquW', 'alpha_300_NonEquW', 'alpha_500_EquW', 'alpha_500_NonEquW',
-                                 'alpha_800_EquW', 'alpha_800_NonEquW', 'MDD_high_group_EquW', 'MDD_high_group_NonEquW',
-                                 'MDD_300', 'MDD_500', 'MDD_800', 'sharpe_high_group_EquW', 'sharpe_high_group_NonEquW',
-                                 'sharpe_300', 'sharpe_500', 'sharpe_800', 'sharpe_alpha_300_EquW',
-                                 'sharpe_alpha_300_NonEquW', 'sharpe_alpha_500_EquW', 'sharpe_alpha_500_NonEquW',
-                                 'sharpe_alpha_800_EquW', 'sharpe_alpha_800_NonEquW'])
+        rep = rep.reindex(
+            index=['Start_Time', 'End_Time', 'Fret_over_0_pct', 'Falp_over_0_pct', 'avg_abs_Tret', 'avg_abs_Talp',
+                   'abs_Tret_over_2_pct', 'abs_Talp_over_2_pct', 'IC_mean', 'IC_std', 'IC_over_0_pct',
+                   'abs_IC_over_20pct_pct', 'IR', 'ICIR', 'AnnRet_high_group_EquW',
+                   'AnnRet_high_group_NonEquW', 'AnnRet_300', 'AnnRet_500', 'AnnRet_800',
+                   'alpha_300_EquW', 'alpha_300_NonEquW', 'alpha_500_EquW', 'alpha_500_NonEquW',
+                   'alpha_800_EquW', 'alpha_800_NonEquW', 'MDD_high_group_EquW', 'MDD_high_group_NonEquW',
+                   'MDD_300', 'MDD_500', 'MDD_800', 'sharpe_high_group_EquW', 'sharpe_high_group_NonEquW',
+                   'sharpe_300', 'sharpe_500', 'sharpe_800', 'sharpe_alpha_300_EquW',
+                   'sharpe_alpha_300_NonEquW', 'sharpe_alpha_500_EquW', 'sharpe_alpha_500_NonEquW',
+                   'sharpe_alpha_800_EquW', 'sharpe_alpha_800_NonEquW'])
         filename = global_constant.ROOT_DIR + '/Backtest_Result/Factor_Report/' + self.save_name + '.csv'
         rep.to_csv(filename, encoding='gbk')
 
@@ -307,7 +335,7 @@ class FactorTest:
         neutral_factor = DataProcess.neutralize(factor_data, factor_field, industry_dummies, size_data)
         print('factor neutralization finish')
         print('-' * 30)
-        #self.validity_check(neutral_factor, mkt_data, T_test=True)
+        self.validity_check(neutral_factor, mkt_data, T_test=True)
         print('validity checking finish')
         print('-' * 30)
         grouped_weight_dict = self.group_factor(neutral_factor, mkt_data, size_data, 'market_cap')
@@ -325,20 +353,21 @@ if __name__ == '__main__':
     warnings.filterwarnings("ignore")
     strategy = FactorTest()
 
-    start = 20120101
-    end = 20121231
+    start = 20150101
+    end = 20151231
     mkt_data = strategy.influx.getDataMultiprocess('DailyData_Gus', 'marketData', start, end, None)
-    # 只取800成分股
-    code_800 = pd.DataFrame(mkt_data.loc[pd.notnull(mkt_data['IF_weight']) | pd.notnull(mkt_data['IC_weight']), 'code'])
+    # 只取800中未停牌的成分股
+    code_800 = pd.DataFrame(mkt_data.loc[(pd.notnull(mkt_data['IF_weight']) | pd.notnull(mkt_data['IC_weight'])) &
+                                         ~((mkt_data['status'] == '停牌') | pd.isnull(mkt_data['status'])), 'code'])
     code_800.index.names = ['date']
     code_800.reset_index(inplace=True)
-    factor = strategy.influx.getDataMultiprocess('DailyFactor_Gus', 'Value', start, end, ['code', 'BP'])
-    factor = factor.dropna(subset=['BP'])
+    factor = strategy.influx.getDataMultiprocess('DailyFactor_Gus', 'Value', start, end, ['code', 'DP_TTM'])
+    factor = factor.dropna(subset=['DP_TTM'])
     factor.index.names = ['date']
     factor.reset_index(inplace=True)
     factor = pd.merge(factor, code_800, how='right', on=['date', 'code'])
-    factor.set_index('date',inplace=True)
+    factor.set_index('date', inplace=True)
     print('factor loaded!')
     size_data = strategy.influx.getDataMultiprocess('DailyFactor_Gus', 'Size', start, end, None)
-    strategy.run_factor_test(mkt_data, factor, 'BP', size_data, 'BP', benchmark='IF',
+    strategy.run_factor_test(mkt_data, factor, 'DP_TTM', size_data, 'DP_TTM', benchmark='IF',
                              mkt_cap_field='ln_market_cap')
