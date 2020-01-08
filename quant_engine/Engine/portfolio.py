@@ -111,9 +111,9 @@ class stock_portfolio:
     def process_ex_right(self,ex_right:pd.DataFrame):
         self.logger.info('****************************************')
         self.logger.info('Ex Right Info:')
-        shr_ex_right = ex_right.loc[(ex_right['cash_dvd_ratio']!=0) | (ex_right['bonus_share_ratio']!=0) |
-                                    (ex_right['conversed_ratio']!=0) |(ex_right['rightissue_price']!=0) |
-                                    (ex_right['rightissue_ratio']!=0),
+        shr_ex_right = ex_right.loc[(ex_right['cash_dvd_ratio'] > 0) | (ex_right['bonus_share_ratio'] > 0) |
+                                    (ex_right['conversed_ratio'] > 0) | (ex_right['rightissue_price'] > 0) |
+                                    (ex_right['rightissue_ratio'] > 0),
                                     ['cash_dvd_ratio','bonus_share_ratio','conversed_ratio',
                                      'rightissue_price','rightissue_ratio']]
         # 默认参加配股

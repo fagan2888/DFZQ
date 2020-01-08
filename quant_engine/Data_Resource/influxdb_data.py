@@ -82,7 +82,7 @@ class influxdbData:
             if dt_start + relativedelta(months=1) < dt_end:
                 period_end = dt_start + relativedelta(months=1)
             else:
-                period_end = dt_end
+                period_end = dt_end + datetime.timedelta(days=1)
             parameter_list.append((dt_start.strftime('%Y%m%d'),period_end.strftime('%Y%m%d'),measure))
             dt_start += relativedelta(months=1)
 
@@ -98,6 +98,6 @@ if __name__ == '__main__':
     influx = influxdbData()
     print(influx.getDBs())
     print(datetime.datetime.now())
-    a = influx.getDataMultiprocess('DailyData_Gus','marketData','20100101','20190901',None)
+    a = influx.getDataMultiprocess('DailyData_Gus','marketData','20100101','20130901',None)
     a = a.loc[pd.notnull(a['split_ratio']),:]
     print('finish!')

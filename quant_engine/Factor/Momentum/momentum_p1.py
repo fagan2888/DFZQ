@@ -210,14 +210,18 @@ class momentum_p1(FactorBase):
                 code_res_m12 = code_res_m12.loc[m12_after_start:, :]
                 code_res_m12.reset_index(inplace=True)
                 code_merge = pd.merge(code_merge, code_res_m12, how='outer', on=['date', 'code'])
-            code_merge.set_index('date',inplace=True)
-            code_merge[code_merge.columns.difference(['code'])] = \
-                code_merge[code_merge.columns.difference(['code'])].astype('float')
-            code_merge = code_merge.where(pd.notnull(code_merge), None)
-            # save
-            print('code: %s' % code)
-            influx = influxdbData()
-            influx.saveData(code_merge, 'DailyFactor_Gus', 'Momentum')
+            try:
+                code_merge.set_index('date',inplace=True)
+                code_merge[code_merge.columns.difference(['code'])] = \
+                    code_merge[code_merge.columns.difference(['code'])].astype('float')
+                code_merge = code_merge.where(pd.notnull(code_merge), None)
+                # save
+                print('code: %s' % code)
+                influx = influxdbData()
+                influx.saveData(code_merge, 'DailyFactor_Gus', 'Momentum')
+            except KeyError:
+                print(code)
+                print(code_merge)
 
     def cal_factors(self, start, end):
         daily_data = self.influx.getDataMultiprocess('DailyData_Gus', 'marketData', start, end,

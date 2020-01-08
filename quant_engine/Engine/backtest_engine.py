@@ -70,7 +70,7 @@ class BacktestEngine:
             self.stk_portfolio.process_ex_right(ex_right)
             target_capital = (1-cash_reserve_rate) * total_value
             one_day_data['target_volume'] = target_capital * one_day_data['weight'] /100 / one_day_data['preclose']
-            trade_data = one_day_data.loc[(one_day_data['target_volume']>0)|
+            trade_data = one_day_data.loc[(one_day_data['target_volume'] > 0) |
                                           (one_day_data.index.isin(self.stk_portfolio.stk_positions.keys())),:]
             for idx,row in trade_data.iterrows():
                 if row['status'] == '停牌' or row['status'] != row['status']:

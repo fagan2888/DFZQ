@@ -38,12 +38,12 @@ class DataProcess:
 
     @staticmethod
     def calc_ann_return(series):
-        return (series.iloc[-1] / series.iloc[0] - 1) ** (250 / series.shape[0])
+        return (series.iloc[-1] / series.iloc[0] - 1) * 250 / series.shape[0]
 
     @staticmethod
     def calc_alpha_ann_return(series1, series2):
-        ret1 = (series1.iloc[-1] / series1.iloc[0] - 1) ** (250 / series1.shape[0])
-        ret2 = (series2.iloc[-1] / series2.iloc[0] - 1) ** (250 / series2.shape[0])
+        ret1 = (series1.iloc[-1] / series1.iloc[0] - 1) * 250 / series1.shape[0]
+        ret2 = (series2.iloc[-1] / series2.iloc[0] - 1) * 250 / series2.shape[0]
         return ret1 - ret2
 
     @staticmethod
@@ -69,8 +69,9 @@ class DataProcess:
 
     @staticmethod
     # 返回的date在columns里
-    def add_next_period_return(data, calendar, days):
+    def add_next_period_return(data, calendar, days, benchmark):
         # 默认index是日期
+        bm_dict = {'IH': '000016.SH', 'IF': '000300.SH', 'IC': '000905.SH'}
         mkt_data = data.copy()
         idxs = mkt_data.index.unique()
         next_date_dict = {}
@@ -86,15 +87,23 @@ class DataProcess:
         fq_close.rename(columns={'date': field}, inplace=True)
         mkt_data = pd.merge(mkt_data, fq_close, how='left', on=[field, 'code'])
         mkt_data['next_period_return'] = mkt_data['next_fq_close'] / mkt_data['adj_factor'] / mkt_data['close'] - 1
+        bm_close = mkt_data.loc[mkt_data['code'] == bm_dict[benchmark], ['date', 'close', field]].copy()
+        bm_close.rename(columns={'close': 'benchmark_close'}, inplace=True)
+        nxt_bm_close = bm_close.loc[:, ['date', 'benchmark_close']].copy()
+        nxt_bm_close.rename(columns={'date': field, 'benchmark_close': 'next_benchmark_close'}, inplace=True)
+        bm_return = pd.merge(bm_close, nxt_bm_close, on=field, how='left')
+        bm_return['next_benchmark_return'] = bm_return['next_benchmark_close'] / bm_return['benchmark_close'] - 1
+        bm_return = bm_return.loc[:, ['date', 'next_benchmark_return']]
+        mkt_data = pd.merge(mkt_data, bm_return, how='left', on='date')
+        mkt_data['next_period_alpha'] = mkt_data['next_period_return'] - mkt_data['next_benchmark_return']
         return mkt_data
 
     @staticmethod
     # 获取行业哑变量
     def get_industry_dummies(mkt_data, industry_field='improved_lv1'):
-        industry_data = pd.get_dummies(mkt_data[industry_field])
-        industry_data = pd.concat([mkt_data['code'], industry_data], axis=1)
-        # 过滤掉没有行业信息的数据
-        industry_data = industry_data.loc[~(industry_data == 0).all(axis=1), :]
+        df = mkt_data.dropna(subset=[industry_field])
+        industry_data = pd.get_dummies(df[industry_field])
+        industry_data = pd.concat([df['code'], industry_data], axis=1)
         return industry_data
 
     @staticmethod
