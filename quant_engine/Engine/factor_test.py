@@ -203,8 +203,11 @@ class FactorTest:
                                      (dates, self.groups, merge_df, self.factor_field) for dates in split_dates)
         grouped_weight = pd.concat(result_list)
         grouped_weight = grouped_weight.loc[grouped_weight['weight_in_industry'] > 0, :].sort_index()
+        str_start = grouped_weight.index[0].strftime('%Y%m%d')
+        str_end = grouped_weight.index[-1].strftime('%Y%m%d')
         filename = global_constant.ROOT_DIR + 'Backtest_Result/Factor_Group_Weight/' + \
-                   self.factor_field + '_' + str(self.groups) + 'groups_EquW' + '.csv'
+                   self.factor_field + '_' + str(self.groups) + 'groups_EquW' + \
+                   '_' + str_start + '_' + str_end + '.csv'
         grouped_weight.to_csv(filename, encoding='gbk')
         res_dict['EquW'] = grouped_weight.copy()
         # 再按市值加权测试
@@ -220,8 +223,11 @@ class FactorTest:
                                      (dates, self.groups, merge_df, self.factor_field) for dates in split_dates)
         grouped_weight = pd.concat(result_list)
         grouped_weight = grouped_weight.loc[grouped_weight['weight_in_industry'] > 0, :].sort_index()
+        str_start = grouped_weight.index[0].strftime('%Y%m%d')
+        str_end = grouped_weight.index[-1].strftime('%Y%m%d')
         filename = global_constant.ROOT_DIR + 'Backtest_Result/Factor_Group_Weight/' + \
-                   self.factor_field + '_' + str(self.groups) + 'groups_' + weight_field + '.csv'
+                   self.factor_field + '_' + str(self.groups) + 'groups_' + weight_field + \
+                   '_' + str_start + '_' + str_end + '.csv'
         grouped_weight.to_csv(filename, encoding='gbk')
         res_dict['NonEquW'] = grouped_weight.copy()
         return res_dict
@@ -255,8 +261,10 @@ class FactorTest:
             tot_res['high_300_alpha'] = (tot_res['group_5_TotalValue'] - tot_res['000300.SH']) / self.capital
             tot_res['high_500_alpha'] = (tot_res['group_5_TotalValue'] - tot_res['000905.SH']) / self.capital
             tot_res['high_800_alpha'] = (tot_res['group_5_TotalValue'] - tot_res['300+500']) / self.capital
+            str_start = tot_res.index[0].strftime('%Y%m%d')
+            str_end = tot_res.index[-1].strftime('%Y%m%d')
             filename = global_constant.ROOT_DIR + '/Backtest_Result/Group_Value/' + self.save_name + '_' + \
-                       weight_mode + '.csv'
+                       weight_mode + '_' + str_start + '_' + str_end + '.csv'
             tot_res.to_csv(filename, encoding='gbk')
             self.summary_dict['AnnRet_high_group_' + weight_mode] = \
                 DataProcess.calc_ann_return(tot_res[group[-1] + '_TotalValue'])
@@ -305,7 +313,10 @@ class FactorTest:
                    'sharpe_300', 'sharpe_500', 'sharpe_800', 'sharpe_alpha_300_EquW',
                    'sharpe_alpha_300_NonEquW', 'sharpe_alpha_500_EquW', 'sharpe_alpha_500_NonEquW',
                    'sharpe_alpha_800_EquW', 'sharpe_alpha_800_NonEquW']).T
-        filename = global_constant.ROOT_DIR + '/Backtest_Result/Factor_Report/' + self.save_name + '.csv'
+        str_start = rep['Start_Time'].iloc[0]
+        str_end = rep['End_Time'].iloc[0]
+        filename = global_constant.ROOT_DIR + '/Backtest_Result/Factor_Report/' + self.save_name + \
+                   '_' + str_start + '_' + str_end +'.csv'
         rep.to_csv(filename, encoding='gbk')
 
     def run_factor_test(self, mkt_data, factor_data, factor_field, size_data, save_name, change_days=5, groups=5,
@@ -363,10 +374,9 @@ if __name__ == '__main__':
     code_800.index.names = ['date']
     code_800.reset_index(inplace=True)
 
-    fct_list = ['ROE','ROE_Q','ROE_ddt','ROE_ddt_Q','OperateIncome2EBT_Q','profit_ddt2profit_Q','cur_dbt2dbt',
-                'current_ratio','assets_turn_Q']
+    fct_list = ['EP_TTM','BP','SP','NCFP','OCFP','EV2EBITDA','PEG']
     for fct in fct_list:
-        factor = strategy.influx.getDataMultiprocess('DailyFactor_Gus', 'FinancialQuality', start, end, ['code', fct])
+        factor = strategy.influx.getDataMultiprocess('DailyFactor_Gus', 'Value', start, end, ['code', fct])
         factor = factor.dropna(subset=[fct])
         factor.index.names = ['date']
         factor.reset_index(inplace=True)
