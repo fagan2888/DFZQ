@@ -366,6 +366,8 @@ if __name__ == '__main__':
     strategy = FactorTest()
 
     start_end = [[20120101,20131231],[20140101,20151231],[20160101,20171231]]
+    measurement = 'FinancialQuality'
+    direction = 1
     for start, end in start_end:
         print('start: %i, end: %i' %(start,end))
         mkt_data = strategy.influx.getDataMultiprocess('DailyData_Gus', 'marketData', start, end, None)
@@ -380,8 +382,10 @@ if __name__ == '__main__':
 
         for fct in fct_list:
             print(fct)
-            factor = strategy.influx.getDataMultiprocess('DailyFactor_Gus', 'FinancialQuality', start, end, ['code', fct])
+            factor = strategy.influx.getDataMultiprocess('DailyFactor_Gus', measurement, start, end, ['code', fct])
             factor = factor.dropna(subset=[fct])
+            if direction == -1:
+                factor[fct] = factor[fct] * -1
             factor.index.names = ['date']
             factor.reset_index(inplace=True)
             factor = pd.merge(factor, code_800, on=['date', 'code'])
