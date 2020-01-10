@@ -365,24 +365,28 @@ if __name__ == '__main__':
     warnings.filterwarnings("ignore")
     strategy = FactorTest()
 
-    start = 20120101
-    end = 20131231
-    mkt_data = strategy.influx.getDataMultiprocess('DailyData_Gus', 'marketData', start, end, None)
-    # 只取800中未停牌的成分股
-    code_800 = pd.DataFrame(mkt_data.loc[(pd.notnull(mkt_data['IF_weight']) | pd.notnull(mkt_data['IC_weight'])) &
-                                         ~((mkt_data['status'] == '停牌') | pd.isnull(mkt_data['status'])), 'code'])
-    code_800.index.names = ['date']
-    code_800.reset_index(inplace=True)
+    start_end = [[20120101,20131231],[20140101,20151231],[20160101,20171231]]
+    for start, end in start_end:
+        print('start: %i, end: %i' %(start,end))
+        mkt_data = strategy.influx.getDataMultiprocess('DailyData_Gus', 'marketData', start, end, None)
+        # 只取800中未停牌的成分股
+        code_800 = pd.DataFrame(mkt_data.loc[(pd.notnull(mkt_data['IF_weight']) | pd.notnull(mkt_data['IC_weight'])) &
+                                             ~((mkt_data['status'] == '停牌') | pd.isnull(mkt_data['status'])), 'code'])
+        code_800.index.names = ['date']
+        code_800.reset_index(inplace=True)
 
-    fct_list = ['EP_TTM','BP','SP','NCFP','OCFP','EV2EBITDA','PEG']
-    for fct in fct_list:
-        factor = strategy.influx.getDataMultiprocess('DailyFactor_Gus', 'Value', start, end, ['code', fct])
-        factor = factor.dropna(subset=[fct])
-        factor.index.names = ['date']
-        factor.reset_index(inplace=True)
-        factor = pd.merge(factor, code_800, on=['date', 'code'])
-        factor.set_index('date', inplace=True)
-        print('factor loaded!')
-        size_data = strategy.influx.getDataMultiprocess('DailyFactor_Gus', 'Size', start, end, None)
-        strategy.run_factor_test(mkt_data, factor, fct, size_data, fct, benchmark='IF',
-                                 mkt_cap_field='ln_market_cap')
+        fct_list = ['ROE','ROE_Q','ROE_ddt','ROE_ddt_Q','OperateIncome2EBT_Q','profit_ddt2profit_Q','cur_dbt2dbt',
+                    'current_ratio','assets_turn_Q']
+
+        for fct in fct_list:
+            print(fct)
+            factor = strategy.influx.getDataMultiprocess('DailyFactor_Gus', 'FinancialQuality', start, end, ['code', fct])
+            factor = factor.dropna(subset=[fct])
+            factor.index.names = ['date']
+            factor.reset_index(inplace=True)
+            factor = pd.merge(factor, code_800, on=['date', 'code'])
+            factor.set_index('date', inplace=True)
+            print('factor loaded!')
+            size_data = strategy.influx.getDataMultiprocess('DailyFactor_Gus', 'Size', start, end, None)
+            strategy.run_factor_test(mkt_data, factor, fct, size_data, fct, benchmark='IF',
+                                     mkt_cap_field='ln_market_cap')
