@@ -295,7 +295,7 @@ class div_pred_statistic:
 
                 to_div_times = len(div_last_year_df) - this_year_div_times
                 div_pretax = div_sum_last_year / eps_last_year * eps_on_dt - div_sum_this_year
-                if div_pretax <= 0 or to_div_times <= 0:
+                if div_pretax <= 0 or to_div_times <= 0 or this_year_div_times == 0:
                     pass
                 else:
                     status = '去年有分红，今年金额未满，预测仍将分红'
