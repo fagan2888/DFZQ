@@ -189,6 +189,22 @@ class DataProcess:
         dates_data = pd.concat(res)
         return dates_data
 
+    # 同时处理remove outlier 和 Z_score
+    @staticmethod
+    def JOB_cross_section_remove_and_Z(data, field, dates):
+        res = []
+        for date in dates:
+            day_data = data.loc[data['date'] == date, :].copy()
+            # 滤去周末出财报造成周末有因子的情况
+            if day_data.shape[0] < 100:
+                pass
+            else:
+                day_data.loc[:, field] = DataProcess.remove_outlier(day_data[field])
+                day_data.loc[:, field] = DataProcess.Z_standardize(day_data[field])
+                res.append(day_data)
+        dates_data = pd.concat(res)
+        return dates_data
+
     @staticmethod
     def JOB_neutralize(data, factor_field, dates):
         res = []
