@@ -109,7 +109,7 @@ class DataProcess:
     @staticmethod
     # 市值行业中性化: 因子先去极值标准化，ln市值标准化，行业变换哑变量，回归完取残差
     # 返回的date在columns里
-    def neutralize(factor_data, factor_field, industry_dummies, size_data, size_field='ln_market_cap'):
+    def neutralize(factor_data, factor_field, industry_dummies, size_data, size_field='ln_market_cap', n_process=4):
         industry_dummies.index.names = ['date']
         factor_data.index.names = ['date']
         size_data.index.names = ['date']
@@ -120,26 +120,26 @@ class DataProcess:
         factor = pd.merge(factor, industry, on=['date', 'code'])
         factor = pd.merge(factor, size, on=['date', 'code'])
         dates = factor['date'].unique()
-        split_dates = np.array_split(dates, 10)
-        with parallel_backend('multiprocessing', n_jobs=4):
+        split_dates = np.array_split(dates, n_process)
+        with parallel_backend('multiprocessing', n_jobs=n_process):
             parallel_res = Parallel()(delayed(DataProcess.JOB_cross_section_remove_outlier)
                                       (factor, factor_field, dates) for dates in split_dates)
         factor = pd.concat(parallel_res)
         dates = factor['date'].unique()
-        split_dates = np.array_split(dates, 10)
-        with parallel_backend('multiprocessing', n_jobs=4):
+        split_dates = np.array_split(dates, n_process)
+        with parallel_backend('multiprocessing', n_jobs=n_process):
             parallel_res = Parallel()(delayed(DataProcess.JOB_cross_section_Z_score)
                                       (factor, factor_field, dates) for dates in split_dates)
         factor = pd.concat(parallel_res)
         dates = factor['date'].unique()
-        split_dates = np.array_split(dates, 10)
-        with parallel_backend('multiprocessing', n_jobs=4):
+        split_dates = np.array_split(dates, n_process)
+        with parallel_backend('multiprocessing', n_jobs=n_process):
             parallel_res = Parallel()(delayed(DataProcess.JOB_cross_section_Z_score)
                                       (factor, 'size', dates) for dates in split_dates)
         factor = pd.concat(parallel_res)
         dates = factor['date'].unique()
-        split_dates = np.array_split(dates, 10)
-        with parallel_backend('multiprocessing', n_jobs=4):
+        split_dates = np.array_split(dates, n_process)
+        with parallel_backend('multiprocessing', n_jobs=n_process):
             parallel_res = Parallel()(delayed(DataProcess.JOB_neutralize)
                                       (factor, factor_field, dates) for dates in split_dates)
         neutral_factor = pd.concat(parallel_res)
