@@ -63,4 +63,4 @@ class tot_change:
 
 if __name__ == '__main__':
     tot = tot_change()
-    tot.run('D:/alpha/许帆/20191230/许帆20191230.xlsx','change')
+    tot.run('D:/alpha/许帆/20200120/许帆20200120.xlsx','change')

@@ -11,7 +11,7 @@ class market_cap(FactorBase):
         query = "select TRADE_DT, S_INFO_WINDCODE, S_VAL_MV, S_DQ_MV, FREE_SHARES_TODAY, S_DQ_CLOSE_TODAY " \
                 "from wind_filesync.AShareEODDerivativeIndicator " \
                 "where TRADE_DT >= {0} and TRADE_DT <= {1} " \
-                "and (s_info_windcode like '0%' or s_info_windcode like '3%' or s_info_windcode like '6%') " \
+                "and (s_info_windcode like '0%' or s_info_windcode like '3%' or s_info_windcode like '60%') " \
                 "order by TRADE_DT, S_INFO_WINDCODE " \
             .format(str(start), str(end))
 
@@ -36,4 +36,4 @@ class market_cap(FactorBase):
 
 if __name__ == '__main__':
     mc = market_cap()
-    mc.cal_factors(20100101,20190901)
+    mc.cal_factors(20100101,20200101)

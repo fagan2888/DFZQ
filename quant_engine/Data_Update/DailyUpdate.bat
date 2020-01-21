@@ -1,0 +1,1 @@
+python D:\github\quant_engine\Data_Update\DailyUpdate.py

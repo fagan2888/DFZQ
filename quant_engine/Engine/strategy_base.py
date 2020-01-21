@@ -5,382 +5,291 @@ from rdf_data import rdf_data
 from influxdb_data import influxdbData
 from data_process import DataProcess
 from joblib import Parallel,delayed,parallel_backend
-import warnings
-import statsmodels.api as sm
+import cvxpy as cp
 from industry_neutral_engine import IndustryNeutralEngine
-import logging
 import datetime
+import os
 
 
 class StrategyBase:
-    @staticmethod
-    def cross_section_remove_outlier(factor_data,factor_field,dates):
-        res = []
-        for date in dates:
-            day_factor = factor_data.loc[date,:].copy()
-            # 滤去周末出财报造成周末有因子的情况
-            if day_factor.shape[0] < 100:
-               pass
-            else:
-                day_factor.loc[:,factor_field] = DataProcess.remove_outlier(day_factor[factor_field])
-                res.append(day_factor)
-        dates_factor = pd.concat(res)
-        return dates_factor
-
-
-    @staticmethod
-    def cross_section_Z_standardize(factor_data,factor_field,dates):
-        res = []
-        for date in dates:
-            day_factor = factor_data.loc[date, :].copy()
-            # 滤去周末出财报造成周末有因子的情况
-            if day_factor.shape[0] < 100:
-               pass
-            else:
-                day_factor.loc[:,factor_field] = DataProcess.Z_standardize(day_factor[factor_field])
-                res.append(day_factor)
-        dates_factor = pd.concat(res)
-        return dates_factor
-
-
-    @staticmethod
-    def cross_section_rank_standardize(factor_data,factor_field,dates):
-        res = []
-        for date in dates:
-            day_factor = factor_data.loc[date, :].copy()
-            # 滤去周末出财报造成周末有因子的情况
-            if day_factor.shape[0] < 100:
-                pass
-            else:
-                day_factor.loc[:,factor_field] = DataProcess.rank_standardize(day_factor[factor_field])
-                res.append(day_factor)
-        dates_factor = pd.concat(res)
-        return dates_factor
-
-
-    @staticmethod
-    # 正交后的factor中date在columns里
-    def job_orth(processed_factor,factor_field,dates):
-        orth_factor_res = []
-        idsty_size_cols = processed_factor.columns.difference(['code','date','former_1_day','next_1_day','return',factor_field])
-        for date in dates:
-            day_code       = processed_factor.loc[processed_factor['date']==date,'code']
-            day_factor     = processed_factor.loc[processed_factor['date']==date,factor_field]
-            day_idsty_size = processed_factor.loc[processed_factor['date']==date,idsty_size_cols]
-            OLS_est           = sm.OLS(day_factor, day_idsty_size).fit()
-            day_orthed_factor = OLS_est.resid
-            day_orthed_factor.name = factor_field
-            # 得到正交化后的因子值
-            day_orthed_factor = pd.concat([day_code, day_orthed_factor], axis=1)
-            day_orthed_factor['date'] = date
-            orth_factor_res.append(day_orthed_factor)
-        orth_factor = pd.concat(orth_factor_res)
-        return orth_factor
-
-
-    @staticmethod
-    def job_T_test(processed_factor,factor_field,dates):
-        RLM_res = []
-        for date in dates:
-            day_factor = processed_factor.loc[processed_factor['date'] == date, factor_field]
-            day_return = processed_factor.loc[processed_factor['date'] == date, 'return']
-            RLM_est = sm.RLM(day_return, day_factor, M=sm.robust.norms.HuberT()).fit()
-            day_RLM_para = RLM_est.params
-            day_Tvalue = RLM_est.tvalues
-            day_RLM_result = pd.DataFrame({'Fvalue':day_RLM_para.iloc[0],'Tvalue':day_Tvalue.iloc[0]},index=[date])
-            RLM_res.append(day_RLM_result)
-        RLM_result = pd.concat(RLM_res)
-        return RLM_result
-
-
-    @staticmethod
-    def get_group_weight(dates,groups,factor,factor_field):
-        labels = []
-        for i in range(1,groups+1):
-            labels.append('group_'+str(i))
-        res = []
-        for date in dates:
-            day_factor = factor.loc[factor['date']==date,:].copy()
-            industries = day_factor['industry'].unique()
-            for ind in industries:
-                day_industry_factor = day_factor.loc[day_factor['industry']==ind,:].copy()
-                # 行业成分不足10支票时，所有group配置一样
-                if day_industry_factor.shape[0] < 10:
-                    day_industry_factor['weight_in_industry'] = 100 / day_industry_factor.shape[0]
-                    day_industry_factor['group'] = 'same group'
-                else:
-                    day_industry_factor['group'] = pd.qcut(day_industry_factor[factor_field],5,labels=labels)
-                    group_counts = day_industry_factor['group'].value_counts()
-                    day_industry_factor['weight_in_industry'] = day_industry_factor.apply(
-                        lambda row:100/group_counts[row['group']],axis=1)
-                res.append(day_industry_factor)
-        res_df = pd.concat(res)
-        res_df.set_index('next_1_day',inplace=True)
-        return res_df
-
-
-    @staticmethod
-    def job_backtest(group_name,grouped_weight,benchmark,adj_interval,cash_reserve,price_field,indu_field,data_input,
-                     stock_capital,stk_slippage,stk_fee,logger_lvl=logging.INFO):
-        weight = grouped_weight.loc[grouped_weight['group']==group_name,['code','industry','weight_in_industry']].copy()
-        BE = IndustryNeutralEngine(stock_capital,stk_slippage,stk_fee,save_name=group_name,logger_lvl=logger_lvl)
-        start = weight.index[0].strftime('%Y%m%d')
-        end = weight.index[-1].strftime('%Y%m%d')
-        portfolio_value = BE.run(weight,start,end,benchmark,adj_interval,cash_reserve,price_field,indu_field,data_input)
-        portfolio_value.rename(columns={'TotalValue': group_name+'_TotalValue'},inplace=True)
-        portfolio_value = pd.DataFrame(portfolio_value[group_name+'_TotalValue'])
-        print('%s backtest finish!' %group_name)
-        return portfolio_value
-
-
-
     def __init__(self):
-        self.rdf = rdf_data()
-        self.calendar = self.rdf.get_trading_calendar()
         self.influx = influxdbData()
+        self.rdf = rdf_data()
+        self.factor_db = 'DailyFactor_Gus'
+        self.root_dir = global_constant.ROOT_DIR + 'Strategy/'
 
-
-    def get_former_trade_day(self,mkt_data,days):
-        trade_day = pd.DataFrame(mkt_data.index.unique().tolist(), columns=['date'])
-        field = 'former_' + str(days) + '_day'
-        trade_day[field] = trade_day['date'].apply(lambda x: self.calendar[self.calendar < x].iloc[-1*days])
-        trade_day.set_index('date', inplace=True)
-        return trade_day
-
-
-    def get_next_trade_day(self,mkt_data,days):
-        trade_day = pd.DataFrame(mkt_data.index.unique().tolist(), columns=['date'])
-        field = 'next_' + str(days) + '_day'
-        trade_day[field] = trade_day['date'].apply(lambda x: self.calendar[self.calendar > x].iloc[days-1])
-        trade_day.set_index('date', inplace=True)
-        return trade_day
-
-
-    # 股票行情预处理，过滤st，行业字段，市值字段
-    def mkt_data_preprocess(self,mkt_data):
-        # 过滤停牌(停牌没有收益率)
-        mkt_data = mkt_data.loc[(mkt_data['status'] != '停牌') & (pd.notnull(mkt_data['status'])), :]
-        # 过滤st
-        if self.filter_st:
-            mkt_data = mkt_data.loc[mkt_data['isST']==False,:]
-        mkt_data['return'] = mkt_data['close']/mkt_data['preclose'] -1
-        # 超过0.11或-0.11的return标记为异常数据，置为nan(新股本身剔除)
-        mkt_data = mkt_data.loc[(mkt_data['return']<0.11) | (mkt_data['return']>-0.11),:]
-        # 计算former date 和 next date
-        mkt_data = pd.merge(mkt_data,self.get_former_trade_day(mkt_data,1),left_index=True,right_index=True,how='left')
-        mkt_data = pd.merge(mkt_data,self.get_next_trade_day(mkt_data,1),left_index=True,right_index=True,how='left')
-        mkt_data.set_index([mkt_data.index,'code'],inplace=True)
-        mkt_data.index.names = ['date','code']
-        rtn_data = mkt_data.loc[:,['former_1_day','next_1_day','return']]
-        industry_data = pd.get_dummies(mkt_data[self.industry_field])
-        # 过滤掉没有行业信息的数据
-        industry_data = industry_data.loc[~(industry_data==0).all(axis=1),:]
-        rtn_data.reset_index(inplace=True)
-        industry_data.reset_index(inplace=True)
-        mkt_data = pd.merge(rtn_data,industry_data,on=['date','code'])
-        # 今天的结果用于后一天交易，最后一天的数据不可用，所以end提前一天
-        start = mkt_data['date'].iloc[0].strftime('%Y%m%d')
-        end = mkt_data['next_1_day'].iloc[-1].strftime('%Y%m%d')
-        size_data = self.influx.getDataMultiprocess('DailyFactor_Gus', 'Size',start,end,None)
-        size_data = size_data.loc[:,['code',self.mkt_cap_field]]
-        size_data.rename(columns={self.mkt_cap_field:'size'},inplace=True)
-        # mkt cap 标准化
-        dates = size_data.index.unique()
-        split_dates = np.array_split(dates, 30)
-        # mkt_cap 不需要remove outlier，否则银行板块全被抹平
-        with parallel_backend('multiprocessing', n_jobs=4):
-            parallel_res = Parallel()(delayed(StrategyBase.cross_section_Z_standardize)
-                                      (size_data, 'size', dates) for dates in split_dates)
-        size_data = pd.concat(parallel_res)
-        size_data.index.names = ['date']
-        size_data.reset_index(inplace=True)
-        mkt_data = pd.merge(mkt_data,size_data,how='inner',on=['date','code'])
-        return mkt_data
-
-
-    # factor.index 是date
-    # preprocessed_mkt_data 的date在columns里
-    # 输出的正交化因子 date在columns里
-    def orth_factor(self,factor_data,preprocessed_mkt_data):
-        # 数据预处理
-        dates = factor_data.index.unique()
-        split_dates = np.array_split(dates, 30)
-        if self.remove_outlier:
-            with parallel_backend('multiprocessing', n_jobs=4):
-                parallel_res = Parallel()(delayed(StrategyBase.cross_section_remove_outlier)
-                                          (factor_data, self.factor_field, dates) for dates in split_dates)
-            factor_data = pd.concat(parallel_res)
-            dates = factor_data.index.unique()
-            split_dates = np.array_split(dates, 30)
-            print('outlier remove finish!')
-        if self.standardize == 'z':
-            with parallel_backend('multiprocessing', n_jobs=4):
-                parallel_res = Parallel()(delayed(StrategyBase.cross_section_Z_standardize)
-                                          (factor_data, self.factor_field, dates) for dates in split_dates)
-            factor_data = pd.concat(parallel_res)
-            print('Z_standardize finish!')
-        elif self.standardize == 'rank':
-            with parallel_backend('multiprocessing', n_jobs=4):
-                parallel_res = Parallel()(delayed(StrategyBase.cross_section_rank_standardize)
-                                          (factor_data, self.factor_field, dates) for dates in split_dates)
-            factor_data = pd.concat(parallel_res)
-            print('rank_standardize finish!')
+    # 获得行情信息以及选股的范围
+    # 行情信息为全市场，以免吸收合并出现没有行情的情况
+    def data_prepare(self):
+        self.mkt_data = self.influx.getDataMultiprocess('DailyData_Gus', 'marketData', self.start, self.end, None)
+        if not self.range:
+            self.code_range = self.mkt_data.loc[
+                pd.notnull(self.mkt_data[self.industry]) &
+                ~((self.mkt_data['status'] == '停牌') | pd.isnull(self.mkt_data['status'])),
+                ['code', self.industry]].copy()
+        elif self.range == 300:
+            self.code_range = self.mkt_data.loc[
+                pd.notnull(self.mkt_data[self.industry]) &
+                pd.notnull(self.mkt_data['IF_weight']) &
+                ~((self.mkt_data['status'] == '停牌') | pd.isnull(self.mkt_data['status'])),
+                ['code', self.industry]].copy()
+        elif self.range == 500:
+            self.code_range = self.mkt_data.loc[
+                pd.notnull(self.mkt_data[self.industry]) &
+                pd.notnull(self.mkt_data['IC_weight']) &
+                ~((self.mkt_data['status'] == '停牌') | pd.isnull(self.mkt_data['status'])),
+                ['code', self.industry]].copy()
+        elif self.range == 800:
+            self.code_range = self.mkt_data.loc[
+                pd.notnull(self.mkt_data[self.industry]) &
+                (pd.notnull(self.mkt_data['IF_weight']) | pd.notnull(self.mkt_data['IC_weight'])) &
+                ~((self.mkt_data['status'] == '停牌') | pd.isnull(self.mkt_data['status'])),
+                ['code', self.industry]].copy()
         else:
-            pass
-
-        factor_data.index.names = ['date']
-        factor_data.reset_index(inplace=True)
-        processed_factor = pd.merge(preprocessed_mkt_data,factor_data,on=['date','code'])
-
-        # 去除行业和市值，得到新因子
-        dates = processed_factor['date'].unique()
-        split_dates = np.array_split(dates,30)
-        with parallel_backend('multiprocessing', n_jobs=4):
-            parallel_res = Parallel()(delayed(StrategyBase.job_orth)
-                                      (processed_factor, self.factor_field, dates) for dates in split_dates)
-        orth_factor = pd.concat(parallel_res)
-        return orth_factor
-
-
-    def T_test(self,orth_factor,preprocessed_mkt_data):
-        processed_factor = pd.merge(preprocessed_mkt_data,orth_factor,on=['date','code'])
-        dates = processed_factor['date'].unique()
-        split_dates = np.array_split(dates, 30)
-        with parallel_backend('multiprocessing', n_jobs=4):
-            parallel_res = Parallel()(delayed(StrategyBase.job_T_test)
-                                      (processed_factor, self.factor_field, dates) for dates in split_dates)
-        RLM_result = pd.concat(parallel_res)
-        F_over_0_pct = RLM_result.loc[RLM_result['Fvalue']>0,:].shape[0] / RLM_result.shape[0]
-        avg_abs_T = abs(RLM_result['Tvalue']).sum() / RLM_result.shape[0]
-        abs_T_over_2_pct = RLM_result.loc[abs(RLM_result['Tvalue'])>=2,:].shape[0] / RLM_result.shape[0]
+            print('无效的range')
+            raise NameError
+        self.code_range.index.names = ['date']
+        self.code_range.reset_index(inplace=True)
+        self.size_data = \
+            self.influx.getDataMultiprocess('DailyFactor_Gus', 'Size', self.start, self.end, ['code', self.size_field])
+        self.size_data.index.names = ['date']
+        self.industry_dummies = DataProcess.get_industry_dummies(self.code_range.set_index('date'), self.industry)
+        print('all data are loaded! start processing...')
         print('-'*30)
-        print('REGRESSION RESULT: \n   F_over_0_pct: %f \n   avg_abs_T: %f \n   abs_T_over_2_pct: %f \n' %
-              (F_over_0_pct,avg_abs_T,abs_T_over_2_pct))
-        return RLM_result
+
+    # factor 的输入: {因子大类(measurement): {因子名称(field): 因子方向}}
+    # factor 处理完的输出 {因子大类(measurement): {因子名称(field): 方向调整后且正交化后的dataframe}}
+    def process_factor(self):
+        m_res = []
+        for m in self.factor_weight_dict.keys():
+            f_res = []
+            for f in self.factor_weight_dict[m].keys():
+                raw_df = self.influx.getDataMultiprocess(self.factor_db, m, self.start, self.end, ['code', f])
+                raw_df.index.names = ['date']
+                raw_df = raw_df.groupby(['date', 'code']).last()
+                raw_df.reset_index(inplace=True)
+                raw_in_range = pd.merge(raw_df, self.code_range, how='right', on=['date', 'code'])
+                # 缺失的因子用行业中位数代替
+                raw_in_range[f] = raw_in_range.groupby(['date', self.industry])[f].apply(lambda x: x.fillna(x.median()))
+                raw_in_range.set_index('date', inplace=True)
+                # 进行remove outlier, z score和中性化
+                neutralized_df = DataProcess.neutralize(raw_in_range, f, self.industry_dummies.copy(),
+                                                        self.size_data.copy(), self.size_field, self.n_jobs)
+                neutralized_df[f] = neutralized_df[f] * self.factor_weight_dict[m][f]
+                neutralized_df.set_index(['date', 'code'], inplace=True)
+                f_res.append(neutralized_df)
+                print('Factor: %s(%s) neutralization finish!' % (f, m))
+            category = pd.concat(f_res, join='inner', axis=1)
+            category[m] = category.sum(axis=1)
+            category.reset_index(inplace=True)
+            dates = category['date'].unique()
+            split_dates = np.array_split(dates, self.n_jobs)
+            with parallel_backend('multiprocessing', n_jobs=self.n_jobs):
+                parallel_res = Parallel()(delayed(DataProcess.JOB_cross_section_remove_and_Z)
+                                          (category, m, dates) for dates in split_dates)
+            category = pd.concat(parallel_res)
+            category = category.loc[:, ['date', 'code', m]]
+            category.set_index(['date', 'code'], inplace=True)
+            m_res.append(category)
+            print('Category: %s process finish!' %m)
+        self.factor_overall = pd.concat(m_res, join='inner', axis=1)
+        self.factor_overall['overall'] = self.factor_overall.sum(axis=1)
+        self.factor_overall.reset_index(inplace=True)
+        print('factor processing finish...')
+        print('-'*30)
+        return self.factor_overall
+
+    def select_stks(self):
+        if self.benchmark == 300:
+            bm_industy_distribution = \
+                self.mkt_data.loc[pd.notnull(self.mkt_data[self.industry]) & pd.notnull(self.mkt_data['IF_weight']),
+                                  ['code', self.industry]].copy()
+        elif self.benchmark == 500:
+            bm_industy_distribution = \
+                self.mkt_data.loc[pd.notnull(self.mkt_data[self.industry]) & pd.notnull(self.mkt_data['IC_weight']),
+                                  ['code', self.industry]].copy()
+        else:
+            print('Benchmark not found!')
+            raise NameError
+        bm_industy_distribution.index.names = ['date']
+        industry_count = bm_industy_distribution.groupby(['date', self.industry])['code'].count()
+        industry_count = pd.DataFrame(industry_count).reset_index()
+        industry_count.rename(columns={'code': 'count', self.industry: 'industry'}, inplace=True)
+        industry_count['to_select'] = industry_count['count'] * self.select_pct
+        industry_count['to_select'] = \
+            industry_count['to_select'].apply(lambda x: 0 if x == 0 else 1 if x <= 0.5 else round(x))
+        merge = pd.merge(self.factor_overall, self.code_range, on=['date', 'code'])
+        merge.rename(columns={self.industry: 'industry'}, inplace=True)
+        merge = merge.sort_values('overall', ascending=False)
+        dates = merge['date'].unique()
+        split_dates = np.array_split(dates, self.n_jobs)
+        with parallel_backend('multiprocessing', n_jobs=self.n_jobs):
+            parallel_res = Parallel()(delayed(StrategyBase.JOB_select)
+                                      (industry_count, merge, dates) for dates in split_dates)
+        self.selections = pd.concat(parallel_res)
+        print('stocks selections finish...')
+        print('-'*30)
+        return self.selections
+
+    def opti_weight(self):
+        # 市值因子标准化
+        size = self.size_data.reset_index()
+        dates = size['date'].unique()
+        split_dates = np.array_split(dates, self.n_jobs)
+        with parallel_backend('multiprocessing', n_jobs=self.n_jobs):
+            parallel_res = Parallel()(delayed(DataProcess.JOB_cross_section_Z_score)
+                                      (size, self.size_field, dates) for dates in split_dates)
+        size_Z = pd.concat(parallel_res)
+        # 计算benchmark的市值暴露
+        if self.benchmark == 300:
+            bm_stk_weight = \
+                self.mkt_data.loc[pd.notnull(self.mkt_data['IF_weight']), ['code', 'IF_weight', self.industry]].copy()
+            bm_stk_weight.rename(columns={'IF_weight': 'weight', self.industry: 'industry'}, inplace=True)
+        elif self.benchmark == 500:
+            bm_stk_weight = \
+                self.mkt_data.loc[pd.notnull(self.mkt_data['IC_weight']), ['code', 'IC_weight', self.industry]].copy()
+            bm_stk_weight.rename(columns={'IC_weight': 'weight', self.industry: 'industry'}, inplace=True)
+        else:
+            print('Benchmark not found!')
+            raise NameError
+        dates = bm_stk_weight.index.unique()
+        calendar = self.rdf.get_trading_calendar()
+        next_date_dict = {}
+        for d in dates:
+            next_date_dict.update({d: calendar[calendar > d].iloc[0]})
+        bm_stk_weight.index.names = ['date']
+        bm_stk_weight.reset_index(inplace=True)
+        # 获取下一交易日的指数权重
+        bm_stk_weight['next_date'] = bm_stk_weight['date'].apply(lambda x: next_date_dict[x])
+        nxt_bm_stk_weight = bm_stk_weight.loc[:, ['date', 'code', 'weight']].copy()
+        nxt_bm_stk_weight.rename(columns={'date': 'next_date', 'weight': 'next_weight'}, inplace=True)
+        bm_stk_weight = pd.merge(bm_stk_weight, nxt_bm_stk_weight, on=['next_date', 'code'])
+        # 计算下一交易日的市值暴露
+        bm_stk_weight = pd.merge(bm_stk_weight, size_Z, on=['date', 'code'])
+        bm_stk_weight['size_exposure'] = bm_stk_weight['next_weight'] * bm_stk_weight[self.size_field] / 100
+        bm_size_exposure = bm_stk_weight.groupby('date')['size_exposure'].sum()
+        # 计算下一交易日的行业暴露
+        bm_industry_exposure = bm_stk_weight.groupby(['date', 'industry'])['weight'].sum()
+        bm_industry_exposure = pd.DataFrame(bm_industry_exposure).reset_index()
+        # 开始优化权重
+        selection = self.selections.loc[:, ['date', 'code', 'overall', 'industry']].copy()
+        selection = pd.merge(selection, size_Z, on=['date', 'code'])
+        selection.rename(columns={self.size_field: 'size'}, inplace=True)
+        selection['next_date'] = selection['date'].apply(lambda x: next_date_dict[x])
+        dates = bm_size_exposure.index.unique()
+        split_dates = np.array_split(dates, self.n_jobs)
+        with parallel_backend('multiprocessing', n_jobs=self.n_jobs):
+            parallel_res = Parallel()(delayed(StrategyBase.JOB_opti)
+                                      (selection, bm_industry_exposure, bm_size_exposure, dates)
+                                      for dates in split_dates)
+        res_weight = pd.concat(parallel_res)
+        folder_dir = self.root_dir + self.strategy_name
+        if os.path.exists(folder_dir):
+            pass
+        else:
+            os.makedirs(folder_dir)
+        res_weight.to_csv(folder_dir+'/strategy_weight.csv', encoding='gbk')
+        return res_weight
+
+    # select stks 的工具函数
+    @staticmethod
+    def JOB_select(industry_count, overall_factor, dates):
+        res = []
+        for date in dates:
+            day_industry = industry_count.loc[industry_count['date'] == date, :].copy()
+            day_overall = overall_factor.loc[overall_factor['date'] == date, :].copy()
+            for idx, row in day_industry.iterrows():
+                indu = row['industry']
+                n_select = int(row['to_select'])
+                res.append(day_overall.loc[day_overall['industry'] == indu, :].head(n_select))
+        res = pd.concat(res)
+        return res
+
+    # opti_weight 的工具函数
+    @staticmethod
+    def JOB_opti(selection, bm_industry_exposure, bm_size_exposure, dates):
+        opti_res = []
+        for date in dates:
+            day_selection = selection.loc[selection['date'] == date, :].copy()
+            selection_dummies = pd.get_dummies(day_selection['industry']).values
+            day_selection_counts = day_selection.groupby('industry')['code'].count()
+            # 统计选股的个数以确定最小权重, 最小权重=行业总权重/选股个数/2
+            day_selection_counts.name = 'counts'
+            day_selection_counts = pd.DataFrame(day_selection_counts).reset_index()
+            day_bm_indu_exp = bm_industry_exposure.loc[bm_industry_exposure['date'] == date, :]
+            indu_weight_limit = \
+                pd.merge(day_bm_indu_exp.loc[:, ['industry', 'weight']], day_selection_counts, on='industry')
+            indu_weight_limit['min_weight'] = indu_weight_limit['weight'] / indu_weight_limit['counts'] / 2
+            indu_weight_limit['max_weight'] = indu_weight_limit['weight'] / indu_weight_limit['counts'] * 3
+            selection_weight_limit = pd.merge(day_selection, indu_weight_limit, on='industry')
+            selection_min_weight = selection_weight_limit['min_weight'].values
+            selection_max_weight = selection_weight_limit['max_weight'].values
+            # bm_size_exposure 是Series，index是date
+            target_size_exp = bm_size_exposure[date]
+            # weight 分配到行业哑变量上
+            day_bm_indu_exp = pd.merge(day_bm_indu_exp, pd.get_dummies(day_bm_indu_exp['industry']),
+                                       left_index=True, right_index=True)
+            indu_cols = day_bm_indu_exp.columns.difference(['date', 'industry', 'weight'])
+            target_indu_weight = (day_bm_indu_exp['weight'].values * day_bm_indu_exp[indu_cols].values).sum(axis=0)
+            # 优化器
+            w = cp.Variable(day_selection.shape[0])
+            size_exp = w/100 * day_selection['size'].values
+            factor_exp = w * day_selection['overall'].values
+            industry_exp = w * selection_dummies
+            obj = cp.Maximize(factor_exp)
+            con = [industry_exp == target_indu_weight, cp.abs(size_exp - target_size_exp) <= 0.5,
+                   w >= selection_min_weight, w <= selection_max_weight]
+            problem = cp.Problem(obj, con)
+            problem.solve(solver=cp.ECOS)
+            res_weight = w.value
+            if not isinstance(res_weight, np.ndarray):
+                print(date, 'NO RES')
+                if not opti_res:
+                    continue
+                else:
+                    # 当日无解就用前一日的结果
+                    tmp = opti_res[-1]
+                    tmp['next_date'] = day_selection['next_date'].iloc[-1]
+                    opti_res.append(tmp)
+            else:
+                day_selection = pd.merge(day_selection, day_bm_indu_exp.loc[:, ['date', 'industry', 'weight']],
+                                         on=['date', 'industry'])
+                day_selection.rename(columns={'weight': 'industry_weight'}, inplace=True)
+                day_selection['weight'] = res_weight
+                day_selection['weight_in_industry'] = day_selection['weight'] / day_selection['industry_weight'] * 100
+                day_selection = day_selection.loc[:, ['next_date', 'code', 'industry', 'industry_weight', 'weight',
+                                                      'weight_in_industry']]
+                opti_res.append(day_selection)
+        opti_res = pd.concat(opti_res).set_index('next_date')
+        return opti_res
 
 
-        # 后续需添加因子收益率输出
-        # 后续需添加因子ic值计算
 
+    def run(self, start, end, benchmark, range, select_pct, strategy_name, factor_weight_dict,
+            industry='improved_lv1', size_field='ln_market_cap'):
+        self.n_jobs = 4
 
-    def group_factor(self,orth_factor,mkt_data):
-        benchmark_field = self.benchmark + '_weight'
-        mkt_data.dropna(subset=[self.industry_field],inplace=True)
-        mkt_data = mkt_data.loc[:,[benchmark_field,self.industry_field,'code','status']]
-        next_1_day = self.get_next_trade_day(mkt_data,1)
-        mkt_data = pd.merge(mkt_data,next_1_day,right_index=True,left_index=True,how='left')
-        # 需用到后1天的权重信息
-        # 如果这个股票今天停牌，则它不在今天的选股池内（就算明天复牌也不在）
-        nxt_1_day_weight = mkt_data.loc[:,['code',benchmark_field]].copy()
-        nxt_1_day_weight.reset_index(inplace=True)
-        nxt_1_day_weight.rename(columns={'index':'next_1_day',benchmark_field:'next_1_day_'+benchmark_field},inplace=True)
-        mkt_data.index.names = ['date']
-        mkt_data.reset_index(inplace=True)
-        mkt_data = pd.merge(mkt_data,nxt_1_day_weight,on=['next_1_day','code'],how='left')
-        # 计算后一天的行业权重
-        industry_weight = pd.DataFrame(mkt_data.groupby(['date', self.industry_field])['next_1_day_' + benchmark_field].sum())
-        industry_weight.reset_index(inplace=True)
-        industry_weight.rename(columns={'next_1_day_' + benchmark_field: 'industry_weight',
-                                        self.industry_field: 'industry'}, inplace=True)
-        industry_weight = industry_weight.loc[industry_weight['industry_weight']>0,:]
-        mkt_data.rename(columns={self.industry_field: 'industry'},inplace=True)
-        mkt_data = pd.merge(mkt_data,industry_weight,on=['date','industry'])
-        # 合并得到当天因子，行业，状态，下一交易日benchmark权重，下一交易日行业总权重
-        orth_factor = pd.merge(orth_factor,mkt_data,on=['date','code'])
-        # 去掉当天停牌的股票
-        orth_factor = orth_factor.loc[~((orth_factor['status']=='停牌')|pd.isnull(orth_factor['status'])),
-                                      ['date','code','next_1_day',self.factor_field,'industry','industry_weight']]
-        dates = orth_factor['date'].unique()
-        split_dates = np.array_split(dates,30)
-        with parallel_backend('multiprocessing', n_jobs=4):
-            result_list =  Parallel()(delayed(StrategyBase.get_group_weight)
-                                      (dates,self.groups,orth_factor,self.factor_field) for dates in split_dates)
-        grouped_weight = pd.concat(result_list)
-        grouped_weight = grouped_weight.sort_index()
-        grouped_weight = grouped_weight.loc[grouped_weight['weight_in_industry']>0,:]
-        filename = global_constant.ROOT_DIR + 'Backtest_Result/Factor_Group_Weight/' + \
-                   self.factor_field + '_' + str(self.groups) + 'groups' + '.csv'
-        grouped_weight.to_csv(filename,encoding='gbk')
-        return grouped_weight
-
-
-    def group_backtest(self,grouped_weight):
-        start = grouped_weight.index.min().strftime('%Y%m%d')
-        end = grouped_weight.index.max().strftime('%Y%m%d')
-        bt_data = self.influx.getDataMultiprocess('DailyData_Gus','marketData',start,end)
-        group = []
-        for i in range(1,self.groups+1):
-            group.append('group_'+str(i))
-        with parallel_backend('multiprocessing', n_jobs=5):
-            parallel_res = Parallel()(delayed(StrategyBase.job_backtest)
-                                      (g, grouped_weight, self.benchmark, self.adj_interval, self.cash_reserve,
-                                       self.price_field, self.industry_field, bt_data, self.capital,
-                                       self.stk_slippage, self.stk_fee, self.logger_lvl) for g in group)
-        tot_res = pd.concat(parallel_res,axis=1)
-        # 合并指数value
-        benchmark_to_index = {'IH': '000016.SH', 'IF': '000300.SH', 'IC': '000905.SH'}
-        index_symbol = benchmark_to_index[self.benchmark]
-        index_close = bt_data.loc[bt_data['code']==index_symbol,'close']
-        first_close = index_close.iloc[0]
-        index_value = index_close/first_close * self.capital
-        index_value.name = index_symbol
-        index_value = pd.DataFrame(index_value)
-        tot_res = pd.merge(tot_res,index_value,left_index=True,right_index=True)
-        alpha = (tot_res[group[-1]+'_TotalValue'].iloc[-1]/tot_res[group[-1]+'_TotalValue'].iloc[0])**(250/tot_res.shape[0]) -\
-                (tot_res[index_symbol].iloc[-1]/tot_res[index_symbol].iloc[0])**(250/tot_res.shape[0])
-        print('alpha:',alpha)
-        filename = global_constant.ROOT_DIR + '/Backtest_Result/Factor_Test/' + self.save_name + '.csv'
-        tot_res.to_csv(filename,encoding='gbk')
-        print('group backtest finish!')
-
-
-    def run_factor_test(self,mkt_data,factor_data,factor_field,save_name,groups=5,filter_st=True,standardize='z',
-                        remove_outlier=True,mkt_cap_field='ln_market_cap',benchmark='IC',
-                        industry_field='citics_lv1_name',capital=5000000,cash_reserve=0.03,stk_slippage=0.001,
-                        stk_fee=0.0001,price_field='vwap',adj_interval=5,logger_lvl=logging.ERROR):
-
-        self.factor_field = factor_field
-        self.save_name = save_name
-        self.groups = groups
-        self.filter_st = filter_st
-        self.standardize = standardize
-        self.remove_outlier = remove_outlier
-        self.mkt_cap_field = mkt_cap_field
+        self.start = start
+        self.end = end
         self.benchmark = benchmark
-        self.industry_field = industry_field
-        self.capital = capital
-        self.cash_reserve = cash_reserve
-        self.stk_slippage = stk_slippage
-        self.stk_fee = stk_fee
-        self.price_field = price_field
-        self.adj_interval = adj_interval
-        self.logger_lvl = logger_lvl
-        #---------------------------------------------------------------
-
-        preprocessed_mkt_data = self.mkt_data_preprocess(mkt_data)
-        print('mkt data preprocessing finish')
-        orth_factor = self.orth_factor(factor_data,preprocessed_mkt_data)
-        print('factor orthing finish')
-        # T检验不是必做
-        #T_test_result = self.T_test(orth_factor,factor_field,preprocessed_mkt_data)
-        #print('T-test finish')
-        grouped_weight = self.group_factor(orth_factor,mkt_data)
-        print('factor grouping finish')
-        self.group_backtest(grouped_weight)
-
-
+        self.range = range
+        self.select_pct = select_pct
+        self.industry = industry
+        self.size_field = size_field
+        self.factor_weight_dict = factor_weight_dict
+        self.strategy_name = strategy_name
+        self.data_prepare()
+        self.process_factor()
+        self.select_stks()
+        self.opti_weight()
 
 
 if __name__ == '__main__':
-    print(datetime.datetime.now())
-    warnings.filterwarnings("ignore")
-    strategy = StrategyBase()
-
-    start = 20140101
-    end = 20151231
-    mkt_data = strategy.influx.getDataMultiprocess('DailyData_Gus', 'marketData', start, end, None)
-    mkt_data = mkt_data.loc[pd.notnull(mkt_data['IF_weight'])|pd.notnull(mkt_data['IC_weight']),:]
-    factor = strategy.influx.getDataMultiprocess('DailyFactor_Gus','FinancialQuality',start,end,['code','ROE'])
-    factor = factor.dropna(subset=['ROE'])
-    print('factor loaded!')
-    strategy.run_factor_test(mkt_data,factor,'ROE','ROE',benchmark='IF')
+    s = StrategyBase()
+    s.run(20120101, 20190801, 300, 800, 0.6, 'test',
+          {'Value': {'BP': 0.33, 'EP_TTM': 0.33, 'SP': 0.33},
+           'Turnover': {'std_free_turn_1m': -0.5, 'bias_std_free_turn_1m': -0.5},
+           'FinancialQuality': {'ROE_ddt_Q': 1},
+           'Growth': {'ROE_ddt_Q_growthY': 0.5, 'EP_TTM_growthQ': 0.5},
+           'Momentum': {'free_exp_wgt_rtn_1m': -0.5, 'rtn_1m': -0.5},
+           'Size': {'ln_market_cap': 1}})

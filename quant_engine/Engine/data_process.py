@@ -109,7 +109,7 @@ class DataProcess:
     @staticmethod
     # 市值行业中性化: 因子先去极值标准化，ln市值标准化，行业变换哑变量，回归完取残差
     # 返回的date在columns里
-    def neutralize(factor_data, factor_field, industry_dummies, size_data, size_field='ln_market_cap'):
+    def neutralize(factor_data, factor_field, industry_dummies, size_data, size_field='ln_market_cap', n_process=4):
         industry_dummies.index.names = ['date']
         factor_data.index.names = ['date']
         size_data.index.names = ['date']
@@ -120,26 +120,26 @@ class DataProcess:
         factor = pd.merge(factor, industry, on=['date', 'code'])
         factor = pd.merge(factor, size, on=['date', 'code'])
         dates = factor['date'].unique()
-        split_dates = np.array_split(dates, 10)
-        with parallel_backend('multiprocessing', n_jobs=4):
+        split_dates = np.array_split(dates, n_process)
+        with parallel_backend('multiprocessing', n_jobs=n_process):
             parallel_res = Parallel()(delayed(DataProcess.JOB_cross_section_remove_outlier)
                                       (factor, factor_field, dates) for dates in split_dates)
         factor = pd.concat(parallel_res)
         dates = factor['date'].unique()
-        split_dates = np.array_split(dates, 10)
-        with parallel_backend('multiprocessing', n_jobs=4):
+        split_dates = np.array_split(dates, n_process)
+        with parallel_backend('multiprocessing', n_jobs=n_process):
             parallel_res = Parallel()(delayed(DataProcess.JOB_cross_section_Z_score)
                                       (factor, factor_field, dates) for dates in split_dates)
         factor = pd.concat(parallel_res)
         dates = factor['date'].unique()
-        split_dates = np.array_split(dates, 10)
-        with parallel_backend('multiprocessing', n_jobs=4):
+        split_dates = np.array_split(dates, n_process)
+        with parallel_backend('multiprocessing', n_jobs=n_process):
             parallel_res = Parallel()(delayed(DataProcess.JOB_cross_section_Z_score)
                                       (factor, 'size', dates) for dates in split_dates)
         factor = pd.concat(parallel_res)
         dates = factor['date'].unique()
-        split_dates = np.array_split(dates, 10)
-        with parallel_backend('multiprocessing', n_jobs=4):
+        split_dates = np.array_split(dates, n_process)
+        with parallel_backend('multiprocessing', n_jobs=n_process):
             parallel_res = Parallel()(delayed(DataProcess.JOB_neutralize)
                                       (factor, factor_field, dates) for dates in split_dates)
         neutral_factor = pd.concat(parallel_res)
@@ -185,6 +185,22 @@ class DataProcess:
                 pass
             else:
                 day_data.loc[:, field] = DataProcess.remove_outlier(day_data[field])
+                res.append(day_data)
+        dates_data = pd.concat(res)
+        return dates_data
+
+    # 同时处理remove outlier 和 Z_score
+    @staticmethod
+    def JOB_cross_section_remove_and_Z(data, field, dates):
+        res = []
+        for date in dates:
+            day_data = data.loc[data['date'] == date, :].copy()
+            # 滤去周末出财报造成周末有因子的情况
+            if day_data.shape[0] < 100:
+                pass
+            else:
+                day_data.loc[:, field] = DataProcess.remove_outlier(day_data[field])
+                day_data.loc[:, field] = DataProcess.Z_standardize(day_data[field])
                 res.append(day_data)
         dates_data = pd.concat(res)
         return dates_data
