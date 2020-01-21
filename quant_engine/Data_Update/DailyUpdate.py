@@ -1,8 +1,7 @@
 import sys
 sys.path.extend(['D:\github\quant_engine', 'D:\github\quant_engine\Data_Update\marketData',
-                 'D:\github\quant_engine\Data_Resource'])
+                 'D:\github\quant_engine\Data_Resource', 'D:\github\quant_engine\Data_Update\Indicators'])
 
-from influxdb_data import influxdbData
 from rdf_data import rdf_data
 import datetime
 import dateutil.parser as dtparser
@@ -12,6 +11,7 @@ from AdjFactor import AdjFactor
 from Industry_Lv1 import IndustryLv1
 from StkSwap import UpdateSwapData
 from SwapDataProcess import FillSwapData
+from shares_and_turnover import shares_and_turnover
 
 class DailyUpdate:
     def __init__(self):
@@ -32,6 +32,7 @@ class DailyUpdate:
             last_1yr = dt_last_1yr.strftime('%Y%m%d')
             last_2yr = dt_last_2yr.strftime('%Y%m%d')
             # ---------------------------------------------
+            # 更新每日行情
             btd = BacktestDayData()
             btd.process_data(last_week, last_trade_day, n_jobs)
             adj = AdjFactor()
@@ -42,6 +43,8 @@ class DailyUpdate:
             usd.process_data(last_1yr, last_trade_day)
             fsd = FillSwapData()
             fsd.process_data()
+            sh = shares_and_turnover()
+            sh.process_data(last_week, last_trade_day, n_jobs)
 
 
 if __name__ == '__main__':

@@ -12,7 +12,7 @@ class shares_and_turnover:
         self.db = 'DailyData_Gus'
         self.measure = 'indicators'
 
-    def run(self, start, end, n_jobs):
+    def process_data(self, start, end, n_jobs):
         query = "select TRADE_DT, S_INFO_WINDCODE, TOT_SHR_TODAY, FLOAT_A_SHR_TODAY, FREE_SHARES_TODAY " \
                 "from wind_filesync.AShareEODDerivativeIndicator " \
                 "where TRADE_DT >= {0} and TRADE_DT <= {1} " \
@@ -54,4 +54,4 @@ class shares_and_turnover:
 
 if __name__ == '__main__':
     i = shares_and_turnover()
-    i.run(20190801, 20200201, 4)
+    i.process_data(20190801, 20200201, 4)
