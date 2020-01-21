@@ -1,6 +1,7 @@
 import sys
-sys.path.extend(['D:\github\quant_engine', 'D:\github\quant_engine\Data_Update\marketData',
-                 'D:\github\quant_engine\Data_Resource', 'D:\github\quant_engine\Data_Update\Indicators'])
+root_dir = 'D:\\github\\quant_engine'
+sys.path.extend([root_dir, root_dir + '\\Data_Resource',
+                 root_dir + '\\Data_Update\\marketData', root_dir + '\\Data_Update\\Indicators'])
 
 from rdf_data import rdf_data
 import datetime
