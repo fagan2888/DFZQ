@@ -34,4 +34,4 @@ class S11_basket:
         print('basket got!')
 
 if __name__ == '__main__':
-    S11_basket.run(20200106)
+    S11_basket.run()
