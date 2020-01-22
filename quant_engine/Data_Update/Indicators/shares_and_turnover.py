@@ -46,10 +46,14 @@ class shares_and_turnover:
         codes = merge['code'].unique()
         split_codes = np.array_split(codes, n_jobs)
         with parallel_backend('multiprocessing', n_jobs=n_jobs):
-            Parallel()(delayed(influxdbData.JOB_saveData)
-                       (merge, 'code', codes, self.db, self.measure) for codes in split_codes)
+            res = Parallel()(delayed(influxdbData.JOB_saveData)
+                             (merge, 'code', codes, self.db, self.measure) for codes in split_codes)
         print('shares and turnover finish...')
         print('-'*30)
+        fail_list = []
+        for r in res:
+            fail_list.extend(r)
+        return fail_list
 
 
 if __name__ == '__main__':
