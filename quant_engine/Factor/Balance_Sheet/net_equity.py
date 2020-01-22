@@ -23,7 +23,8 @@ class NetEquity(FactorBase):
             return series[report_period]
 
     @staticmethod
-    def JOB_factors(net_equity, codes, calendar, columns, start):
+    def JOB_factors(net_equity, codes, calendar, start):
+        columns = net_equity.columns
         influx = influxdbData()
         save_res = []
         for code in codes:
@@ -96,12 +97,11 @@ class NetEquity(FactorBase):
         net_equity = net_equity.loc[:, 'net_equity']
         net_equity.reset_index(inplace=True)
         net_equity.set_index('date', inplace=True)
-        columns = net_equity.columns
         codes = net_equity['code'].unique()
         split_codes = np.array_split(codes, n_jobs)
         with parallel_backend('multiprocessing', n_jobs=n_jobs):
             res = Parallel()(delayed(NetEquity.JOB_factors)
-                             (net_equity, codes, calendar, columns, start) for codes in split_codes)
+                             (net_equity, codes, calendar, start) for codes in split_codes)
         print('NetEquity finish')
         print('-' * 30)
         fail_list = []
