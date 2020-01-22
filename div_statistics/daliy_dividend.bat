@@ -1,0 +1,1 @@
+python D:\github\div_statistics\div_version_3.py

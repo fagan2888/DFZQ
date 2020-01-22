@@ -45,7 +45,10 @@ class UpdateSwapData:
         merged_df = pd.concat(to_merge_list)
         merged_df = merged_df.dropna()
         merged_df['swap_date'] = merged_df['swap_date'].apply(lambda x: x.strftime('%Y%m%d'))
-        self.influx.saveData(merged_df, 'DailyData_Gus', 'marketData')
+        res = self.influx.saveData(merged_df, 'DailyData_Gus', 'marketData')
+        print('swap data finish')
+        print('-'*30)
+        return res
 
 
 if __name__ == '__main__':

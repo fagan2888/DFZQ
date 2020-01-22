@@ -19,10 +19,10 @@ class AdjFactor:
         adj_factor = adj_factor.groupby(['date', 'code']).last()
         adj_factor = adj_factor.reset_index().set_index('date')
         adj_factor = adj_factor.sort_index()
-        self.influx.saveData(adj_factor, 'DailyData_Gus', 'marketData')
+        res = self.influx.saveData(adj_factor, 'DailyData_Gus', 'marketData')
         print('Adj factor finish!')
         print('-'*30)
-
+        return res
 
 if __name__ == '__main__':
     adj = AdjFactor()

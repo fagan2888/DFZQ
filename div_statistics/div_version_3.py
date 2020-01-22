@@ -1,6 +1,7 @@
 from csindex_ftp_down import *
 import datetime
 from dateutil.relativedelta import relativedelta
+import dateutil.parser as dtparser
 import pandas as pd
 import numpy as np
 import os
@@ -599,4 +600,8 @@ if __name__ == "__main__":
     pd.set_option('display.max_columns', None)
 
     div = div_pred_statistic()
-    div.run_daily()
+    dt_today = dtparser.parse(datetime.datetime.now().strftime('%Y%m%d'))
+    if div.trading_calendar[div.trading_calendar == dt_today].empty:
+        print('Not Trade Day...')
+    else:
+        div.run_daily()
