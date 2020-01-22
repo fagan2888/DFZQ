@@ -65,9 +65,10 @@ class FillSwapData:
         merged_df = pd.concat(tmp_list)
         merged_df = merged_df.dropna(subset=['code'])
         merged_df = merged_df.where(pd.notnull(merged_df), None)
-        influx.saveData(merged_df, db, measure)
+        res = influx.saveData(merged_df, db, measure)
         print('fill swap data finish')
         print('-'*30)
+        return res
 
 
 if __name__ == '__main__':

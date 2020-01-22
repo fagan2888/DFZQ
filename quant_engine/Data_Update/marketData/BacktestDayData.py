@@ -183,15 +183,20 @@ class BacktestDayData:
         codes = merged_data['code'].unique()
         split_codes = np.array_split(codes, n_jobs)
         with parallel_backend('multiprocessing', n_jobs=n_jobs):
-            Parallel()(delayed(influxdbData.JOB_saveData)
-                       (merged_data, 'code', codes, self.db, self.measure) for codes in split_codes)
-        return
+            res = Parallel()(delayed(influxdbData.JOB_saveData)
+                             (merged_data, 'code', codes, self.db, self.measure) for codes in split_codes)
+        print('marketData finish')
+        print('-'*30)
+        fail_list = []
+        for r in res:
+            fail_list.extend(r)
+        return fail_list
 
 
 if __name__ == '__main__':
     print(datetime.datetime.now())
     btd = BacktestDayData()
-    start = 20200101
+    start = 20190801
     end = 20200201
     btd.process_data(start_input=start, end_input=end, n_jobs=4)
     print("start: %i ~ end: %i is finish!" % (start, end))

@@ -14,10 +14,10 @@ class IndustryLv1:
         else row['citics_lv1_name'], axis=1)
         mkt_data = mkt_data.loc[:, ['code', 'improved_lv1']].copy()
         mkt_data = mkt_data.where(pd.notnull(mkt_data), None)
-        self.influx.saveData(mkt_data, 'DailyData_Gus', 'marketData')
+        res = self.influx.saveData(mkt_data, 'DailyData_Gus', 'marketData')
         print('improved_lv1 data finish')
         print('-'*30)
-
+        return res
 
 if __name__ == '__main__':
     ind = IndustryLv1()

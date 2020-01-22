@@ -69,7 +69,9 @@ class influxdbData:
             print(error_msg)
             print(database)
         else:
+            error_msg = 'No error occurred...'
             print('data saved!')
+        return error_msg
 
     # 多进程存数据的工具函数
     @staticmethod
@@ -78,6 +80,7 @@ class influxdbData:
         dbs = influx.getDBs()
         if not {'name': database} in dbs:
             influx.client.create_database(database)
+        res = []
         for l in list:
             save_data = whole_data.loc[whole_data[field] == l, :]
             success_flag = False
@@ -93,8 +96,10 @@ class influxdbData:
                 print(l, 'save error!')
                 print(save_data)
                 print(error_msg)
+                res.append(l + '\n' + error_msg)
             else:
                 print(l, 'data saved!')
+        return res
 
     # 需要对空的情况特殊处理
     def getDataMultiprocess(self, database, measure, startdate, enddate, fields=None):
