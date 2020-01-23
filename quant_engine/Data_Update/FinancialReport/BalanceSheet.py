@@ -56,7 +56,7 @@ class BalanceSheetUpdate(FactorBase):
             if r == 'No error occurred...':
                 pass
             else:
-                save_res.append('Income  Field: %s  Error: %s' % (field, r))
+                save_res.append('BalanceSheet  Field: %s  Error: %s' % (field, r))
         return save_res
 
     def cal_factors(self, start, end, n_jobs):
