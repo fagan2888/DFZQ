@@ -27,8 +27,8 @@ class FactorBase:
         return series
 
     @staticmethod
-    def get_former_report_period(dt,Q_num):
-        return dt+datetime.timedelta(days=1)-relativedelta(months=3*Q_num)-datetime.timedelta(days=1)
+    def get_former_report_period(dt, n_Qs):
+        return dt + datetime.timedelta(days=1) - relativedelta(months=3 * n_Qs) - datetime.timedelta(days=1)
 
     @staticmethod
     def rank_standardize(series):
