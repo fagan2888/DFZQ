@@ -14,6 +14,9 @@ from Industry_Lv1 import IndustryLv1
 from StkSwap import UpdateSwapData
 from SwapDataProcess import FillSwapData
 from shares_and_turnover import shares_and_turnover
+from BalanceSheet import BalanceSheetUpdate
+from Income import IncomeUpdate
+from QnTTM import QnTTMUpdate
 
 class DailyUpdate:
     def __init__(self):
@@ -36,14 +39,13 @@ class DailyUpdate:
             dt_last_trade_day = self.calendar[self.calendar < dt_today].iloc[-1]
             dt_last_week = dt_last_trade_day - relativedelta(weeks=1)
             dt_last_1yr = dt_last_trade_day - relativedelta(years=1)
-            dt_last_2yr = dt_last_trade_day - relativedelta(years=2)
             last_trade_day = dt_last_trade_day.strftime('%Y%m%d')
             last_week = dt_last_week.strftime('%Y%m%d')
             last_1yr = dt_last_1yr.strftime('%Y%m%d')
-            last_2yr = dt_last_2yr.strftime('%Y%m%d')
             # ---------------------------------------------
             # 更新每日行情
             self.logger.info('Date:  %s' % (dt_today.strftime('%Y%m%d')))
+            self.logger.info('BeginTime: %s' % datetime.datetime.now().strftime('%Y%m%d-%H:%M:%S'))
             self.logger.info('*'*30)
             btd = BacktestDayData()
             res = btd.process_data(last_week, last_trade_day, n_jobs)
@@ -70,7 +72,24 @@ class DailyUpdate:
             res = sh.process_data(last_week, last_trade_day, n_jobs)
             for r in res:
                 self.logger.info(r)
-            self.logger.info('------------------market data finish------------------')
+            self.logger.info('------------------shares and turnover finish------------------')
+            bs = BalanceSheetUpdate()
+            res = bs.cal_factors(last_week, last_trade_day, n_jobs)
+            for r in res:
+                self.logger.info(r)
+            self.logger.info('------------------balance sheet finish------------------')
+            income = IncomeUpdate()
+            res = income.cal_factors(last_week, last_trade_day, n_jobs)
+            for r in res:
+                self.logger.info(r)
+            self.logger.info('------------------income finish------------------')
+            QnTTM = QnTTMUpdate()
+            res = QnTTM.cal_factors(last_week, last_trade_day, n_jobs)
+            for r in res:
+                self.logger.info(r)
+            self.logger.info('------------------QnTTM finish------------------')
+
+            self.logger.info('EndTime: %s' % datetime.datetime.now().strftime('%Y%m%d-%H:%M:%S'))
 
 
 if __name__ == '__main__':
