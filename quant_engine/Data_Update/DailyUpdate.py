@@ -1,7 +1,7 @@
 import sys
 root_dir = 'D:\\github\\quant_engine'
-sys.path.extend([root_dir, root_dir + '\\Data_Resource',
-                 root_dir + '\\Data_Update\\marketData', root_dir + '\\Data_Update\\Indicators'])
+sys.path.extend([root_dir, root_dir + '\\Data_Resource', root_dir + '\\Data_Update\\marketData',
+                 root_dir + '\\Data_Update\\Indicators', root_dir + '\\Data_Update\\FinancialReport'])
 
 from rdf_data import rdf_data
 import logging
