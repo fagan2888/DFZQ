@@ -5,7 +5,6 @@ import dateutil.parser as dtparser
 from dateutil.relativedelta import relativedelta
 from joblib import Parallel, delayed, parallel_backend
 from influxdb_data import influxdbData
-import global_constant
 
 
 class IncomeUpdate(FactorBase):
@@ -53,7 +52,7 @@ class IncomeUpdate(FactorBase):
             code_df['report_period'] = code_df['report_period'].apply(lambda x: x.strftime('%Y%m%d'))
             code_df = code_df.where(pd.notnull(code_df), None)
             print('code: %s' % code)
-            r = influx.saveData(code_df, 'Financial_Report_Gus', field)
+            r = influx.saveData(code_df, 'FinancialReport_Gus', field)
             if r == 'No error occurred...':
                 pass
             else:
@@ -63,6 +62,8 @@ class IncomeUpdate(FactorBase):
     def cal_factors(self, start, end, n_jobs):
         # type要用408001000，408005000，408004000(合并报表，合并更正前，合并调整后)，同时有408001000和408005000用408005000
         # 有408004000时，根据ann_dt酌情使用
+        # 目前包含字段: 净利润(net_profit)，扣非净利润(net_profit_ddt)，营收(oper_rev)，总营收(tot_oper_rev)，
+        #              营业利润(oper_profit)，摊薄eps(EPS_diluted)
         query = "select ANN_DT, S_INFO_WINDCODE, REPORT_PERIOD, NET_PROFIT_EXCL_MIN_INT_INC, " \
                 "NET_PROFIT_AFTER_DED_NR_LP, OPER_REV, TOT_OPER_REV, OPER_PROFIT, S_FA_EPS_DILUTED, STATEMENT_TYPE " \
                 "from wind_filesync.AShareIncome " \

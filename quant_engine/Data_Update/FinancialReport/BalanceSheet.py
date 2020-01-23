@@ -5,7 +5,6 @@ import dateutil.parser as dtparser
 from dateutil.relativedelta import relativedelta
 from joblib import Parallel, delayed, parallel_backend
 from influxdb_data import influxdbData
-import global_constant
 
 
 class BalanceSheetUpdate(FactorBase):
@@ -53,7 +52,7 @@ class BalanceSheetUpdate(FactorBase):
             code_df['report_period'] = code_df['report_period'].apply(lambda x: x.strftime('%Y%m%d'))
             code_df = code_df.where(pd.notnull(code_df), None)
             print('code: %s' % code)
-            r = influx.saveData(code_df, 'Financial_Report_Gus', field)
+            r = influx.saveData(code_df, 'FinancialReport_Gus', field)
             if r == 'No error occurred...':
                 pass
             else:
