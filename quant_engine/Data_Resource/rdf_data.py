@@ -42,11 +42,11 @@ class rdf_data:
                 query = query + " TRADE_DT>={0}".format(str_start) + str_filter
             elif (not start_input) and end_input:
                 str_end = self.date_preprocess(end_input)
-                query = query + " TRADE_DT<{0}".format(str_end) + str_filter
+                query = query + " TRADE_DT<={0}".format(str_end) + str_filter
             elif start_input and end_input:
                 str_start = self.date_preprocess(start_input)
                 str_end = self.date_preprocess(end_input)
-                query = query + " TRADE_DT>={0} and TRADE_DT<{1}".format(str_start,str_end) + str_filter
+                query = query + " TRADE_DT>={0} and TRADE_DT<={1}".format(str_start,str_end) + str_filter
             else:
                 query = query + str_filter[4:]
 
@@ -68,12 +68,12 @@ class rdf_data:
                             " and S_INFO_WINDCODE in ('000016.SH','000300.SH','000905.SH')".format(str_start)
         elif (not start_input) and end_input:
             str_end = self.date_preprocess(end_input)
-            query = query + " where TRADE_DT <{0}" \
+            query = query + " where TRADE_DT <={0}" \
                             " and S_INFO_WINDCODE in ('000016.SH','000300.SH','000905.SH')".format(str_end)
         elif start_input and end_input:
             str_start = self.date_preprocess(start_input)
             str_end = self.date_preprocess(end_input)
-            query = query + " where TRADE_DT >={0} and TRADE_DT <{1}" \
+            query = query + " where TRADE_DT >={0} and TRADE_DT <={1}" \
                             " and S_INFO_WINDCODE in ('000016.SH','000300.SH','000905.SH')".format(str_start,str_end)
         else:
             query = query + " where S_INFO_WINDCODE in ('000016.SH','000300.SH','000905.SH')"
@@ -97,13 +97,13 @@ class rdf_data:
                             "('IH00.CFE','IH01.CFE','IF00.CFE','IF01.CFE','IC00.CFE','IC01.CFE')".format(str_start)
         elif (not start_input) and end_input:
             str_end = self.date_preprocess(end_input)
-            query = query + " where TRADE_DT <{0}" \
+            query = query + " where TRADE_DT <={0}" \
                             " and S_INFO_WINDCODE in " \
                             "('IH00.CFE','IH01.CFE','IF00.CFE','IF01.CFE','IC00.CFE','IC01.CFE')".format(str_end)
         elif start_input and end_input:
             str_start = self.date_preprocess(start_input)
             str_end = self.date_preprocess(end_input)
-            query = query + " where TRADE_DT >={0} and TRADE_DT <{1}" \
+            query = query + " where TRADE_DT >={0} and TRADE_DT <={1}" \
                             " and S_INFO_WINDCODE in " \
                             "('IH00.CFE','IH01.CFE','IF00.CFE','IF01.CFE','IC00.CFE','IC01.CFE')".format(str_start,str_end)
         else:
@@ -127,11 +127,11 @@ class rdf_data:
             query = query + " where EX_DATE >={0}".format(str_start)
         elif (not start_input) and end_input:
             str_end = self.date_preprocess(end_input)
-            query = query + " where EX_DATE <{0}".format(str_end)
+            query = query + " where EX_DATE <={0}".format(str_end)
         elif start_input and end_input:
             str_start = self.date_preprocess(start_input)
             str_end = self.date_preprocess(end_input)
-            query = query + " where EX_DATE >={0} and EX_DATE <{1}".format(str_start,str_end)
+            query = query + " where EX_DATE >={0} and EX_DATE <={1}".format(str_start,str_end)
         else:
             pass
         self.curs.execute(query)
@@ -160,12 +160,12 @@ class rdf_data:
                 query = query + " (DVD_PAYOUT_DT>={0} or LISTING_DT_OF_DVD_SHR>={0})".format(str_start) + str_filter
             elif (not start_input) and end_input:
                 str_end = self.date_preprocess(end_input)
-                query = query + " (DVD_PAYOUT_DT<{0} or LISTING_DT_OF_DVD_SHR<{0})".format(str_end) + str_filter
+                query = query + " (DVD_PAYOUT_DT<={0} or LISTING_DT_OF_DVD_SHR<={0})".format(str_end) + str_filter
             elif start_input and end_input:
                 str_start = self.date_preprocess(start_input)
                 str_end = self.date_preprocess(end_input)
                 query = query + " (DVD_PAYOUT_DT>={0} or LISTING_DT_OF_DVD_SHR>={0}) and" \
-                                " (DVD_PAYOUT_DT<{1} or LISTING_DT_OF_DVD_SHR<{1})".format(str_start, str_end) + str_filter
+                                " (DVD_PAYOUT_DT<={1} or LISTING_DT_OF_DVD_SHR<={1})".format(str_start, str_end) + str_filter
             else:
                 query = query + str_filter[4:]
 
@@ -189,11 +189,11 @@ class rdf_data:
             query = query + " where TRADE_DT >={0}".format(str_start)
         elif (not start_input) and end_input:
             str_end = self.date_preprocess(end_input)
-            query = query + " where TRADE_DT <{0}".format(str_end)
+            query = query + " where TRADE_DT <={0}".format(str_end)
         elif start_input and end_input:
             str_start = self.date_preprocess(start_input)
             str_end = self.date_preprocess(end_input)
-            query = query + " where TRADE_DT >={0} and TRADE_DT <{1}".format(str_start,str_end)
+            query = query + " where TRADE_DT >={0} and TRADE_DT <={1}".format(str_start,str_end)
 
         self.curs.execute(query)
         index_comp = pd.DataFrame(self.curs.fetchall(),columns=['date', 'index_code', 'stk_code', 'weight'])
@@ -353,7 +353,7 @@ class rdf_data:
         print('fetching eps data...')
         sql_sentence = "select s_info_windcode,trade_dt,NET_PROFIT_PARENT_COMP_TTM,TOT_SHR_TODAY " \
                        "from wind_filesync.AShareEODDerivativeIndicator " \
-                       "where trade_dt >20160101 and s_info_windcode in " + str(tuple(code_list))
+                       "where trade_dt >=20160101 and s_info_windcode in " + str(tuple(code_list))
         self.curs.execute(sql_sentence)
         fetch_data = self.curs.fetchall()
         eps_df = pd.DataFrame(fetch_data, columns=['code', 'date', 'net_profit', 'total_shares'])
@@ -522,11 +522,11 @@ class rdf_data:
             query = query + " where TRADE_DT >={0}".format(str_start)
         elif (not start_input) and end_input:
             str_end = self.date_preprocess(end_input)
-            query = query + " where TRADE_DT <{0}".format(str_end)
+            query = query + " where TRADE_DT <={0}".format(str_end)
         elif start_input and end_input:
             str_start = self.date_preprocess(start_input)
             str_end = self.date_preprocess(end_input)
-            query = query + " where TRADE_DT >={0} and TRADE_DT <{1}".format(str_start, str_end)
+            query = query + " where TRADE_DT >={0} and TRADE_DT <={1}".format(str_start, str_end)
         else:
             pass
         self.curs.execute(query)

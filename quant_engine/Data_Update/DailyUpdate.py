@@ -1,5 +1,5 @@
 import sys
-root_dir = 'D:\\github\\quant_engine'
+root_dir = 'C:\\Users\\trader_9\\PycharmProjects\\DFZQ\\quant_engine'
 sys.path.extend([root_dir, root_dir + '\\Data_Resource', root_dir + '\\Engine', root_dir + '\\Config',
                  root_dir + '\\Data_Update\\marketData', root_dir + '\\Data_Update\\Indicators',
                  root_dir + '\\Data_Update\\FinancialReport'])
@@ -52,7 +52,7 @@ class DailyUpdate:
             # 更新每日行情
             self.logger.info('Date:  %s' % (dt_today.strftime('%Y%m%d')))
             self.logger.info('BeginTime: %s' % datetime.datetime.now().strftime('%Y%m%d-%H:%M:%S'))
-            self.logger.info('*'*30)
+            self.logger.info('*' * 30)
             btd = BacktestDayData()
             res = btd.process_data(last_week, last_trade_day, n_jobs)
             for r in res:
@@ -100,4 +100,4 @@ class DailyUpdate:
 
 if __name__ == '__main__':
     du = DailyUpdate()
-    du.run(4)
+    du.run(20,20200123)
