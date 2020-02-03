@@ -353,7 +353,7 @@ class rdf_data:
         print('fetching eps data...')
         sql_sentence = "select s_info_windcode,trade_dt,NET_PROFIT_PARENT_COMP_TTM,TOT_SHR_TODAY " \
                        "from wind_filesync.AShareEODDerivativeIndicator " \
-                       "where trade_dt >=20160101 and s_info_windcode in " + str(tuple(code_list))
+                       "where trade_dt >20160101 and s_info_windcode in " + str(tuple(code_list))
         self.curs.execute(sql_sentence)
         fetch_data = self.curs.fetchall()
         eps_df = pd.DataFrame(fetch_data, columns=['code', 'date', 'net_profit', 'total_shares'])
