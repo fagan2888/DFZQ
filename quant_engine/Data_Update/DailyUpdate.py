@@ -1,7 +1,8 @@
 import sys
 root_dir = 'D:\\github\\quant_engine'
-sys.path.extend([root_dir, root_dir + '\\Data_Resource', root_dir + '\\Data_Update\\marketData',
-                 root_dir + '\\Data_Update\\Indicators', root_dir + '\\Data_Update\\FinancialReport'])
+sys.path.extend([root_dir, root_dir + '\\Data_Resource', root_dir + '\\Engine', root_dir + '\\Config',
+                 root_dir + '\\Data_Update\\marketData', root_dir + '\\Data_Update\\Indicators',
+                 root_dir + '\\Data_Update\\FinancialReport'])
 
 from rdf_data import rdf_data
 import logging
@@ -31,8 +32,13 @@ class DailyUpdate:
         handler.setFormatter(formatter)
         self.logger.addHandler(handler)
 
-    def run(self, n_jobs):
-        dt_today = dtparser.parse(datetime.datetime.now().strftime('%Y%m%d'))
+    def run(self, n_jobs, date=None):
+        # 当date有输入时，为目标日期，当没有输入时，为每天执行，定时刷新上一天的数据
+        if date:
+            dt_today = dtparser.parse(str(date))
+            dt_today = self.calendar[self.calendar > dt_today].iloc[0]
+        else:
+            dt_today = dtparser.parse(datetime.datetime.now().strftime('%Y%m%d'))
         if self.calendar[self.calendar == dt_today].empty:
             print('Not Trade Day...')
         else:
