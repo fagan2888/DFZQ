@@ -22,7 +22,11 @@ class DP(FactorBase):
             code_df = df.loc[df['code'] == code, :].copy().sort_values('date')
             code_df['mv'] = code_df['mv'].fillna(method='ffill')
             code_df['shares'] = code_df['shares'].fillna(method='ffill')
+            code_df['cur_year'] = code_df['date'].apply(lambda x: x.year)
             code_df['DP_year'] = code_df['DP_year'].fillna(method='ffill')
+            code_df['DP_year'] = \
+                code_df.apply(
+                    lambda row: row['DP_year'] if row['cur_year'] - row['DP_year'] < 2 else row['cur_year'] - 1, axis=1)
             code_df = code_df.dropna(subset=['mv'])
             if code_df.empty:
                 continue
@@ -96,7 +100,7 @@ class DP(FactorBase):
 if __name__ == '__main__':
     print(datetime.datetime.now())
     dp = DP()
-    r = dp.cal_factors(20100101, 20200205, 5)
+    r = dp.cal_factors(20200101, 20200205, 5)
     print('task finish')
     print(r)
     print(datetime.datetime.now())
