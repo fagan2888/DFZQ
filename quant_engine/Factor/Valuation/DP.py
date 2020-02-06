@@ -57,7 +57,6 @@ class DP(FactorBase):
             .format((dtparser.parse(str(start)) - relativedelta(years=2)).strftime('%Y%m%d'), str(end))
         self.rdf.curs.execute(query)
         dvd = pd.DataFrame(self.rdf.curs.fetchall(), columns=['code', 'dvd_per_share', 'date', 'report_period'])
-        dvd = dvd.loc[dvd['dvd_per_share'] > 0, :]
         dvd = dvd.dropna(subset=['date'])
         dvd['date'] = pd.to_datetime(dvd['date'])
         dvd['report_period'] = pd.to_datetime(dvd['report_period'])
