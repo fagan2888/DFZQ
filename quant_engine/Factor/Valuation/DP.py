@@ -81,8 +81,8 @@ class DP(FactorBase):
         mv = pd.DataFrame(self.rdf.curs.fetchall(), columns=['date', 'code', 'mv', 'shares'])
         mv['date'] = pd.to_datetime(mv['date'])
         merge = pd.merge(dvd, mv, on=['date', 'code'], how='outer')
-        #codes = merge['code'].unique()
-        codes = ['002581.SZ', '002525.SZ', '600349.SH', '000991.SZ', '002257.SZ']
+        codes = merge['code'].unique()
+        #codes = ['002581.SZ', '002525.SZ', '600349.SH', '000991.SZ', '002257.SZ']
         split_codes = np.array_split(codes, n_jobs)
         with parallel_backend('multiprocessing', n_jobs=n_jobs):
             res = Parallel()(delayed(DP.JOB_factors)
@@ -97,7 +97,7 @@ class DP(FactorBase):
 if __name__ == '__main__':
     print(datetime.datetime.now())
     dp = DP()
-    r = dp.cal_factors(20100101, 20160901, 5)
+    r = dp.cal_factors(20100101, 20200205, 5)
     print('task finish')
     print(r)
     print(datetime.datetime.now())
