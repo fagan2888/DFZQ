@@ -63,7 +63,7 @@ class DailyUpdate:
             self.logger.info('//////////////////////////////////////////////////////')
             self.logger.info('Date:  %s' % (dt_today.strftime('%Y%m%d')))
             self.logger.info('BeginTime: %s' % datetime.datetime.now().strftime('%Y%m%d-%H:%M:%S'))
-            self.logger.info('//////////////////////////////////////////////////////')
+            self.logger.info('//////////////////////////////////////////////////////\n')
 
             # ---------------------------------------------
             self.logger.info('******************************************************')
@@ -119,8 +119,9 @@ class DailyUpdate:
             res = dp.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
             self.logger.info('--------------------DP_LYR finish---------------------')
+            self.logger.info('//////////////////////////////////////////////////////')
             self.logger.info('EndTime: %s' % datetime.datetime.now().strftime('%Y%m%d-%H:%M:%S'))
-
+            self.logger.info('//////////////////////////////////////////////////////\n')
 
 if __name__ == '__main__':
     du = DailyUpdate()
