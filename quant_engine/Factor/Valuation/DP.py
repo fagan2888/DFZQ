@@ -85,11 +85,17 @@ class DP(FactorBase):
         with parallel_backend('multiprocessing', n_jobs=n_jobs):
             res = Parallel()(delayed(DP.JOB_factors)
                              (codes, merge, start, end) for codes in split_codes)
-
+        print('DP finish')
+        print('-' * 30)
+        fail_list = []
+        for r in res:
+            fail_list.extend(r)
+        return fail_list
 
 if __name__ == '__main__':
     print(datetime.datetime.now())
     dp = DP()
-    dp.cal_factors(20100101, 20160901,5)
+    r = dp.cal_factors(20100101, 20160901,5)
     print('task finish')
+    print(r)
     print(datetime.datetime.now())
