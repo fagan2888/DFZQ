@@ -1,5 +1,9 @@
 import sys
+# 本地
 root_dir = 'D:\\github\\quant_engine'
+# 服务器
+#root_dir = 'C:\\Users\\trader_9\\PycharmProjects\\DFZQ\\quant_engine'
+
 sys.path.extend([root_dir, root_dir + '\\Data_Resource', root_dir + '\\Engine', root_dir + '\\Config',
                  root_dir + '\\Data_Update\\marketData', root_dir + '\\Data_Update\\Indicators',
                  root_dir + '\\Data_Update\\FinancialReport', root_dir + '\\Factor\\Valuation'])
@@ -9,6 +13,7 @@ import logging
 import datetime
 import dateutil.parser as dtparser
 from dateutil.relativedelta import relativedelta
+from global_constant import N_JOBS
 from BacktestDayData import BacktestDayData
 from AdjFactor import AdjFactor
 from Industry_Lv1 import IndustryLv1
@@ -55,9 +60,10 @@ class DailyUpdate:
             last_1yr = dt_last_1yr.strftime('%Y%m%d')
             # ---------------------------------------------
             # 更新每日行情
+            self.logger.info('//////////////////////////////////////////////////////')
             self.logger.info('Date:  %s' % (dt_today.strftime('%Y%m%d')))
             self.logger.info('BeginTime: %s' % datetime.datetime.now().strftime('%Y%m%d-%H:%M:%S'))
-            self.logger.info('*' * 30)
+            self.logger.info('//////////////////////////////////////////////////////')
 
             # ---------------------------------------------
             self.logger.info('******************************************************')
@@ -70,23 +76,23 @@ class DailyUpdate:
             adj = AdjFactor()
             res = adj.process_data(last_week, last_trade_day)
             self.logger.info(res)
-            self.logger.info('------------------adj factor finish------------------')
+            self.logger.info('------------------adj factor finish-------------------')
             idsty = IndustryLv1()
             res = idsty.process_data(last_week, last_trade_day)
             self.logger.info(res)
-            self.logger.info('------------------improved Lv1 finish------------------')
+            self.logger.info('-----------------improved Lv1 finish------------------')
             usd = UpdateSwapData()
             res = usd.process_data(last_1yr, last_trade_day)
             self.logger.info(res)
-            self.logger.info('------------------swap data finish------------------')
+            self.logger.info('-------------------swap data finish-------------------')
             fsd = FillSwapData()
             res = fsd.process_data()
             self.logger.info(res)
-            self.logger.info('------------------fill swap data finish------------------')
+            self.logger.info('-----------------fill swap data finish----------------')
             sh = shares_and_turnover()
             res = sh.process_data(last_week, last_trade_day, n_jobs)
             self.log_res(res)
-            self.logger.info('------------------shares and turnover finish------------------')
+            self.logger.info('-------------shares and turnover finish---------------')
 
             # ---------------------------------------------
             self.logger.info('******************************************************')
@@ -95,15 +101,15 @@ class DailyUpdate:
             bs = BalanceSheetUpdate()
             res = bs.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
-            self.logger.info('------------------balance sheet finish------------------')
+            self.logger.info('----------------balance sheet finish------------------')
             income = IncomeUpdate()
             res = income.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
-            self.logger.info('------------------income finish------------------')
+            self.logger.info('-------------------income finish----------------------')
             QnTTM = QnTTMUpdate()
             res = QnTTM.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
-            self.logger.info('------------------QnTTM finish------------------')
+            self.logger.info('---------------------QnTTM finish---------------------')
 
             # ---------------------------------------------
             self.logger.info('******************************************************')
@@ -112,10 +118,10 @@ class DailyUpdate:
             dp = DP()
             res = dp.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
-            self.logger.info('------------------DP_LYR finish------------------')
+            self.logger.info('--------------------DP_LYR finish---------------------')
             self.logger.info('EndTime: %s' % datetime.datetime.now().strftime('%Y%m%d-%H:%M:%S'))
 
 
 if __name__ == '__main__':
     du = DailyUpdate()
-    du.run(5)
+    du.run(N_JOBS)
