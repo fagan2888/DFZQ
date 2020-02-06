@@ -23,7 +23,9 @@ class DP(FactorBase):
             code_df['mv'] = code_df['mv'].fillna(method='ffill')
             code_df['shares'] = code_df['shares'].fillna(method='ffill')
             code_df['DP_year'] = code_df['DP_year'].fillna(method='ffill')
-            code_df['code'] = code
+            code_df = code_df.dropna(subset=['mv'])
+            if code_df.empty:
+                continue
             yearly_dvd = code_df.copy().dropna(subset=['dvd_per_share'])
             yearly_dvd['dvd_amount'] = yearly_dvd['dvd_per_share'] * yearly_dvd['shares']
             yearly_dvd = pd.DataFrame(yearly_dvd.groupby('report_year')['dvd_amount'].sum()).reset_index()
@@ -79,7 +81,8 @@ class DP(FactorBase):
         mv = pd.DataFrame(self.rdf.curs.fetchall(), columns=['date', 'code', 'mv', 'shares'])
         mv['date'] = pd.to_datetime(mv['date'])
         merge = pd.merge(dvd, mv, on=['date', 'code'], how='outer')
-        codes = merge['code'].unique()
+        #codes = merge['code'].unique()
+        codes = ['002581.SZ', '002525.SZ', '600349.SH', '000991.SZ', '002257.SZ']
         split_codes = np.array_split(codes, n_jobs)
         with parallel_backend('multiprocessing', n_jobs=n_jobs):
             res = Parallel()(delayed(DP.JOB_factors)
@@ -94,7 +97,7 @@ class DP(FactorBase):
 if __name__ == '__main__':
     print(datetime.datetime.now())
     dp = DP()
-    r = dp.cal_factors(20100101, 20160901,5)
+    r = dp.cal_factors(20100101, 20160901, 5)
     print('task finish')
     print(r)
     print(datetime.datetime.now())
