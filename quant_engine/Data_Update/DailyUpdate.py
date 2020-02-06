@@ -6,7 +6,8 @@ root_dir = 'D:\\github\\quant_engine'
 
 sys.path.extend([root_dir, root_dir + '\\Data_Resource', root_dir + '\\Engine', root_dir + '\\Config',
                  root_dir + '\\Data_Update\\marketData', root_dir + '\\Data_Update\\Indicators',
-                 root_dir + '\\Data_Update\\FinancialReport', root_dir + '\\Factor\\Valuation'])
+                 root_dir + '\\Data_Update\\FinancialReport', root_dir + '\\Factor\\Size',
+                 root_dir + '\\Factor\\Valuation'])
 # -------------------------------
 from rdf_data import rdf_data
 import logging
@@ -23,6 +24,8 @@ from shares_and_turnover import shares_and_turnover
 from BalanceSheet import BalanceSheetUpdate
 from Income import IncomeUpdate
 from QnTTM import QnTTMUpdate
+from market_cap import market_cap
+from EPandEPcut import EPandEPcut
 from DP import DP
 
 class DailyUpdate:
@@ -115,6 +118,14 @@ class DailyUpdate:
             self.logger.info('******************************************************')
             self.logger.info('===================因子数据日常更新=====================')
             self.logger.info('******************************************************')
+            sz = market_cap()
+            res = sz.cal_factors(last_week, last_trade_day, n_jobs)
+            self.log_res(res)
+            self.logger.info('------------------market_cap finish-------------------')
+            ep = EPandEPcut()
+            res = ep.cal_factors(last_week, last_trade_day, n_jobs)
+            self.log_res(res)
+            self.logger.info('---------------------EP finish------------------------')
             dp = DP()
             res = dp.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
