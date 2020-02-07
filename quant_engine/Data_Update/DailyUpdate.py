@@ -26,6 +26,7 @@ from Income import IncomeUpdate
 from QnTTM import QnTTMUpdate
 from market_cap import market_cap
 from EPandEPcut import EPandEPcut
+from BP import BP
 from DP import DP
 
 class DailyUpdate:
@@ -126,6 +127,10 @@ class DailyUpdate:
             res = ep.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
             self.logger.info('---------------------EP finish------------------------')
+            bp = BP()
+            res = bp.cal_factors(last_week, last_trade_day, n_jobs)
+            self.log_res(res)
+            self.logger.info('---------------------BP finish------------------------')
             dp = DP()
             res = dp.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
