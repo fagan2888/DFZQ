@@ -5,9 +5,6 @@ from influxdb_data import influxdbData
 import datetime
 from joblib import Parallel, delayed, parallel_backend
 
-# DP_LYR = 最近年度分红汇总（税前）/股票市值
-# 其中，若年报或者分红方案已经公布时，分子取上年度预案分红金额，若年报或分红方案均未公布时，则取上上年度的分红。
-
 class EPandEPcut(FactorBase):
     def __init__(self):
         super().__init__()
