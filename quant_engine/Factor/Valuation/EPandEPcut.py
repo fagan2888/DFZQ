@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 from influxdb_data import influxdbData
 import datetime
+from global_constant import N_JOBS
 from joblib import Parallel, delayed, parallel_backend
 
 class EPandEPcut(FactorBase):
@@ -12,7 +13,6 @@ class EPandEPcut(FactorBase):
         self.measure = 'EP'
 
     def cal_factors(self, start, end, n_jobs):
-        # 日期使用分红确认的公告日
         net_profit_TTM = self.influx.getDataMultiprocess('FinancialReport_Gus', 'net_profit_TTM', start, end,
                                                          ['code', 'net_profit_TTM'])
         net_profit_ddt_TTM = self.influx.getDataMultiprocess('FinancialReport_Gus', 'net_profit_ddt_TTM', start, end,
@@ -59,7 +59,7 @@ class EPandEPcut(FactorBase):
 if __name__ == '__main__':
     print(datetime.datetime.now())
     ep = EPandEPcut()
-    r = ep.cal_factors(20150101, 20150205, 5)
+    r = ep.cal_factors(20150101, 20150205, N_JOBS)
     print('task finish')
     print(r)
     print(datetime.datetime.now())
