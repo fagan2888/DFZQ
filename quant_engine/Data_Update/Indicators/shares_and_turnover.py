@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 from influxdb_data import influxdbData
 from joblib import Parallel, delayed, parallel_backend
-
+from global_constant import N_JOBS
 
 class shares_and_turnover:
     def __init__(self):
@@ -58,4 +58,4 @@ class shares_and_turnover:
 
 if __name__ == '__main__':
     i = shares_and_turnover()
-    i.process_data(20190801, 20200201, 4)
+    i.process_data(20190801, 20200201, N_JOBS)

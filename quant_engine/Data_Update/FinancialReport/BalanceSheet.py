@@ -5,6 +5,7 @@ import dateutil.parser as dtparser
 from dateutil.relativedelta import relativedelta
 from joblib import Parallel, delayed, parallel_backend
 from influxdb_data import influxdbData
+from global_constant import N_JOBS
 
 
 class BalanceSheetUpdate(FactorBase):
@@ -110,4 +111,4 @@ class BalanceSheetUpdate(FactorBase):
 
 if __name__ == '__main__':
     BU = BalanceSheetUpdate()
-    r = BU.cal_factors(20190101, 20190901, 4)
+    r = BU.cal_factors(20190101, 20190901, N_JOBS)
