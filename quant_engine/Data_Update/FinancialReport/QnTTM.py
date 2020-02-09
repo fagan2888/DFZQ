@@ -5,7 +5,7 @@ import dateutil.parser as dtparser
 from dateutil.relativedelta import relativedelta
 from joblib import Parallel, delayed, parallel_backend
 from influxdb_data import influxdbData
-import global_constant
+from global_constant import N_JOBS
 
 
 # 财报数据更新后计算Q和ttm
@@ -14,8 +14,9 @@ class QnTTMUpdate(FactorBase):
         super().__init__()
         self.db = 'FinancialReport_Gus'
         # 目前包含字段: 净利润(net_profit)，扣非净利润(net_profit_ddt)，营收(oper_rev)，总营收(tot_oper_rev)，
-        #              营业利润(oper_profit)
-        self.fields = ['net_profit', 'net_profit_ddt', 'oper_rev', 'tot_oper_rev', 'oper_profit']
+        #              营业利润(oper_profit), 现金流净额(net_CF), 经营现金流净额(net_OCF)
+        self.fields = ['net_profit', 'net_profit_ddt', 'oper_rev', 'tot_oper_rev', 'oper_profit', 'net_CF', 'net_OCF']
+        #self.fields = ['net_CF', 'net_OCF']
 
     @staticmethod
     def JOB_calQ(value_cur, value_last, report_period, n_last):
@@ -88,6 +89,7 @@ class QnTTMUpdate(FactorBase):
     def cal_factors(self, start, end, n_jobs):
         fail_list = []
         for f in self.fields:
+            print('field: %s begins calculating Q and TTM...' % f)
             start = str(start)
             end = str(end)
             df = self.influx.getDataMultiprocess(self.db, f, start, end, None)
@@ -107,5 +109,5 @@ class QnTTMUpdate(FactorBase):
 
 if __name__ == '__main__':
     QU = QnTTMUpdate()
-    r = QU.cal_factors(20180101, 20190101, 4)
+    r = QU.cal_factors(20100101, 20200205, N_JOBS)
     print(r)
