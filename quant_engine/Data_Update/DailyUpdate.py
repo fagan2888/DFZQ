@@ -23,6 +23,7 @@ from SwapDataProcess import FillSwapData
 from shares_and_turnover import shares_and_turnover
 from BalanceSheet import BalanceSheetUpdate
 from Income import IncomeUpdate
+from CashFlow import CashFlowUpdate
 from QnTTM import QnTTMUpdate
 from market_cap import market_cap
 from EPandEPcut import EPandEPcut
@@ -111,6 +112,10 @@ class DailyUpdate:
             res = income.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
             self.logger.info('-------------------income finish----------------------')
+            cf = CashFlowUpdate()
+            res = cf.cal_factors(last_week, last_trade_day, n_jobs)
+            self.log_res(res)
+            self.logger.info('------------------cash flow finish--------------------')
             QnTTM = QnTTMUpdate()
             res = QnTTM.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
