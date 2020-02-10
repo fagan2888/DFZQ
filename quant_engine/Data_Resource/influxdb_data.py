@@ -28,7 +28,9 @@ class influxdbData:
         tables = self.client.get_list_measurements()
         return tables
 
-    def getData(self, database, measure, startdate=None, enddate=None, fields=None):
+    @staticmethod
+    def JOB_getData(database, measure, startdate=None, enddate=None, fields=None):
+        influx = influxdbData(database)
         if fields:
             fields = ','.join(str(fld) for fld in fields)
         else:
@@ -39,17 +41,16 @@ class influxdbData:
             q_postfix = f''' where time >= {int(b.timestamp() * 1000 * 1000 * 1000)}'''
         elif (not startdate) and enddate:
             end = dtparser.parse(enddate)
-            e = end - datetime.timedelta(hours=8)
-            q_postfix = f''' where time < {int(e.timestamp() * 1000 * 1000 * 1000)}'''
+            e = end + datetime.timedelta(hours=8)
+            q_postfix = f''' where time <= {int(e.timestamp() * 1000 * 1000 * 1000)}'''
         elif startdate and enddate:
             begin = dtparser.parse(startdate)
             b = begin - datetime.timedelta(hours=8)
             end = dtparser.parse(enddate)
-            e = end - datetime.timedelta(hours=8)
-            q_postfix = f''' where time >= {int(b.timestamp() * 1000 * 1000 * 1000)} and time < {int(e.timestamp() * 1000 * 1000 * 1000)}'''
-
+            e = end + datetime.timedelta(hours=8)
+            q_postfix = f''' where time >= {int(b.timestamp() * 1000 * 1000 * 1000)} and time <= {int(e.timestamp() * 1000 * 1000 * 1000)}'''
         q = f'''select {fields} from "{database}"."autogen"."{measure}"''' + q_postfix
-        result = self.client.query(q)
+        result = influx.client.query(q)
         if not result:
             return
         data = pd.DataFrame(result[measure])
@@ -104,22 +105,19 @@ class influxdbData:
                 print(l, 'data saved!')
         return res
 
-    # 需要对空的情况特殊处理
     def getDataMultiprocess(self, database, measure, startdate, enddate, fields=None):
         dt_start = datetime.datetime.strptime(str(startdate), '%Y%m%d')
         dt_end = datetime.datetime.strptime(str(enddate), '%Y%m%d')
-
         parameter_list = []
-        while dt_start <= dt_end:
+        while dt_start < dt_end:
             if dt_start + relativedelta(months=1) < dt_end:
                 period_end = dt_start + relativedelta(months=1)
             else:
-                period_end = dt_end + datetime.timedelta(days=1)
+                period_end = dt_end
             parameter_list.append((dt_start.strftime('%Y%m%d'), period_end.strftime('%Y%m%d'), measure))
             dt_start += relativedelta(months=1)
-
         with parallel_backend('multiprocessing', n_jobs=-1):
-            result_list = Parallel()(delayed(self.getData)(database, measure, start_date, end_date, fields)
+            result_list = Parallel()(delayed(influxdbData.JOB_getData)(database, measure, start_date, end_date, fields)
                                      for start_date, end_date, measure in parameter_list)
         df = pd.concat(result_list)
         df = df.tz_convert(None)
@@ -130,6 +128,6 @@ if __name__ == '__main__':
     influx = influxdbData()
     print(influx.getDBs())
     print(datetime.datetime.now())
-    a = influx.getDataMultiprocess('DailyData_Gus', 'marketData', '20100101', '20130901', None)
+    a = influx.getDataMultiprocess('DailyData_Gus', 'marketData', '20100101', '20100901', None)
     a = a.loc[pd.notnull(a['split_ratio']), :]
     print('finish!')
