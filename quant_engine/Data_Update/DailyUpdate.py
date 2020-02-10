@@ -30,6 +30,8 @@ from EPandEPcut import EPandEPcut
 from BP import BP
 from SP import SP
 from DP import DP
+from NCFP import NCFP
+from OCFP import OCFP
 
 class DailyUpdate:
     def __init__(self):
@@ -141,6 +143,14 @@ class DailyUpdate:
             res = sp.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
             self.logger.info('---------------------SP finish------------------------')
+            ncfp = NCFP()
+            res = ncfp.cal_factors(last_week, last_trade_day, n_jobs)
+            self.log_res(res)
+            self.logger.info('--------------------NCFP finish-----------------------')
+            ocfp = OCFP()
+            res = ocfp.cal_factors(last_week, last_trade_day, n_jobs)
+            self.log_res(res)
+            self.logger.info('--------------------OCFP finish-----------------------')
             dp = DP()
             res = dp.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
