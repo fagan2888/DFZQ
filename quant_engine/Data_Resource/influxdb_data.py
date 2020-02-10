@@ -21,6 +21,9 @@ class influxdbData:
         self.client.drop_database(database)
         return
 
+    def dropMeasurement(self, measure):
+        self.client.drop_measurement(measure)
+
     def getTables(self):
         tables = self.client.get_list_measurements()
         return tables
