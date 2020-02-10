@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 from joblib import Parallel, delayed, parallel_backend
 from influxdb_data import influxdbData
+from global_constant import N_JOBS
 
 class market_cap(FactorBase):
     def __init__(self):
@@ -46,4 +47,4 @@ class market_cap(FactorBase):
 
 if __name__ == '__main__':
     mc = market_cap()
-    mc.cal_factors(20100101, 20200204, 5)
+    mc.cal_factors(20100101, 20200204, N_JOBS)
