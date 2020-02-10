@@ -6,6 +6,7 @@ from influxdb_data import influxdbData
 from dateutil.relativedelta import relativedelta
 import datetime
 from joblib import Parallel, delayed, parallel_backend
+from global_constant import N_JOBS
 
 # DP_LYR = 最近年度分红汇总（税前）/股票市值
 # 其中，若年报或者分红方案已经公布时，分子取上年度预案分红金额，若年报或分红方案均未公布时，则取上上年度的分红。
@@ -100,7 +101,7 @@ class DP(FactorBase):
 if __name__ == '__main__':
     print(datetime.datetime.now())
     dp = DP()
-    r = dp.cal_factors(20200101, 20200205, 5)
+    r = dp.cal_factors(20200101, 20200205, N_JOBS)
     print('task finish')
     print(r)
     print(datetime.datetime.now())
