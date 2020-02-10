@@ -82,6 +82,8 @@ class ROE_series(FactorBase):
         self.raw_profit_data = \
             self.influx.getDataMultiprocess('FinancialReport_Gus', 'net_profit_TTM', start, end,
                                             ['code', 'net_profit_TTM', 'net_profit_TTM_last1Q'])
+        self.raw_profit_data.index.names = ['date']
+        self.raw_profit_data.reset_index(inplace=True)
         # -----------------------------------ROE---------------------------------------
         self.cal_ROE('net_profit_TTM', 'net_equity', 'net_equity_lastY', 'ROE')
         # ------------------------------ROE_last1Q-------------------------------------
@@ -91,6 +93,8 @@ class ROE_series(FactorBase):
             self.influx.getDataMultiprocess('FinancialReport_Gus', 'net_profit_ddt_Q', start, end,
                                             ['code', 'net_profit_ddt_Q', 'net_profit_ddt_Q_last1Q',
                                              'net_profit_ddt_Q_lastY'])
+        self.raw_profit_data.index.names = ['date']
+        self.raw_profit_data.reset_index(inplace=True)
         # ------------------------------ROE_ddt_Q--------------------------------------
         self.cal_ROE('net_profit_ddt_Q', 'net_equity', 'net_equity_last1Q', 'ROE_ddt_Q')
         # ---------------------------ROE_ddt_Q_last1Q----------------------------------
@@ -101,6 +105,8 @@ class ROE_series(FactorBase):
         self.raw_profit_data = \
             self.influx.getDataMultiprocess('FinancialReport_Gus', 'net_profit_ddt_TTM', start, end,
                                             ['code', 'net_profit_ddt_TTM', 'net_profit_ddt_TTM_last1Q'])
+        self.raw_profit_data.index.names = ['date']
+        self.raw_profit_data.reset_index(inplace=True)
         # --------------------------------ROE_ddt--------------------------------------
         self.cal_ROE('net_profit_ddt_TTM', 'net_equity', 'net_equity_lastY', 'ROE_ddt')
         # ----------------------------ROE_ddt_last1Q-----------------------------------
