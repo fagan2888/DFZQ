@@ -7,7 +7,7 @@ root_dir = 'D:\\github\\quant_engine'
 sys.path.extend([root_dir, root_dir + '\\Data_Resource', root_dir + '\\Engine', root_dir + '\\Config',
                  root_dir + '\\Data_Update\\marketData', root_dir + '\\Data_Update\\Indicators',
                  root_dir + '\\Data_Update\\FinancialReport', root_dir + '\\Factor\\Size',
-                 root_dir + '\\Factor\\Valuation'])
+                 root_dir + '\\Factor\\Valuation', root_dir + '\\Factor\\Financial_Quality'])
 # -------------------------------
 from rdf_data import rdf_data
 import logging
@@ -32,6 +32,8 @@ from SP import SP
 from DP import DP
 from NCFP import NCFP
 from OCFP import OCFP
+from ROE import ROE_series
+
 
 class DailyUpdate:
     def __init__(self):
@@ -155,6 +157,11 @@ class DailyUpdate:
             res = dp.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
             self.logger.info('--------------------DP_LYR finish---------------------')
+            roe = ROE_series()
+            res = roe.cal_factors(last_week, last_trade_day, n_jobs)
+            self.log_res(res)
+            self.logger.info('---------------------ROE finish-----------------------')
+
             self.logger.info('//////////////////////////////////////////////////////')
             self.logger.info('EndTime: %s' % datetime.datetime.now().strftime('%Y%m%d-%H:%M:%S'))
             self.logger.info('//////////////////////////////////////////////////////\n')
