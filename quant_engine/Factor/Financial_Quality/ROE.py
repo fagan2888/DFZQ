@@ -23,12 +23,16 @@ class ROE_series(FactorBase):
         save_res = []
         for code in codes:
             code_df = df.loc[df['code'] == code, :].copy()
+            code_df[[cur_net_equity_field, pre_net_equity_field]] = \
+                code_df[[cur_net_equity_field, pre_net_equity_field]].fillna(method='ffill', axis=1)
             code_df[result_field] = \
                 code_df[net_profit_field] / (code_df[cur_net_equity_field] + code_df[pre_net_equity_field]) * 2
             code_df.set_index('date', inplace=True)
             code_df = code_df.loc[:, ['code', result_field]]
-            code_df = code_df.where(pd.notnull(code_df), None)
+            code_df = code_df.dropna(subset=[result_field])
             print('code: %s' % code)
+            if code_df.empty:
+                continue
             r = influx.saveData(code_df, db, measure)
             if r == 'No error occurred...':
                 pass
@@ -122,7 +126,7 @@ class ROE_series(FactorBase):
 
 if __name__ == '__main__':
     roe = ROE_series()
-    r = roe.cal_factors(20150101, 20160901, N_JOBS)
+    r = roe.cal_factors(20100101, 20200205, N_JOBS)
     print('task finish')
     print(r)
     print(datetime.datetime.now())
