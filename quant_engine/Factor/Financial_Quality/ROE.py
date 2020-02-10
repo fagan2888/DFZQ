@@ -41,88 +41,72 @@ class ROE_series(FactorBase):
                 save_res.append('%s Error: %s' % (result_field, r))
         return save_res
 
+    def cal_ROE(self, profit_field, cur_net_equity_field, pre_net_equity_field, result_field):
+        profit_df = self.raw_profit_data.loc[:, ['date', 'code', profit_field]].copy()
+        ROE_df = pd.merge(self.net_equity.loc[:, ['date', 'code', cur_net_equity_field, pre_net_equity_field]],
+                          profit_df, on=['date', 'code'])
+        codes = ROE_df['code'].unique()
+        split_codes = np.array_split(codes, self.n_jobs)
+        with parallel_backend('multiprocessing', n_jobs=self.n_jobs):
+            res = Parallel()(delayed(ROE_series.JOB_factors)
+                             (codes, ROE_df, cur_net_equity_field, pre_net_equity_field, profit_field, result_field,
+                              self.db, self.measure) for codes in split_codes)
+        print('%s finish' %result_field)
+        print('-' * 30)
+        for r in res:
+            self.fail_list.extend(r)
+
     def cal_factors(self, start, end, n_jobs):
         pd.set_option('mode.use_inf_as_na', True)
-        net_equity = self.influx.getDataMultiprocess('FinancialReport_Gus', 'net_equity', start, end,
-                                                     ['code', 'net_equity', 'net_equity_last1Q', 'net_equity_lastY'])
-        net_equity.index.names = ['date']
-        net_equity.reset_index(inplace=True)
-        fail_list = []
+        self.n_jobs = n_jobs
+        self.net_equity = \
+            self.influx.getDataMultiprocess('FinancialReport_Gus', 'net_equity', start, end,
+                                            ['code', 'net_equity', 'net_equity_last1Q', 'net_equity_last2Q',
+                                             'net_equity_lastY', 'net_equity_last5Q'])
+        self.net_equity.index.names = ['date']
+        self.net_equity.reset_index(inplace=True)
+        self.fail_list = []
+        # *****************************************************************************
+        self.raw_profit_data = \
+            self.influx.getDataMultiprocess('FinancialReport_Gus', 'net_profit_Q', start, end,
+                                            ['code', 'net_profit_Q', 'net_profit_Q_last1Q', 'net_profit_Q_lastY'])
+        self.raw_profit_data.index.names = ['date']
+        self.raw_profit_data.reset_index(inplace=True)
+        # -----------------------------------ROE_Q-------------------------------------
+        self.cal_ROE('net_profit_Q', 'net_equity', 'net_equity_last1Q', 'ROE_Q')
+        # ------------------------------ROE_Q_last1Q-----------------------------------
+        self.cal_ROE('net_profit_Q_last1Q', 'net_equity_last1Q', 'net_equity_last2Q', 'ROE_Q_last1Q')
+        # ------------------------------ROE_Q_lastY------------------------------------
+        self.cal_ROE('net_profit_Q_lastY', 'net_equity_lastY', 'net_equity_last5Q', 'ROE_Q_lastY')
+        # *****************************************************************************
+        self.raw_profit_data = \
+            self.influx.getDataMultiprocess('FinancialReport_Gus', 'net_profit_TTM', start, end,
+                                            ['code', 'net_profit_TTM', 'net_profit_TTM_last1Q'])
+        # -----------------------------------ROE---------------------------------------
+        self.cal_ROE('net_profit_TTM', 'net_equity', 'net_equity_lastY', 'ROE')
+        # ------------------------------ROE_last1Q-------------------------------------
+        self.cal_ROE('net_profit_TTM_last1Q', 'net_equity_last1Q', 'net_equity_last5Q', 'ROE_last1Q')
+        # *****************************************************************************
+        self.raw_profit_data = \
+            self.influx.getDataMultiprocess('FinancialReport_Gus', 'net_profit_ddt_Q', start, end,
+                                            ['code', 'net_profit_ddt_Q', 'net_profit_ddt_Q_last1Q',
+                                             'net_profit_ddt_Q_lastY'])
+        # ------------------------------ROE_ddt_Q--------------------------------------
+        self.cal_ROE('net_profit_ddt_Q', 'net_equity', 'net_equity_last1Q', 'ROE_ddt_Q')
+        # ---------------------------ROE_ddt_Q_last1Q----------------------------------
+        self.cal_ROE('net_profit_ddt_Q_last1Q', 'net_equity_last1Q', 'net_equity_last2Q', 'ROE_ddt_Q_last1Q')
+        # ---------------------------ROE_ddt_Q_lastY-----------------------------------
+        self.cal_ROE('net_profit_ddt_Q_lastY', 'net_equity_lastY', 'net_equity_last5Q', 'ROE_ddt_Q_lastY')
+        # *****************************************************************************
+        self.raw_profit_data = \
+            self.influx.getDataMultiprocess('FinancialReport_Gus', 'net_profit_ddt_TTM', start, end,
+                                            ['code', 'net_profit_ddt_TTM', 'net_profit_ddt_TTM_last1Q'])
+        # --------------------------------ROE_ddt--------------------------------------
+        self.cal_ROE('net_profit_ddt_TTM', 'net_equity', 'net_equity_lastY', 'ROE_ddt')
+        # ----------------------------ROE_ddt_last1Q-----------------------------------
+        self.cal_ROE('net_profit_ddt_TTM_last1Q', 'net_equity_last1Q', 'net_equity_last5Q', 'ROE_ddt_last1Q')
 
-        # ROE_Q
-        net_profit_Q = self.influx.getDataMultiprocess('FinancialReport_Gus', 'net_profit_Q', start, end,
-                                                       ['code', 'net_profit_Q'])
-        net_profit_Q.index.names = ['date']
-        net_profit_Q.reset_index(inplace=True)
-        ROE_Q = pd.merge(net_equity.loc[:, ['date', 'code', 'net_equity', 'net_equity_last1Q']], net_profit_Q,
-                         on=['date', 'code'])
-        codes = ROE_Q['code'].unique()
-        split_codes = np.array_split(codes, n_jobs)
-        with parallel_backend('multiprocessing', n_jobs=n_jobs):
-            res = Parallel()(delayed(ROE_series.JOB_factors)
-                             (codes, ROE_Q, 'net_equity', 'net_equity_last1Q', 'net_profit_Q', 'ROE_Q',
-                              self.db, self.measure) for codes in split_codes)
-        print('ROE_Q finish')
-        print('-' * 30)
-        for r in res:
-            fail_list.extend(r)
-        
-        # ROE
-        net_profit_TTM = self.influx.getDataMultiprocess('FinancialReport_Gus', 'net_profit_TTM', start, end,
-                                                         ['code', 'net_profit_TTM'])
-        net_profit_TTM.index.names = ['date']
-        net_profit_TTM.reset_index(inplace=True)
-        ROE = pd.merge(net_equity.loc[:, ['date', 'code', 'net_equity', 'net_equity_lastY']], net_profit_TTM,
-                       on=['date', 'code'])
-        codes = ROE['code'].unique()
-        split_codes = np.array_split(codes, n_jobs)
-        with parallel_backend('multiprocessing', n_jobs=n_jobs):
-            res = Parallel()(delayed(ROE_series.JOB_factors)
-                             (codes, ROE, 'net_equity', 'net_equity_lastY', 'net_profit_TTM', 'ROE',
-                              self.db, self.measure) for codes in split_codes)
-        print('ROE finish')
-        print('-' * 30)
-        for r in res:
-            fail_list.extend(r)
-
-        # ROE_ddt_Q
-        net_profit_ddt_Q = self.influx.getDataMultiprocess('FinancialReport_Gus', 'net_profit_ddt_Q', start, end,
-                                                           ['code', 'net_profit_ddt_Q'])
-        net_profit_ddt_Q.index.names = ['date']
-        net_profit_ddt_Q.reset_index(inplace=True)
-        ROE_ddt_Q = pd.merge(net_equity.loc[:, ['date', 'code', 'net_equity', 'net_equity_last1Q']],
-                             net_profit_ddt_Q, on=['date', 'code'])
-        codes = ROE_ddt_Q['code'].unique()
-        split_codes = np.array_split(codes, n_jobs)
-        with parallel_backend('multiprocessing', n_jobs=n_jobs):
-            res = Parallel()(delayed(ROE_series.JOB_factors)
-                             (codes, ROE_ddt_Q, 'net_equity', 'net_equity_last1Q', 'net_profit_ddt_Q', 'ROE_ddt_Q',
-                              self.db, self.measure) for codes in split_codes)
-        print('ROE_ddt_Q finish')
-        print('-' * 30)
-        for r in res:
-            fail_list.extend(r)
-
-        # ROE_ddt
-        net_profit_ddt_TTM = self.influx.getDataMultiprocess('FinancialReport_Gus', 'net_profit_ddt_TTM', start, end,
-                                                             ['code', 'net_profit_ddt_TTM'])
-        net_profit_ddt_TTM.index.names = ['date']
-        net_profit_ddt_TTM.reset_index(inplace=True)
-        ROE_ddt = pd.merge(net_equity.loc[:, ['date', 'code', 'net_equity', 'net_equity_lastY']],
-                           net_profit_ddt_TTM,
-                           on=['date', 'code'])
-        codes = ROE_ddt['code'].unique()
-        split_codes = np.array_split(codes, n_jobs)
-        with parallel_backend('multiprocessing', n_jobs=n_jobs):
-            res = Parallel()(delayed(ROE_series.JOB_factors)
-                             (codes, ROE_ddt, 'net_equity', 'net_equity_lastY', 'net_profit_ddt_TTM', 'ROE_ddt',
-                              self.db, self.measure) for codes in split_codes)
-        print('ROE_ddt finish')
-        print('-' * 30)
-        for r in res:
-            fail_list.extend(r)
-
-        return fail_list
+        return self.fail_list
 
 
 if __name__ == '__main__':
