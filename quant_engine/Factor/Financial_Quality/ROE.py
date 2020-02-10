@@ -19,6 +19,7 @@ class ROE_series(FactorBase):
 
     @staticmethod
     def JOB_factors(codes, df, cur_net_equity_field, pre_net_equity_field, net_profit_field, result_field, db, measure):
+        pd.set_option('mode.use_inf_as_na', True)
         influx = influxdbData()
         save_res = []
         for code in codes:
@@ -83,7 +84,7 @@ class ROE_series(FactorBase):
         print('-' * 30)
         for r in res:
             fail_list.extend(r)
-        
+
         # ROE_ddt_Q
         net_profit_ddt_Q = self.influx.getDataMultiprocess('FinancialReport_Gus', 'net_profit_ddt_Q', start, end,
                                                            ['code', 'net_profit_ddt_Q'])
