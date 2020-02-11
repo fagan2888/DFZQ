@@ -12,7 +12,7 @@ from global_constant import N_JOBS
 class Turn_StdTurn_BiasStdTurn(FactorBase):
     def __init__(self):
         super().__init__()
-        self.db = 'Daily_Factors'
+        self.db = 'DailyFactors_Gus'
         self.measure = 'Turnover'
 
     @staticmethod
