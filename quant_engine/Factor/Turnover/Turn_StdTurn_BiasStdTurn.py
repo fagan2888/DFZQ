@@ -135,5 +135,5 @@ class Turn_StdTurn_BiasStdTurn(FactorBase):
 
 if __name__ == '__main__':
     i = Turn_StdTurn_BiasStdTurn()
-    r = i.cal_factors(20171002, 20191009, N_JOBS)
+    r = i.cal_factors(20100101, 20200205, N_JOBS)
     print(r)
