@@ -8,7 +8,8 @@ sys.path.extend([root_dir, root_dir + '\\Data_Resource', root_dir + '\\Engine', 
                  root_dir + '\\Data_Update\\marketData', root_dir + '\\Data_Update\\Indicators',
                  root_dir + '\\Data_Update\\FinancialReport', root_dir + '\\Factor\\Size',
                  root_dir + '\\Factor\\Valuation', root_dir + '\\Factor\\Financial_Quality',
-                 root_dir + '\\Factor\\Growth', root_dir + '\\Factor\\Turnover'])
+                 root_dir + '\\Factor\\Growth', root_dir + '\\Factor\\Turnover',
+                 root_dir + '\\Factor\\Momentum'])
 # -------------------------------
 from rdf_data import rdf_data
 import logging
@@ -36,6 +37,7 @@ from OCFP import OCFP
 from ROE import ROE_series
 from ROE_growth import ROE_growth
 from Turn_StdTurn_BiasStdTurn import Turn_StdTurn_BiasStdTurn
+from Rtn_WgtRtn_ExpWgtRtn import Rtn_WgtRtn_ExpWgtRtn
 
 
 class DailyUpdate:
@@ -172,6 +174,10 @@ class DailyUpdate:
             res = turn.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
             self.logger.info('------------------Turnover finish---------------------')
+            rtn = Rtn_WgtRtn_ExpWgtRtn()
+            res = rtn.cal_factors(last_week, last_trade_day, [1, 3, 6], n_jobs)
+            self.log_res(res)
+            self.logger.info('------------------Momentum finish---------------------')
 
             self.logger.info('//////////////////////////////////////////////////////')
             self.logger.info('EndTime: %s' % datetime.datetime.now().strftime('%Y%m%d-%H:%M:%S'))
