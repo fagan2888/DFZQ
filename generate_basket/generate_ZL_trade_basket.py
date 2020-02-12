@@ -4,11 +4,13 @@ import os.path
 import dateutil.parser as dtparser
 import pandas as pd
 from rdf_data import rdf_data
+import numpy as np
+
 
 class basket_trade:
-    def __init__(self,dt_input=datetime.datetime.now()):
-        self.ftp = FTP_service(host='192.168.38.213',username='index',password='dfzq1234')
-        if isinstance(dt_input,datetime.datetime):
+    def __init__(self, dt_input=datetime.datetime.now()):
+        self.ftp = FTP_service(host='192.168.38.213', username='index', password='dfzq1234')
+        if isinstance(dt_input, datetime.datetime):
             self.dt = dt_input
         else:
             self.dt = dtparser.parse(str(dt_input))
@@ -26,7 +28,7 @@ class basket_trade:
         self.ftp.ftp.cwd(self.remote_dir)
         filelist = self.ftp.ftp.nlst()
         last_trade_day = self.dt - datetime.timedelta(days=1)
-        filename = last_trade_day.strftime('%Y%m%d')+'_DayCc.txt'
+        filename = last_trade_day.strftime('%Y%m%d') + '_DayCc.txt'
         while not filename in filelist:
             last_trade_day = last_trade_day - datetime.timedelta(days=1)
             filename = last_trade_day.strftime('%Y%m%d') + '_DayCc.txt'
@@ -35,7 +37,7 @@ class basket_trade:
         self.ftp.download_file(remote_path=remote_path, local_path=local_path)
 
         # 生成平仓篮子文件
-        with open(self.local_dir + 'ZL_bsk_pc.ini',mode='w',encoding='gbk') as f:
+        with open(self.local_dir + 'ZL_bsk_pc.ini', mode='w', encoding='gbk') as f:
             f.write('[BASKET]\n')
             f.write('Fundid1=' + 'ZL_bsk_pc' + '\n')
             f.write('TAGTAG\n')
@@ -44,7 +46,7 @@ class basket_trade:
                 if line[0] == '0' or line[0] == '3' or line[0] == '6':
                     splitted_line = line.strip().split('\t')
                     exchange = 'SH' if splitted_line[0][0] == '6' else 'SZ'
-                    content = splitted_line[0]+'|'+exchange +'|'+splitted_line[1]+'|'+splitted_line[3]+'\n'
+                    content = splitted_line[0] + '|' + exchange + '|' + splitted_line[1] + '|' + splitted_line[3] + '\n'
                     f.write(content)
                 else:
                     pass
@@ -52,28 +54,27 @@ class basket_trade:
         print('平仓篮子生成完毕')
 
         # 下载当日文件
-        to_do_list = ['_B_Tc.txt','_S_Tc.txt','_DayCc.txt']
+        to_do_list = ['_B_Tc.txt', '_S_Tc.txt', '_DayCc.txt']
         for postfix in to_do_list:
             remote_path = self.remote_dir + self.yyyymmdd + postfix
             local_path = self.local_dir + self.yyyymmdd + postfix
             self.ftp.download_file(remote_path=remote_path, local_path=local_path)
 
-        with open(self.local_dir + 'ZL_bsk_kc.ini',mode='w',encoding='gbk') as f:
+        with open(self.local_dir + 'ZL_bsk_kc.ini', mode='w', encoding='gbk') as f:
             f.write('[BASKET]\n')
             f.write('Fundid1=' + 'ZL_bsk_kc' + '\n')
             f.write('TAGTAG\n')
-            read = open(self.local_dir + self.yyyymmdd + '_DayCc.txt', 'r',encoding='utf-8')
+            read = open(self.local_dir + self.yyyymmdd + '_DayCc.txt', 'r', encoding='utf-8')
             for line in read.readlines():
                 if line[0] == '0' or line[0] == '3' or line[0] == '6':
                     splitted_line = line.strip().split('\t')
                     exchange = 'SH' if splitted_line[0][0] == '6' else 'SZ'
-                    content = splitted_line[0]+'|'+exchange +'|'+splitted_line[1]+'|'+splitted_line[3]+'\n'
+                    content = splitted_line[0] + '|' + exchange + '|' + splitted_line[1] + '|' + splitted_line[3] + '\n'
                     f.write(content)
                 else:
                     pass
             f.write('ENDENDEND')
         print('开仓篮子生成完毕')
-
 
     def generate_ZL_buy_sell_bsk(self):
         # 生成调仓的买卖文件
@@ -86,7 +87,7 @@ class basket_trade:
                 if line[0] == '0' or line[0] == '3' or line[0] == '6':
                     splitted_line = line.strip().split('|')
                     content = splitted_line[0] + '|' + splitted_line[1] + '|' + splitted_line[2] + '|' + \
-                              str(int(int(splitted_line[3])*self.ZL_ftrs/self.ZL_per_bsk)) + '\n'
+                              str(int(int(splitted_line[3]) * self.ZL_ftrs / self.ZL_per_bsk)) + '\n'
                     f.write(content)
                 else:
                     pass
@@ -101,32 +102,30 @@ class basket_trade:
                 if line[0] == '0' or line[0] == '3' or line[0] == '6':
                     splitted_line = line.strip().split('|')
                     content = splitted_line[0] + '|' + splitted_line[1] + '|' + splitted_line[2] + '|' + \
-                              str(int(int(splitted_line[3])*self.ZL_ftrs/self.ZL_per_bsk)) + '\n'
+                              str(int(int(splitted_line[3]) * self.ZL_ftrs / self.ZL_per_bsk)) + '\n'
                     f.write(content)
                 else:
                     pass
             f.write('ENDENDEND')
         print('ZL卖篮子生成完毕')
 
-
-    def process_change_volume(self,holding_vol,target_vol,price,ftrs,ftrs_per_bsk):
+    def process_change_volume(self, holding_vol, target_vol):
         vol_diff = target_vol - holding_vol
-        '''
-        if (target_vol == 100 * ftrs/ftrs_per_bsk) & (abs(vol_diff) >= 100):
-            to_trade_vol = round(vol_diff,-2)
-        elif target_vol == 0:
-            to_trade_vol = round(vol_diff,-2)
-        else:
-            if (abs(vol_diff) <= 100 * ftrs/ftrs_per_bsk) & (price < 50):
-                to_trade_vol = 0
-            else:
-                to_trade_vol = round(vol_diff,-2)
-        '''
         to_trade_vol = round(vol_diff, -2)
         return to_trade_vol
+    
+    def split_basket(self, tot_df, split):
+        tmp_df = tot_df.copy()
+        tmp_df['each_vol'] = np.floor(tmp_df['to_trade_vol'] / split / 100) * 100
+        tmp_df['remain_vol'] = tmp_df['to_trade_vol'] - tmp_df['each_vol'] * split
+        split_df = tmp_df.loc[:, ['证券代码', '证券名称', 'each_vol', 'exchange']].copy()
+        split_df.rename(columns={'each_vol': 'to_trade_vol'}, inplace=True)
+        remain_df = tmp_df.loc[tmp_df['remain_vol'] > 0, ['证券代码', '证券名称', 'remain_vol', 'exchange']].copy()
+        remain_df.rename(columns={'remain_vol': 'to_trade_vol'}, inplace=True)
+        return [split_df, remain_df]
+    
 
-
-    def process_change_bsk(self,positions,basket,ftrs_per_bsk,ftrs):
+    def process_change_bsk(self, positions, basket):
         # 滤除转债
         positions = positions.loc[(positions['证券代码'].str[0] == '0') | (positions['证券代码'].str[0] == '3') |
                                   (positions['证券代码'].str[0] == '6'), :]
@@ -135,7 +134,7 @@ class basket_trade:
         positions['证券名称'] = positions.apply(lambda row: row['name'] if pd.isnull(row['证券名称']) else row['证券名称'],
                                             axis=1)
         positions_date = positions['日期'].iloc[0]
-        positions_date = datetime.datetime.strptime(positions_date,'%Y-%m-%d')
+        positions_date = datetime.datetime.strptime(positions_date, '%Y-%m-%d')
         positions['exchange'] = positions['证券代码'].apply(lambda x: 'SH' if x[0] == '6' else 'SZ')
         positions['code'] = positions['证券代码'] + '.' + positions['exchange']
         codes = positions['code'].unique()
@@ -143,28 +142,27 @@ class basket_trade:
         while not fetchdata:
             query = "select S_INFO_WINDCODE,S_DQ_CLOSE " \
                     "from wind_filesync.AShareEODPrices " \
-                    "where trade_dt = {0} and s_info_windcode in "\
-                    .format(positions_date.strftime('%Y%m%d')) + str(tuple(codes))
+                    "where trade_dt = {0} and s_info_windcode in " \
+                        .format(positions_date.strftime('%Y%m%d')) + str(tuple(codes))
             self.rdf.curs.execute(query)
             fetchdata = self.rdf.curs.fetchall()
-            positions_date = positions_date - datetime.timedelta(days=1)
+            positions_date = positions_date
 
         close = pd.DataFrame(fetchdata, columns=['code', 'close'])
         positions = positions.merge(close, right_on='code', left_on='code', how='outer')
         positions['target_vol'] = positions['target_vol'].fillna(0)
         positions['vol_diff'] = positions['target_vol'] - positions['持仓']
 
-        positions['to_trade_vol'] = positions.apply(lambda row:
-            self.process_change_volume(row['持仓'],row['target_vol'],row['最新价'],ftrs,ftrs_per_bsk),axis=1)
+        positions['to_trade_vol'] = positions.apply(
+            lambda row: self.process_change_volume(row['持仓'], row['target_vol']), axis=1)
         change_buy = positions.loc[positions['to_trade_vol'] > 0, ['证券代码', '证券名称', 'to_trade_vol', 'exchange']]
         change_sell = positions.loc[positions['to_trade_vol'] < 0, ['证券代码', '证券名称', 'to_trade_vol', 'exchange']]
         change_sell['to_trade_vol'] = change_sell['to_trade_vol'] * -1
-        return (change_buy,change_sell)
+        return (change_buy, change_sell)
 
-
-    def df_to_ini(self,df,user,fund_id):
-        user_dict = {'ZL':'张黎','XF':'许帆'}
-        folder_name = 'D:/alpha/'+ user_dict[user] +'/' + self.dt.strftime('%Y%m%d')
+    def df_to_ini(self, df, user, fund_id):
+        user_dict = {'ZL': '张黎', 'XF': '许帆'}
+        folder_name = 'D:/alpha/' + user_dict[user] + '/' + self.dt.strftime('%Y%m%d')
         if os.path.exists(folder_name):
             pass
         else:
@@ -174,14 +172,13 @@ class basket_trade:
             f.write('Fundid1=' + fund_id + '\n')
             f.write('TAGTAG\n')
             for idx, row in df.iterrows():
-                content = row['证券代码']+'|'+row['exchange']+'|'+row['证券名称']+'|'+str(int(row['to_trade_vol']))+'\n'
+                content = row['证券代码'] + '|' + row['exchange'] + '|' + row['证券名称'] + '|' + str(
+                    int(row['to_trade_vol'])) + '\n'
                 f.write(content)
             f.write('ENDENDEND')
-        print('%s 生成完毕' %fund_id)
+        print('%s 生成完毕' % fund_id)
 
-
-
-    def get_change_bsk(self):
+    def get_change_bsk(self, split):
         self.ZL_per_bsk = int(input('请输入ZL每个篮子对应的期货手数:'))
         self.ZL_ftrs = int(input('请输入ZL开仓的期货手数:'))
         self.XF_per_bsk = int(input('请输入XF每个篮子对应的期货手数:'))
@@ -192,7 +189,7 @@ class basket_trade:
         positions_date = self.dt
         folder_name = positions_date.strftime('%Y%m%d')
         file_name = '综合信息查询_组合证券_S2_' + folder_name + '.xls'
-        while True :
+        while True:
             folder_path = root_dir + '张黎/' + folder_name
             if os.path.exists(folder_path) and file_name in os.listdir(folder_path):
                 break
@@ -202,12 +199,11 @@ class basket_trade:
                 file_name = '综合信息查询_组合证券_S2_' + folder_name + '.xls'
 
         print('ZL持仓日期: %s' % folder_name)
-        positions_ZL = pd.read_excel(root_dir + '张黎/'+ folder_name+'/'+'综合信息查询_组合证券_S2_'+folder_name+'.xls')
+        positions_ZL = pd.read_excel(root_dir + '张黎/' + folder_name + '/' + '综合信息查询_组合证券_S2_' + folder_name + '.xls')
         positions_ZL = positions_ZL.loc[:, ['日期', '证券代码', '证券名称', '持仓', '最新价']].dropna(subset=['证券代码'])
         positions_ZL['证券代码'] = positions_ZL['证券代码'].astype('int')
         positions_ZL['证券代码'] = positions_ZL['证券代码'].apply(lambda x: '0' * (6 - len(str(x))) + str(x))
-        #positions_ZL['code'] = positions_ZL['证券代码'].apply(lambda x: x + '.SH' if x[0] == '6' else x + '.SZ')
-
+        
         # 读取持仓XF
         positions_date = self.dt
         folder_name = positions_date.strftime('%Y%m%d')
@@ -226,12 +222,12 @@ class basket_trade:
         positions_XF = positions_XF.loc[:, ['日期', '证券代码', '证券名称', '持仓', '最新价']].dropna(subset=['证券代码'])
         positions_XF['证券代码'] = positions_XF['证券代码'].astype('int')
         positions_XF['证券代码'] = positions_XF['证券代码'].apply(lambda x: '0' * (6 - len(str(x))) + str(x))
-        #positions_XF['code'] = positions_XF['证券代码'].apply(lambda x: x + '.SH' if x[0] == '6' else x + '.SZ')
+        # positions_XF['code'] = positions_XF['证券代码'].apply(lambda x: x + '.SH' if x[0] == '6' else x + '.SZ')
 
         # 读取最新篮子ZL
         folder_name = self.dt.strftime('%Y%m%d')
         file_name = 'ZL_bsk_kc.ini'
-        f = open(root_dir+'张黎/'+folder_name+'/'+file_name, 'r')
+        f = open(root_dir + '张黎/' + folder_name + '/' + file_name, 'r')
         line_list = []
         for line in f.readlines():
             if line[0] == '0' or line[0] == '3' or line[0] == '6':
@@ -243,8 +239,8 @@ class basket_trade:
         basket_ZL = pd.DataFrame(line_list)
         basket_ZL.columns = ['证券代码', 'name', '篮子配置数']
         basket_ZL['篮子配置数'] = basket_ZL['篮子配置数'].astype('int')
-        basket_ZL['target_vol'] =  basket_ZL['篮子配置数'] * self.ZL_ftrs / self.ZL_per_bsk
-        basket_ZL = basket_ZL.loc[:,['证券代码','name','target_vol']]
+        basket_ZL['target_vol'] = basket_ZL['篮子配置数'] * self.ZL_ftrs / self.ZL_per_bsk
+        basket_ZL = basket_ZL.loc[:, ['证券代码', 'name', 'target_vol']]
 
         # 读取最新篮子XF
         latest_bsk_date = self.dt
@@ -259,7 +255,7 @@ class basket_trade:
         folder_name = latest_bsk_date.strftime('%Y%m%d')
         print('XF篮子更新日期: %s' % folder_name)
 
-        f = open(root_dir+'许帆/'+folder_name+'/'+file_name, 'r')
+        f = open(root_dir + '许帆/' + folder_name + '/' + file_name, 'r')
         line_list = []
         for line in f.readlines():
             if line[0] == '0' or line[0] == '3' or line[0] == '6':
@@ -272,23 +268,36 @@ class basket_trade:
         basket_XF.columns = ['证券代码', 'name', '篮子配置数']
         basket_XF['篮子配置数'] = basket_XF['篮子配置数'].astype('int')
         basket_XF['target_vol'] = basket_XF['篮子配置数'] * self.XF_ftrs / self.XF_per_bsk
-        basket_XF = basket_XF.loc[:,['证券代码','name','target_vol']]
-
+        basket_XF = basket_XF.loc[:, ['证券代码', 'name', 'target_vol']]
 
         # 自行计算调仓
-        ZL_change_buy = self.process_change_bsk(positions_ZL,basket_ZL,self.ZL_per_bsk,self.ZL_ftrs)[0]
-        ZL_change_sell = self.process_change_bsk(positions_ZL,basket_ZL,self.ZL_per_bsk,self.ZL_ftrs)[1]
-        XF_change_buy = self.process_change_bsk(positions_XF,basket_XF,self.XF_per_bsk,self.XF_ftrs)[0]
-        XF_change_sell = self.process_change_bsk(positions_XF,basket_XF,self.XF_per_bsk,self.XF_ftrs)[1]
+        ZL_change_buy, ZL_change_sell = self.process_change_bsk(positions_ZL, basket_ZL)
+        XF_change_buy, XF_change_sell = self.process_change_bsk(positions_XF, basket_XF)
 
         self.df_to_ini(ZL_change_buy, 'ZL', 'ZL_change_buy')
         self.df_to_ini(ZL_change_sell, 'ZL', 'ZL_change_sell')
         self.df_to_ini(XF_change_buy, 'XF', 'XF_change_buy')
         self.df_to_ini(XF_change_sell, 'XF', 'XF_change_sell')
+        
+        if split == 1:
+            pass
+        else:
+            ZL_split_change_buy, ZL_remain_change_buy = self.split_basket(ZL_change_buy, split)
+            ZL_split_change_sell, ZL_remain_change_sell = self.split_basket(ZL_change_sell, split)
+            XF_split_change_buy, XF_remain_change_buy = self.split_basket(XF_change_buy, split)
+            XF_split_change_sell, XF_remain_change_sell = self.split_basket(XF_change_sell, split)
+            self.df_to_ini(ZL_split_change_buy, 'ZL', 'ZL_split_change_buy')
+            self.df_to_ini(ZL_remain_change_buy, 'ZL', 'ZL_remain_change_buy')
+            self.df_to_ini(ZL_split_change_sell, 'ZL', 'ZL_split_change_sell')
+            self.df_to_ini(ZL_remain_change_sell, 'ZL', 'ZL_remain_change_sell')
+            self.df_to_ini(XF_split_change_buy, 'XF', 'XF_split_change_buy')
+            self.df_to_ini(XF_remain_change_buy, 'XF', 'XF_remain_change_buy')
+            self.df_to_ini(XF_split_change_sell, 'XF', 'XF_split_change_sell')
+            self.df_to_ini(XF_remain_change_sell, 'XF', 'XF_remain_change_sell')
 
 
 if __name__ == '__main__':
     bsk = basket_trade()
-    bsk.generate_open_close_bsk()
-    bsk.get_change_bsk()
-    bsk.generate_ZL_buy_sell_bsk()
+    #bsk.generate_open_close_bsk()
+    bsk.get_change_bsk(3)
+    #bsk.generate_ZL_buy_sell_bsk()
