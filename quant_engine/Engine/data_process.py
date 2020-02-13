@@ -107,9 +107,23 @@ class DataProcess:
         return industry_data
 
     @staticmethod
+    # 去极值+标准化
+    def remove_and_Z(factor_data, factor_field, index_is_date: bool, n_process=5):
+        if index_is_date:
+            factor_data.index.names = ['date']
+            factor_data.reset_index(inplace=True)
+        dates = factor_data['date'].unique()
+        split_dates = np.array_split(dates, n_process)
+        with parallel_backend('multiprocessing', n_jobs=n_process):
+            parallel_res = Parallel()(delayed(DataProcess.JOB_cross_section_remove_and_Z)
+                                      (factor_data, factor_field, dates) for dates in split_dates)
+        factor = pd.concat(parallel_res)
+        return factor
+
+    @staticmethod
     # 市值行业中性化: 因子先去极值标准化，ln市值标准化，行业变换哑变量，回归完取残差
     # 返回的date在columns里
-    def neutralize(factor_data, factor_field, industry_dummies, size_data, size_field='ln_market_cap', n_process=4):
+    def neutralize(factor_data, factor_field, industry_dummies, size_data, size_field='ln_market_cap', n_process=5):
         industry_dummies.index.names = ['date']
         factor_data.index.names = ['date']
         size_data.index.names = ['date']
