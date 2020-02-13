@@ -7,13 +7,13 @@ from data_process import DataProcess
 
 
 class StrategyBase:
-    def __init__(self):
+    def __init__(self, strategy_name):
         self.influx = influxdbData()
         self.rdf = rdf_data()
         self.mkt_db = 'DailyData_Gus'
         self.mkt_measure = 'marketData'
         self.factor_db = 'DailyFactors_Gus'
-        self.root_dir = global_constant.ROOT_DIR + 'Strategy/'
+        self.strategy_name = strategy_name
 
     # 获得行情信息以及选股的范围
     # 行情信息为全市场，以免吸收合并出现没有行情的情况
@@ -54,10 +54,12 @@ class StrategyBase:
         if direction == -1:
             factor_df[factor] = factor_df[factor] * -1
         code_range = self.code_range.copy().reset_index()
-        factor_df = pd.merge(factor_df, code_range, how='right', on=['date', 'code'])
-        # 缺失的因子用行业中位数代替
+        # 缺失的因子用行业中位数代
         if if_fillna:
+            factor_df = pd.merge(factor_df, code_range, how='right', on=['date', 'code'])
             factor_df[factor] = factor_df.groupby(['date', self.industry])[factor].apply(lambda x: x.fillna(x.median()))
+        else:
+            factor_df = pd.merge(factor_df, code_range, how='inner', on=['date', 'code'])
         factor_df.set_index('date', inplace=True)
         industry_dummies = self.industry_dummies.copy()
         size_data = self.size_data.copy()
@@ -66,7 +68,7 @@ class StrategyBase:
             DataProcess.neutralize(factor_df, factor, industry_dummies, size_data, self.size_field, self.n_jobs)
         return factor_df
 
-    def initialize_strategy(self, start, end, benchmark, select_range, strategy_name, industry, size_field):
+    def initialize_strategy(self, start, end, benchmark, select_range, industry, size_field):
         self.n_jobs = global_constant.N_JOBS
         self.start = start
         self.end = end
@@ -74,5 +76,5 @@ class StrategyBase:
         self.select_range = select_range
         self.industry = industry
         self.size_field = size_field
-        self.strategy_name = strategy_name
+        self.folder_dir = global_constant.ROOT_DIR + 'Strategy/' + self.strategy_name + '/'
         self.data_prepare()
