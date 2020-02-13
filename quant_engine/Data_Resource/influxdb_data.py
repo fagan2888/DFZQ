@@ -109,13 +109,13 @@ class influxdbData:
         dt_start = datetime.datetime.strptime(str(startdate), '%Y%m%d')
         dt_end = datetime.datetime.strptime(str(enddate), '%Y%m%d')
         parameter_list = []
-        while dt_start < dt_end:
+        while dt_start <= dt_end:
             if dt_start + relativedelta(months=1) < dt_end:
                 period_end = dt_start + relativedelta(months=1)
             else:
                 period_end = dt_end
             parameter_list.append((dt_start.strftime('%Y%m%d'), period_end.strftime('%Y%m%d'), measure))
-            dt_start += relativedelta(months=1)
+            dt_start += relativedelta(months=1, days=1)
         with parallel_backend('multiprocessing', n_jobs=-1):
             result_list = Parallel()(delayed(influxdbData.JOB_getData)(database, measure, start_date, end_date, fields)
                                      for start_date, end_date, measure in parameter_list)
