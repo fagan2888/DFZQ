@@ -1,13 +1,14 @@
 # 策略的起始日，终止日，benchmark，选股范围，行业field，市值field
 STRATEGY_CONFIG = \
     {
-        'start': 20150101,
-        'end': 20180101,
+        'start': 20120101,
+        'end': 20200101,
         'benchmark': 300,
         'select_range': 800,
         'industry': 'improved_lv1',
         'size_field': 'ln_market_cap',
-        'select_pct': 0.6
+        'select_pct': 0.6,
+        'capital': 100000000
     }
 
 # 大类因子权重

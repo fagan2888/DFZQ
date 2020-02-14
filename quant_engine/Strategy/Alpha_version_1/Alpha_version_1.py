@@ -1,10 +1,11 @@
 from strategy_base import StrategyBase
 from Alpha_version_1_CONFIG import STRATEGY_CONFIG, CATEGORY_WEIGHT, FACTOR_WEIGHT
-from global_constant import N_JOBS
+from industry_neutral_engine import IndustryNeutralEngine
 import pandas as pd
 import numpy as np
 from data_process import DataProcess
 from joblib import Parallel, delayed, parallel_backend
+
 
 class alpha_version_1(StrategyBase):
     def __init__(self, strategy_name):
@@ -19,10 +20,12 @@ class alpha_version_1(StrategyBase):
         size_field = STRATEGY_CONFIG['size_field']
         super().initialize_strategy(start, end, benchmark, select_range, industry, size_field)
         self.select_pct = STRATEGY_CONFIG['select_pct']
+        self.capital = STRATEGY_CONFIG['captial']
 
     def factors_combination(self):
         categorys = []
         for category in FACTOR_WEIGHT.keys():
+            print('Category: %s is processing...' %category)
             parameters_list = FACTOR_WEIGHT[category]
             factors_in_same_category = []
             for measure, factor, direction, if_fillna, weight in parameters_list:
@@ -46,6 +49,7 @@ class alpha_version_1(StrategyBase):
         merged_df.reset_index(inplace=True)
         merged_df = pd.merge(merged_df, self.code_range.reset_index(), on=['date', 'code'])
         merged_df.rename(columns={self.industry: 'industry'}, inplace=True)
+        print('Factors combination finish...')
         return merged_df
 
     def industry_count(self):
@@ -101,9 +105,54 @@ class alpha_version_1(StrategyBase):
         selections = selections.sort_values('date')
         return selections
 
+    def get_stk_weight(self):
+        selections = self.select_code()
+        free_market_cap = \
+            self.influx.getDataMultiprocess(self.factor_db, 'Size', self.start, self.end, ['code', 'free_market_cap'])
+        free_market_cap.index.names = ['date']
+        free_market_cap.reset_index(inplace=True)
+        selections = pd.merge(selections, free_market_cap, on=['date', 'code'])
+        industry_size_sum = selections.groupby(['date', 'industry'])['free_market_cap'].sum()
+        industry_size_sum = pd.DataFrame(industry_size_sum).reset_index()
+        industry_size_sum.rename(columns={'free_market_cap': 'industry_size_sum'}, inplace=True)
+        selections = pd.merge(selections, industry_size_sum, on=['date', 'industry'])
+        selections['weight_in_industry'] = selections['free_market_cap'] / selections['industry_size_sum'] * 100
+        selections = selections.loc[:, ['date', 'code', 'industry', 'weight_in_industry']]
+        selections.set_index('date', inplace=True)
+        dates = selections.index.unique()
+        calendar = self.rdf.get_trading_calendar()
+        next_trade_date = {}
+        for date in dates:
+            next_trade_date.update(DataProcess.get_next_date(calendar, date, 1))
+        selections['next_1_day'] = selections.apply(lambda row: next_trade_date[row.name], axis=1)
+        selections.set_index('next_1_day', inplace=True)
+        return selections
+
+    def run(self):
+        self.initialize_strategy()
+        weight = self.get_stk_weight()
+        engine = IndustryNeutralEngine(stock_capital=self.capital, save_name='Alpha_version_1')
+        bt_start = weight.index[0].strftime('%Y%m%d')
+        bt_end = weight.index[-2].strftime('%Y%m%d')
+        portfolio_value = engine.run(weight, bt_start, bt_end, benchmark='IF', adj_interval=5, data_input=self.mkt_data)
+        portfolio_value = portfolio_value.loc[:, ['Balance', 'StockValue', 'TotalValue']]
+        comparing_index = ['000300.SH', '000905.SH']
+        index_value = self.mkt_data.loc[self.mkt_data['code'].isin(comparing_index), ['code', 'close']]
+        index_value.set_index([index_value.index, 'code'], inplace=True)
+        index_value = index_value.unstack()['close']
+        index_value['300+500'] = 0.5 * index_value['000300.SH'] + 0.5 * index_value['000905.SH']
+        for col in index_value.columns:
+            index_value[col] = index_value[col] / index_value[col].iloc[0] * self.capital
+        portfolio_value = pd.merge(portfolio_value, index_value, left_index=True, right_index=True)
+        portfolio_value.to_csv('pv.csv', encoding='gbk')
+        print('ANN_return: ', DataProcess.calc_ann_return(portfolio_value['TotalValue']))
+        print('Alpha300: ',
+              DataProcess.calc_alpha_ann_return(portfolio_value['TotalValue'], portfolio_value['000300.SH']))
+        print('Alpha500: ',
+              DataProcess.calc_alpha_ann_return(portfolio_value['TotalValue'], portfolio_value['000905.SH']))
+        print('Alpha800: ',
+              DataProcess.calc_alpha_ann_return(portfolio_value['TotalValue'], portfolio_value['300+500']))
 
 if __name__ == '__main__':
     a = alpha_version_1('Alpha_version_1')
-    a.initialize_strategy()
-    kk = a.select_code()
-    kk.to_csv('test.csv', encoding='gbk')
+    kk = a.run()
