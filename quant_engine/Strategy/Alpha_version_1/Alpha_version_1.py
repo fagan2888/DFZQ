@@ -20,7 +20,7 @@ class alpha_version_1(StrategyBase):
         size_field = STRATEGY_CONFIG['size_field']
         super().initialize_strategy(start, end, benchmark, select_range, industry, size_field)
         self.select_pct = STRATEGY_CONFIG['select_pct']
-        self.capital = STRATEGY_CONFIG['captial']
+        self.capital = STRATEGY_CONFIG['capital']
 
     def factors_combination(self):
         categorys = []
