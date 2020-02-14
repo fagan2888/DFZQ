@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 from data_process import DataProcess
 from joblib import Parallel, delayed, parallel_backend
+import datetime
 
 
 class alpha_version_1(StrategyBase):
@@ -21,6 +22,7 @@ class alpha_version_1(StrategyBase):
         super().initialize_strategy(start, end, benchmark, select_range, industry, size_field)
         self.select_pct = STRATEGY_CONFIG['select_pct']
         self.capital = STRATEGY_CONFIG['capital']
+        self.calendar = self.rdf.get_trading_calendar()
 
     def factors_combination(self):
         categorys = []
@@ -29,7 +31,7 @@ class alpha_version_1(StrategyBase):
             parameters_list = FACTOR_WEIGHT[category]
             factors_in_same_category = []
             for measure, factor, direction, if_fillna, weight in parameters_list:
-                print('Factor: %s is processing...' %factor)
+                print('-Factor: %s is processing...' %factor)
                 factor_df = self.process_factor(measure, factor, direction, if_fillna)
                 if weight == 1:
                     pass
@@ -121,10 +123,9 @@ class alpha_version_1(StrategyBase):
         selections = selections.loc[:, ['date', 'code', 'industry', 'weight_in_industry']]
         selections.set_index('date', inplace=True)
         dates = selections.index.unique()
-        calendar = self.rdf.get_trading_calendar()
         next_trade_date = {}
         for date in dates:
-            next_trade_date.update(DataProcess.get_next_date(calendar, date, 1))
+            next_trade_date.update(DataProcess.get_next_date(self.calendar, date, 1))
         selections['next_1_day'] = selections.apply(lambda row: next_trade_date[row.name], axis=1)
         selections.set_index('next_1_day', inplace=True)
         return selections
@@ -155,5 +156,7 @@ class alpha_version_1(StrategyBase):
               DataProcess.calc_alpha_ann_return(portfolio_value['TotalValue'], portfolio_value['300+500']))
 
 if __name__ == '__main__':
+    print(datetime.datetime.now())
     a = alpha_version_1('Alpha_version_1')
     kk = a.run()
+    print(datetime.datetime.now())
