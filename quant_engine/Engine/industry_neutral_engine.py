@@ -11,7 +11,7 @@ import global_constant
 
 
 class IndustryNeutralEngine:
-    def __init__(self, stock_capital=1000000, stk_slippage=0.001, stk_fee=0.0001, save_name=None,
+    def __init__(self, stock_capital=100000000, stk_slippage=0.001, stk_fee=0.0001, save_name=None,
                  logger_lvl=logging.INFO):
         self.stk_portfolio = industry_neutral_portfolio(capital_input=stock_capital, slippage_input=stk_slippage,
                                                         transaction_fee_input=stk_fee)
