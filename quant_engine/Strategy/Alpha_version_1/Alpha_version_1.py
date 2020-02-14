@@ -29,6 +29,7 @@ class alpha_version_1(StrategyBase):
             parameters_list = FACTOR_WEIGHT[category]
             factors_in_same_category = []
             for measure, factor, direction, if_fillna, weight in parameters_list:
+                print('Factor: %s is processing...' %factor)
                 factor_df = self.process_factor(measure, factor, direction, if_fillna)
                 if weight == 1:
                     pass
