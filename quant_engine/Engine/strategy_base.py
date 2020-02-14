@@ -20,6 +20,7 @@ class StrategyBase:
     # data_prepare 所生成的所有数据，date都是index
     def data_prepare(self):
         self.mkt_data = self.influx.getDataMultiprocess(self.mkt_db, self.mkt_measure, self.start, self.end, None)
+        self.mkt_data.index.names = ['date']
         # 剔除没有行业或者状态为停牌(没有状态)或为st的股票
         self.code_range = self.mkt_data.loc[
                           pd.notnull(self.mkt_data[self.industry]) &
