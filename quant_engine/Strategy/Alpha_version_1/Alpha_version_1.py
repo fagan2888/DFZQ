@@ -23,6 +23,27 @@ class alpha_version_1(StrategyBase):
         self.select_pct = STRATEGY_CONFIG['select_pct']
         self.capital = STRATEGY_CONFIG['capital']
         self.calendar = self.rdf.get_trading_calendar()
+        # 使用ROE_ddt 25%分位数先过滤一遍
+        ROE_ddt = self.influx.getDataMultiprocess(self.factor_db, 'ROE', self.start, self.end, ['code', 'ROE_ddt'])
+        ROE_ddt.index.names = ['date']
+        ROE_ddt.reset_index(inplace=True)
+        self.code_range.reset_index(inplace=True)
+        self.code_range = pd.merge(self.code_range, ROE_ddt, on=['date', 'code'])
+        quantile_25 = self.code_range.groupby(['date', self.industry])['ROE_ddt'].quantile(0.25)
+        quantile_25 = pd.DataFrame(quantile_25).reset_index().rename(columns={'ROE_ddt': 'quantile'})
+        code_count = self.code_range.groupby(['date', self.industry])['code'].count()
+        code_count = pd.DataFrame(code_count).reset_index().rename(columns={'code': 'count'})
+        self.code_range = pd.merge(self.code_range, quantile_25, on=['date', self.industry])
+        self.code_range = pd.merge(self.code_range, code_count, on=['date', self.industry])
+        # 行业股票数 <=4的，全部保留
+        count_filter = self.code_range.loc[self.code_range['count'] <= 4, ['date', 'code', self.industry]].copy()
+        # 行业股票数 >4的，去大于分位数的
+        quantile_filter = self.code_range.loc[(self.code_range['count'] > 4) &
+                                              (self.code_range['ROE_ddt'] >= self.code_range['quantile']),
+                                              ['date', 'code', self.industry]].copy()
+        self.code_range = pd.concat([count_filter, quantile_filter])
+        self.code_range.set_index('date', inplace=True)
+
 
     def factors_combination(self):
         categorys = []
