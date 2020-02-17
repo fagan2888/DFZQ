@@ -148,6 +148,8 @@ class alpha_version_1(StrategyBase):
         portfolio_value = pd.merge(portfolio_value, index_value, left_index=True, right_index=True)
         portfolio_value.to_csv('pv.csv', encoding='gbk')
         print('ANN_return: ', DataProcess.calc_ann_return(portfolio_value['TotalValue']))
+        print('MDD: ', DataProcess.calc_max_draw_down(portfolio_value['TotalValue']))
+        print('sharpe: ', DataProcess.calc_sharpe(portfolio_value['TotalValue']))
         print('Alpha300: ',
               DataProcess.calc_alpha_ann_return(portfolio_value['TotalValue'], portfolio_value['000300.SH']))
         print('Alpha500: ',
