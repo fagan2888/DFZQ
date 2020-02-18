@@ -3,9 +3,12 @@ import numpy as np
 import math
 import statsmodels.api as sm
 from joblib import Parallel, delayed, parallel_backend
+import warnings
 
 
 class DataProcess:
+    # -------------------------------------------------
+    # 基础工具
     @staticmethod
     def remove_outlier(series):
         median = np.median(series)
@@ -36,21 +39,43 @@ class DataProcess:
             rank = (rank - mean) / std
         return rank
 
+    # -------------------------------------------------
+    # 结果分析工具
     @staticmethod
     def calc_ann_return(series):
-        return (series.iloc[-1] / series.iloc[0] - 1) * 250 / series.shape[0]
+        return (series.iloc[-1] / series.iloc[0]) ** (250 / series.shape[0]) - 1
 
     @staticmethod
     def calc_alpha_ann_return(series1, series2):
-        ret1 = (series1.iloc[-1] / series1.iloc[0] - 1) * 250 / series1.shape[0]
-        ret2 = (series2.iloc[-1] / series2.iloc[0] - 1) * 250 / series2.shape[0]
+        ret1 = (series1.iloc[-1] / series1.iloc[0]) ** (250 / series1.shape[0]) - 1
+        ret2 = (series2.iloc[-1] / series2.iloc[0]) ** (250 / series2.shape[0]) - 1
         return ret1 - ret2
 
     @staticmethod
+    def calc_accum_alpha(series1, series2):
+        return (series1 - series2) / series2
+
+    @staticmethod
     def calc_max_draw_down(series):
+        warnings.filterwarnings("ignore")
         index_low = np.argmax(np.maximum.accumulate(series) - series)
-        index_high = np.argmax(series[:index_low])
-        return (series[index_high] - series[index_low]) / series[index_high]
+        if index_low == 0:
+            return 0
+        else:
+            index_high = np.argmax(series[:index_low])
+            return (series[index_high] - series[index_low]) / series[index_high]
+
+    @staticmethod
+    def calc_alpha_max_draw_down(series1, series2):
+        warnings.filterwarnings("ignore")
+        accum_alpha = (series1 - series2) / series2
+        index_low = np.argmax(np.maximum.accumulate(accum_alpha) - accum_alpha)
+        value_low = accum_alpha[index_low]
+        if index_low == 0:
+            return 0
+        else:
+            value_high = np.max(accum_alpha[:index_low])
+            return value_high - value_low
 
     @staticmethod
     def calc_sharpe(series):
@@ -63,6 +88,8 @@ class DataProcess:
         alpha = ret_series1 - ret_series2
         return math.sqrt(252) * alpha.mean() / alpha.std()
 
+    # -------------------------------------------------
+    # 数据处理工具
     @staticmethod
     def get_next_date(calendar, today, days):
         return {today: calendar[calendar > today].iloc[days - 1]}
@@ -122,6 +149,7 @@ class DataProcess:
 
     @staticmethod
     # 市值行业中性化: 因子先去极值标准化，ln市值标准化，行业变换哑变量，回归完取残差
+    # 数据中不能有nan，否则答案全为nan
     # 返回的date在columns里
     def neutralize(factor_data, factor_field, industry_dummies, size_data, size_field='ln_market_cap', n_process=5):
         industry_dummies.index.names = ['date']
@@ -159,8 +187,9 @@ class DataProcess:
         neutral_factor = pd.concat(parallel_res)
         return neutral_factor
 
-    # ----------------JOB开头的函数是其他函数多进程时调用的工具函数---------------------
-    # ----------------data中的date在columns里---------------------
+    # -------------------------------------------------
+    # JOB开头的函数是其他函数多进程时调用的工具函数---------------------
+    # data中的date在columns里
     @staticmethod
     def JOB_cross_section_Z_score(data, field, dates):
         res = []
