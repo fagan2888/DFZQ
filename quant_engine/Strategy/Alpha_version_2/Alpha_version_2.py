@@ -173,7 +173,7 @@ class alpha_version_2(StrategyBase):
     def run(self):
         self.initialize_strategy()
         weight = self.get_stk_weight()
-        weight.to_csv('Alpha_v2.csv', encoding='gbk')
+        weight.to_csv(self.strategy_name + '_TARGET_WEIGHT.csv', encoding='gbk')
         engine = IndustryNeutralEngine(stock_capital=self.capital, save_name='Alpha_version_2')
         bt_start = weight.index[0].strftime('%Y%m%d')
         bt_end = (weight.index[-1] - datetime.timedelta(days=1)).strftime('%Y%m%d')
