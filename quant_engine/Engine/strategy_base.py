@@ -4,6 +4,7 @@ import numpy as np
 from rdf_data import rdf_data
 from influxdb_data import influxdbData
 from data_process import DataProcess
+import logging
 
 
 class StrategyBase:
@@ -14,6 +15,15 @@ class StrategyBase:
         self.mkt_measure = 'marketData'
         self.factor_db = 'DailyFactors_Gus'
         self.strategy_name = strategy_name
+        # 配置log
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(level=logging.INFO)
+        folder_path = global_constant.ROOT_DIR + 'Strategy/{0}/'.format(self.strategy_name)
+        handler = logging.FileHandler(folder_path + 'Backtest_Report.log')
+        handler.setLevel(logging.INFO)
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s: %(message)s')
+        handler.setFormatter(formatter)
+        self.logger.addHandler(handler)
 
     # 获得行情信息以及选股的范围
     # 行情信息为全市场，以免吸收合并出现没有行情的情况
