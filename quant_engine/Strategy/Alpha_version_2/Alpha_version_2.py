@@ -193,7 +193,7 @@ class alpha_version_2(StrategyBase):
             DataProcess.calc_accum_alpha(portfolio_value['TotalValue'], portfolio_value['000905.SH'])
         portfolio_value['accum_alpha_800'] = \
             DataProcess.calc_accum_alpha(portfolio_value['TotalValue'], portfolio_value['300+500'])
-        portfolio_value.to_csv(self.strategy_name + '_backtest.csv', encoding='gbk')
+        portfolio_value.to_csv(self.strategy_name + '_BACKTEST.csv', encoding='gbk')
         
         self.logger.info('Backtest finish time: %s' % datetime.datetime.now().strftime('%Y/%m/%d - %H:%M:%S'))
         self.logger.info('*' * 50)
