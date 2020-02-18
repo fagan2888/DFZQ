@@ -49,7 +49,7 @@ class IndustryNeutralEngine:
             influx = influxdbData()
             DB = 'DailyData_Gus'
             measure = 'marketData'
-            daily_data = influx.getDataMultiprocess(DB, measure, str(start), str(end))
+            daily_data = influx.getDataMultiprocess(DB, measure, start, end)
         else:
             daily_data = data_input.loc[start:end, :]
         if 'swap_date' not in daily_data.columns:
@@ -84,7 +84,9 @@ class IndustryNeutralEngine:
         nxt_day_industry_weight.rename(
             columns={'date': 'next_1_day', benchmark + '_weight': 'industry_weight'}, inplace=True)
         daily_data = pd.merge(daily_data, nxt_day_industry_weight, on=['next_1_day', 'industry'], how='outer')
+        daily_data = daily_data.dropna(subset=['date'])
         # 现将股票行业内权重与行业权重合并
+        stk_indu_weight = stk_indu_weight.loc[start:end, :]
         stk_indu_weight.index.names = ['date']
         stk_indu_weight.reset_index(inplace=True)
         stk_indu_weight.drop('industry', axis=1, inplace=True)
