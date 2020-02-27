@@ -42,7 +42,7 @@ class FactorTest:
         for date in dates:
             day_factor = processed_factor.loc[processed_factor['date'] == date, factor_field]
             day_return = processed_factor.loc[processed_factor['date'] == date, 'next_period_return']
-            day_IC.append(np.corrcoef(day_factor, day_return)[0, 1])
+            day_IC.append(day_factor.corr(day_return, method='spearman'))
             IC_date.append(date)
         return pd.Series(day_IC, index=IC_date)
 
@@ -366,8 +366,8 @@ if __name__ == '__main__':
     strategy = FactorTest()
 
     start_end = [[20120101,20131231],[20140101,20151231],[20160101,20171231]]
-    measurement = 'FinancialQuality'
-    direction = 1
+    measurement = 'Turnover'
+    direction = -1
     for start, end in start_end:
         print('start: %i, end: %i' %(start,end))
         mkt_data = strategy.influx.getDataMultiprocess('DailyData_Gus', 'marketData', start, end, None)
@@ -377,8 +377,11 @@ if __name__ == '__main__':
         code_800.index.names = ['date']
         code_800.reset_index(inplace=True)
 
-        fct_list = ['ROE','ROE_Q','ROE_ddt','ROE_ddt_Q','OperateIncome2EBT_Q','profit_ddt2profit_Q','cur_dbt2dbt',
-                    'current_ratio','assets_turn_Q']
+        fct_list = ['turn_1m', 'turn_3m', 'float_turn_1m', 'float_turn_3m', 'free_turn_1m', 'free_turn_3m',
+                    'std_turn_1m', 'std_turn_3m', 'std_float_turn_1m', 'std_float_turn_3m', 'std_free_turn_1m',
+                    'std_free_turn_3m', 'bias_turn_1m', 'bias_turn_3m', 'bias_float_turn_1m', 'bias_float_turn_3m',
+                    'bias_free_turn_1m', 'bias_free_turn_3m', 'bias_std_turn_1m', 'bias_std_turn_3m',
+                    'bias_std_float_turn_1m', 'bias_std_float_turn_3m', 'bias_std_free_turn_1m', 'bias_std_free_turn_3m']
 
         for fct in fct_list:
             print(fct)
