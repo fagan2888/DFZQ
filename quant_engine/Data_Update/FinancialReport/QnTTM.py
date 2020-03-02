@@ -15,8 +15,8 @@ class QnTTMUpdate(FactorBase):
         self.db = 'FinancialReport_Gus'
         # 目前包含字段: 净利润(net_profit)，扣非净利润(net_profit_ddt)，营收(oper_rev)，总营收(tot_oper_rev)，
         #              营业利润(oper_profit), 现金流净额(net_CF), 经营现金流净额(net_OCF)
-        self.fields = ['net_profit', 'net_profit_ddt', 'oper_rev', 'tot_oper_rev', 'oper_profit', 'net_CF', 'net_OCF']
-        #self.fields = ['net_CF', 'net_OCF']
+        self.fields = ['net_profit', 'net_profit_ddt', 'oper_rev', 'tot_oper_rev', 'oper_profit', 'net_CF', 'net_OCF',
+                       'oper_income']
 
     @staticmethod
     def JOB_calQ(value_cur, value_last, report_period, n_last):
@@ -109,5 +109,5 @@ class QnTTMUpdate(FactorBase):
 
 if __name__ == '__main__':
     QU = QnTTMUpdate()
-    r = QU.cal_factors(20100101, 20200205, N_JOBS)
+    r = QU.cal_factors(20100101, 20200225, N_JOBS)
     print(r)
