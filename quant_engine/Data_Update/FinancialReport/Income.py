@@ -63,9 +63,10 @@ class IncomeUpdate(FactorBase):
         # type要用408001000，408005000，408004000(合并报表，合并更正前，合并调整后)，同时有408001000和408005000用408005000
         # 有408004000时，根据ann_dt酌情使用
         # 目前包含字段: 净利润(net_profit)，扣非净利润(net_profit_ddt)，营收(oper_rev)，总营收(tot_oper_rev)，
-        #              营业利润(oper_profit)，摊薄eps(EPS_diluted)
+        #              营业利润(oper_profit)，摊薄eps(EPS_diluted)，经营利润(oper_income)
         query = "select ANN_DT, S_INFO_WINDCODE, REPORT_PERIOD, NET_PROFIT_EXCL_MIN_INT_INC, " \
-                "NET_PROFIT_AFTER_DED_NR_LP, OPER_REV, TOT_OPER_REV, OPER_PROFIT, S_FA_EPS_DILUTED, STATEMENT_TYPE " \
+                "NET_PROFIT_AFTER_DED_NR_LP, OPER_REV, TOT_OPER_REV, OPER_PROFIT, S_FA_EPS_DILUTED, " \
+                "MINORITY_INT_INC, LESS_FIN_EXP, NET_INT_INC, STATEMENT_TYPE " \
                 "from wind_filesync.AShareIncome " \
                 "where ANN_DT >= {0} and ANN_DT <= {1} " \
                 "and (STATEMENT_TYPE = '408001000' or STATEMENT_TYPE = '408005000' or STATEMENT_TYPE = '408004000') " \
@@ -73,9 +74,17 @@ class IncomeUpdate(FactorBase):
                 "order by report_period, ann_dt, statement_type " \
             .format((dtparser.parse(str(start)) - relativedelta(years=2)).strftime('%Y%m%d'), str(end))
         self.rdf.curs.execute(query)
-        income = pd.DataFrame(self.rdf.curs.fetchall(),
-                              columns=['date', 'code', 'report_period', 'net_profit', 'net_profit_ddt', 'oper_rev',
-                                       'tot_oper_rev', 'oper_profit', 'EPS_diluted', 'type'])
+        income = \
+            pd.DataFrame(self.rdf.curs.fetchall(),
+                         columns=['date', 'code', 'report_period', 'net_profit', 'net_profit_ddt', 'oper_rev',
+                                  'tot_oper_rev', 'oper_profit', 'EPS_diluted', 'minority_interest_income',
+                                  'less_fin_exp', 'net_interest_income', 'type'])
+        income[['minority_interest_income', 'less_fin_exp', 'net_interest_income']] = \
+            income[['minority_interest_income', 'less_fin_exp', 'net_interest_income']].fillna(0)
+        # 经营利润 = 净利润（含少数股东损益） - 非经常性损益 + 财务费用 * (1-0.25) - 利息净收入 * (1-0.25)
+        #         = 扣非净利润（扣除少数股东损益） + 少数股东损益 + 财务费用 * (1-0.25) - 利息净收入 * (1-0.25)
+        income['oper_income'] = income['net_profit_ddt'] + income['minority_interest_income'] + \
+                                income['less_fin_exp'] * (1-0.25) - income['net_interest_income'] * (1-0.25)
         # 同一code，同一date，同一report_period，同时出现type1，2，3时，取type大的
         income['type'] = income['type'].apply(lambda x: '1' if x == '408001000' else ('2' if x == '408005000' else '3'))
         income = income.sort_values(by=['code', 'date', 'report_period', 'type'])
@@ -86,7 +95,8 @@ class IncomeUpdate(FactorBase):
         calendar = \
             set(calendar.loc[(calendar >= (dtparser.parse(str(start)) - relativedelta(years=2)).strftime('%Y%m%d')) &
                              (calendar <= str(end))])
-        fields = income.columns.difference(['date', 'code', 'report_period', 'type'])
+        fields = ['net_profit', 'net_profit_ddt', 'oper_rev', 'tot_oper_rev', 'oper_profit', 'EPS_diluted',
+                  'oper_income']
         fail_list = []
         for f in fields:
             print('field: %s begins processing...' %f)
@@ -102,7 +112,7 @@ class IncomeUpdate(FactorBase):
             with parallel_backend('multiprocessing', n_jobs=n_jobs):
                 res = Parallel()(delayed(IncomeUpdate.JOB_factors)
                                  (df, f, codes, calendar, start) for codes in split_codes)
-            print('%s finish' %f)
+            print('%s finish' % f)
             print('-' * 30)
             for r in res:
                 fail_list.extend(r)
@@ -111,4 +121,4 @@ class IncomeUpdate(FactorBase):
 
 if __name__ == '__main__':
     IU = IncomeUpdate()
-    r = IU.cal_factors(20190101, 20190901, N_JOBS)
+    r = IU.cal_factors(20100101, 20200225, N_JOBS)
