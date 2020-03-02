@@ -89,6 +89,11 @@ class BalanceSheetUpdate(FactorBase):
         balance_sheet = balance_sheet.sort_values(by=['code', 'date', 'report_period', 'type'])
         balance_sheet['date'] = pd.to_datetime(balance_sheet['date'])
         balance_sheet['report_period'] = pd.to_datetime((balance_sheet['report_period']))
+        # NOA 为净经营资产
+        # NOA = 经营资产 - 经营负债
+        #     = 股东权益 + 金融负债 - 金融资产
+        #     = 股东权益合计 + 短期借款 + 交易性金融负债 + 应付票据 + 一年内到期的非流动负债 + 长期借款 + 应付债券
+        #       - 货币资金 - 交易性金融资产 - 可供出售金融资产 - 持有至到期投资 - 投资性房地产 - 定期存款 - 其他资产 - 长期应收款
         balance_sheet['NOA'] = balance_sheet['net_equity_incl_min'] + balance_sheet['shortterm_borrow'] + \
                                balance_sheet['tradable_fin_liab'] + balance_sheet['notes_payable'] + \
                                balance_sheet['non_cur_liab_within1Y'] + balance_sheet['longterm_borrow'] + \
@@ -97,7 +102,6 @@ class BalanceSheetUpdate(FactorBase):
                                balance_sheet['held_to_maturity_invest'] - balance_sheet['invest_real_estate'] - \
                                balance_sheet['time_deposits'] - balance_sheet['other_assets'] - \
                                balance_sheet['longterm_rec']
-
         # 处理数据
         calendar = self.rdf.get_trading_calendar()
         calendar = \
