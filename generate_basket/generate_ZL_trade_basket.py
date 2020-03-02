@@ -125,6 +125,29 @@ class basket_trade:
             self.df_to_ini(ZL_split_algo_sell, '张黎', 'ZL_split_algo_sell')
             self.df_to_ini(ZL_remain_algo_sell, '张黎', 'ZL_remain_algo_sell')
 
+    def get_reserve(self):
+        ZL_reserve = int(input('请输入ZL预留的篮子数:'))
+        XF_reserve = int(input('请输入XF预留的篮子数:'))
+        # ZL预留
+        ZL_path = self.ZL_path + 'ZL_bsk_pc.ini'
+        ZL_res_df = self.ini_to_df(ZL_path)
+        ZL_res_df['to_trade_vol'] = ZL_res_df['vol_per_bsk'] * ZL_reserve
+        self.df_to_ini(ZL_res_df, '张黎', 'ZL_reserve')
+        # XF预留
+        latest_bsk_dt = self.dt
+        file_name = 'X1.ini'
+        while True:
+            folder_path = self.root_dir + '许帆/{0}/'.format(latest_bsk_dt.strftime('%Y%m%d'))
+            if os.path.exists(folder_path) and file_name in os.listdir(folder_path):
+                break
+            else:
+                latest_bsk_dt = latest_bsk_dt - datetime.timedelta(days=1)
+        print('XF篮子更新日期: %s' % latest_bsk_dt.strftime('%Y%m%d'))
+        file_path = folder_path + '/' + file_name
+        XF_res_df = self.ini_to_df(file_path)
+        XF_res_df['to_trade_vol'] = XF_res_df['vol_per_bsk'] * XF_reserve
+        self.df_to_ini(XF_res_df, '许帆', 'XF_reserve')
+
     # ----------------------------------------------------------
     # 工具函数
     def read_positions(self, user):
@@ -178,7 +201,7 @@ class basket_trade:
             for line in read.readlines():
                 if line[0] == '0' or line[0] == '3' or line[0] == '6':
                     splitted_line = line.strip().split('\t')
-                    exchange = 'SH' if splitted_line[0][0] == '6' else 'SZ'
+                    exchange = 'SH' if (splitted_line[0][0] == '6') | (splitted_line[0][0] == '5') else 'SZ'
                     content = splitted_line[0] + '|' + exchange + '|' + splitted_line[1] + '|' + splitted_line[3] + '\n'
                     f.write(content)
                 else:
@@ -191,14 +214,14 @@ class basket_trade:
         f = open(file_path, 'r')
         line_list = []
         for line in f.readlines():
-            if line[0] == '0' or line[0] == '3' or line[0] == '6':
+            if line[0] == '0' or line[0] == '3' or line[0] == '6' or line[0] == '5':
                 line = line.strip()
                 splitted_line = line.split('|')
-                line_list.append([splitted_line[0], splitted_line[2], splitted_line[3]])
+                line_list.append([splitted_line[0], splitted_line[1], splitted_line[2], splitted_line[3]])
             else:
                 continue
         basket = pd.DataFrame(line_list)
-        basket.columns = ['code', 'name', 'vol_per_bsk']
+        basket.columns = ['code', 'exchange', 'name', 'vol_per_bsk']
         basket['vol_per_bsk'] = basket['vol_per_bsk'].astype('int')
         return basket
 
@@ -235,7 +258,7 @@ class basket_trade:
         positions['vol_hold'] = positions['vol_hold'].fillna(0)
         positions['name'] = positions.apply(lambda row: row['name_x'] if pd.notnull(row['name_x']) else row['name_y'],
                                             axis=1)
-        positions['exchange'] = positions['code'].apply(lambda x: 'SH' if x[0] == '6' else 'SZ')
+        positions['exchange'] = positions['code'].apply(lambda x: 'SH' if (x[0] == '6') | (x[0] == '5') else 'SZ')
         positions['target_vol'] = positions['target_vol'].fillna(0)
         positions['vol_diff'] = positions['target_vol'] - positions['vol_hold']
         positions['to_trade_vol'] = positions['vol_diff'].apply(lambda x: round(x, -2))
@@ -250,3 +273,4 @@ if __name__ == '__main__':
     bsk.get_open_close_bsk()
     bsk.get_change_bsk(3)
     bsk.get_ZL_buy_sell_bsk(3)
+    bsk.get_reserve()
