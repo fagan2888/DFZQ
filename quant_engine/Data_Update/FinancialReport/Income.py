@@ -43,12 +43,29 @@ class IncomeUpdate(FactorBase):
                 code_df.apply(lambda row: IncomeUpdate.get_former_data(row, 3), axis=1)
             code_df[field + '_lastY'] = \
                 code_df.apply(lambda row: IncomeUpdate.get_former_data(row, 4), axis=1)
+            code_df[field + '_last4Q'] = \
+                code_df.apply(lambda row: IncomeUpdate.get_former_data(row, 4), axis=1)
             code_df[field + '_last5Q'] = \
                 code_df.apply(lambda row: IncomeUpdate.get_former_data(row, 5), axis=1)
+            code_df[field + '_last6Q'] = \
+                code_df.apply(lambda row: IncomeUpdate.get_former_data(row, 6), axis=1)
+            code_df[field + '_last7Q'] = \
+                code_df.apply(lambda row: IncomeUpdate.get_former_data(row, 7), axis=1)
+            code_df[field + '_last8Q'] = \
+                code_df.apply(lambda row: IncomeUpdate.get_former_data(row, 8), axis=1)
+            code_df[field + '_last9Q'] = \
+                code_df.apply(lambda row: IncomeUpdate.get_former_data(row, 9), axis=1)
+            code_df[field + '_last10Q'] = \
+                code_df.apply(lambda row: IncomeUpdate.get_former_data(row, 10), axis=1)
+            code_df[field + '_last11Q'] = \
+                code_df.apply(lambda row: IncomeUpdate.get_former_data(row, 11), axis=1)
+            code_df[field + '_last12Q'] = \
+                code_df.apply(lambda row: IncomeUpdate.get_former_data(row, 12), axis=1)
             code_df = \
                 code_df.loc[str(start):,
                 ['code', 'report_period', field, field + '_last1Q', field + '_last2Q', field + '_last3Q',
-                 field + '_lastY', field + '_last5Q']]
+                 field + '_lastY', field + '_last4Q', field + '_last5Q', field + '_last6Q', field + '_last7Q',
+                 field + '_last8Q', field + '_last9Q', field + '_last10Q', field + '_last11Q', field + '_last12Q']]
             code_df['report_period'] = code_df['report_period'].apply(lambda x: x.strftime('%Y%m%d'))
             code_df = code_df.where(pd.notnull(code_df), None)
             print('code: %s' % code)
