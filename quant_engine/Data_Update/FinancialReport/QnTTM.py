@@ -45,24 +45,25 @@ class QnTTMUpdate(FactorBase):
         save_res = []
         for code in codes:
             code_df = df.loc[df['code'] == code, :].copy()
+            drop_dupl_df = code_df.drop_duplicates().copy()
             # 计算Q
-            code_df[field + '_Q'] = code_df.apply(lambda row: QnTTMUpdate.JOB_calQ(
+            drop_dupl_df[field + '_Q'] = drop_dupl_df.apply(lambda row: QnTTMUpdate.JOB_calQ(
                 row[field], row[field + '_last1Q'], row['report_period'], 0), axis=1)
-            code_df[field + '_Q_lastY'] = code_df.apply(lambda row: QnTTMUpdate.JOB_calQ(
+            drop_dupl_df[field + '_Q_lastY'] = drop_dupl_df.apply(lambda row: QnTTMUpdate.JOB_calQ(
                 row[field + '_lastY'], row[field + '_last5Q'], row['report_period'], 4), axis=1)
-            Q_cols = ['code', 'report_period', field + '_Q', field + '_Q_lastY']
+            Q_cols = [field + '_Q', field + '_Q_lastY']
             for n in range(1, 12):
                 curr_col = field + '_last{0}Q'.format(str(n))
                 prev_col = field + '_last{0}Q'.format(str(n+1))
                 res_col = field + '_Q_last{0}Q'.format(str(n))
                 Q_cols.append(res_col)
-                code_df[res_col] = code_df.apply(lambda row: QnTTMUpdate.JOB_calQ(
+                drop_dupl_df[res_col] = drop_dupl_df.apply(lambda row: QnTTMUpdate.JOB_calQ(
                     row[curr_col], row[prev_col], row['report_period'], n), axis=1)
             # 计算TTM
-            code_df[field + '_TTM'] = code_df.apply(lambda row: QnTTMUpdate.JOB_calTTM(
+            drop_dupl_df[field + '_TTM'] = drop_dupl_df.apply(lambda row: QnTTMUpdate.JOB_calTTM(
                 row[field + '_Q'], row[field + '_Q_last1Q'], row[field + '_Q_last2Q'], row[field + '_Q_last3Q'],
                 row['report_period'], 0), axis=1)
-            TTM_cols = ['code', 'report_period', field + '_TTM']
+            TTM_cols = [field + '_TTM']
             for n in range(1, 9):
                 curr_col = field + '_Q_last{0}Q'.format(str(n))
                 prev1_col = field + '_Q_last{0}Q'.format(str(n+1))
@@ -70,12 +71,17 @@ class QnTTMUpdate(FactorBase):
                 prev3_col = field + '_Q_last{0}Q'.format(str(n+3))
                 res_col = field + '_TTM_last{0}Q'.format(str(n))
                 TTM_cols.append(res_col)
-                code_df[res_col] = code_df.apply(lambda row: QnTTMUpdate.JOB_calTTM(
+                drop_dupl_df[res_col] = drop_dupl_df.apply(lambda row: QnTTMUpdate.JOB_calTTM(
                     row[curr_col], row[prev1_col], row[prev2_col], row[prev3_col],
                     row['report_period'], n), axis=1)
+            Q_TTM_cols = Q_cols + TTM_cols
+            drop_dupl_df = drop_dupl_df[Q_TTM_cols]
+            code_df = pd.merge(code_df.loc[:, ['code', 'report_period']], drop_dupl_df,
+                               how='left', left_index=True, right_index=True)
+            code_df = code_df.fillna(method='ffill')
             code_df = code_df.where(pd.notnull(code_df), None)
-            Q_df = code_df.loc[:, Q_cols]
-            TTM_df = code_df.loc[:, TTM_cols]
+            Q_df = code_df.loc[:, ['code', 'report_period'] + Q_cols]
+            TTM_df = code_df.loc[:, ['code', 'report_period'] + TTM_cols]
             print('code: %s   field: %s' % (code, field + '_Q'))
             r = influx.saveData(Q_df, 'FinancialReport_Gus', field + '_Q')
             if r == 'No error occurred...':
