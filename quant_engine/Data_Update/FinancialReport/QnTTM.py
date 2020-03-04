@@ -45,33 +45,37 @@ class QnTTMUpdate(FactorBase):
         save_res = []
         for code in codes:
             code_df = df.loc[df['code'] == code, :].copy()
-            code_df[field + '_Q'] = code_df.apply(
-                lambda row: QnTTMUpdate.JOB_calQ(row[field], row[field + '_last1Q'], row['report_period'], 0), axis=1)
-            code_df[field + '_Q_last1Q'] = code_df.apply(
-                lambda row: QnTTMUpdate.JOB_calQ(row[field + '_last1Q'], row[field + '_last2Q'], row['report_period'],
-                                                 1), axis=1)
-            code_df[field + '_Q_last2Q'] = code_df.apply(
-                lambda row: QnTTMUpdate.JOB_calQ(row[field + '_last2Q'], row[field + '_last3Q'], row['report_period'],
-                                                 2), axis=1)
-            code_df[field + '_Q_last3Q'] = code_df.apply(
-                lambda row: QnTTMUpdate.JOB_calQ(row[field + '_last3Q'], row[field + '_lastY'], row['report_period'],
-                                                 3), axis=1)
-            code_df[field + '_Q_lastY'] = code_df.apply(
-                lambda row: QnTTMUpdate.JOB_calQ(row[field + '_lastY'], row[field + '_last5Q'], row['report_period'],
-                                                 4), axis=1)
-            code_df[field + '_TTM'] = code_df.apply(
-                lambda row: QnTTMUpdate.JOB_calTTM(row[field + '_Q'], row[field + '_Q_last1Q'], row[field + '_Q_last2Q'],
-                                                   row[field + '_Q_last3Q'], row['report_period'], 0), axis=1)
-            code_df[field + '_TTM_last1Q'] = code_df.apply(
-                lambda row: QnTTMUpdate.JOB_calTTM(row[field + '_Q_last1Q'], row[field + '_Q_last2Q'],
-                                                   row[field + '_Q_last3Q'], row[field + '_Q_lastY'], row['report_period'],
-                                                   1), axis=1)
+            # 计算Q
+            code_df[field + '_Q'] = code_df.apply(lambda row: QnTTMUpdate.JOB_calQ(
+                row[field], row[field + '_last1Q'], row['report_period'], 0), axis=1)
+            code_df[field + '_Q_lastY'] = code_df.apply(lambda row: QnTTMUpdate.JOB_calQ(
+                row[field + '_lastY'], row[field + '_last5Q'], row['report_period'], 4), axis=1)
+            Q_cols = ['code', 'report_period', field + '_Q', field + '_Q_lastY']
+            for n in range(1, 12):
+                curr_col = field + '_last{0}Q'.format(str(n))
+                prev_col = field + '_last{0}Q'.format(str(n+1))
+                res_col = field + '_Q_last{0}Q'.format(str(n))
+                Q_cols.append(res_col)
+                code_df[res_col] = code_df.apply(lambda row: QnTTMUpdate.JOB_calQ(
+                    row[curr_col], row[prev_col], row['report_period'], n), axis=1)
+            # 计算TTM
+            code_df[field + '_TTM'] = code_df.apply(lambda row: QnTTMUpdate.JOB_calTTM(
+                row[field + '_Q'], row[field + '_Q_last1Q'], row[field + '_Q_last2Q'], row[field + '_Q_last3Q'],
+                row['report_period'], 0), axis=1)
+            TTM_cols = ['code', 'report_period', field + '_TTM']
+            for n in range(1, 9):
+                curr_col = field + '_Q_last{0}Q'.format(str(n))
+                prev1_col = field + '_Q_last{0}Q'.format(str(n+1))
+                prev2_col = field + '_Q_last{0}Q'.format(str(n+2))
+                prev3_col = field + '_Q_last{0}Q'.format(str(n+3))
+                res_col = field + '_TTM_last{0}Q'.format(str(n))
+                TTM_cols.append(res_col)
+                code_df[res_col] = code_df.apply(lambda row: QnTTMUpdate.JOB_calTTM(
+                    row[curr_col], row[prev1_col], row[prev2_col], row[prev3_col],
+                    row['report_period'], n), axis=1)
             code_df = code_df.where(pd.notnull(code_df), None)
-            Q_df = code_df.loc[:,
-                   ['code', 'report_period', field + '_Q', field + '_Q_last1Q', field + '_Q_last2Q',
-                    field + '_Q_last3Q', field + '_Q_lastY']]
-            TTM_df = code_df.loc[:,
-                     ['code', 'report_period', field + '_TTM', field + '_TTM_last1Q']]
+            Q_df = code_df.loc[:, Q_cols]
+            TTM_df = code_df.loc[:, TTM_cols]
             print('code: %s   field: %s' % (code, field + '_Q'))
             r = influx.saveData(Q_df, 'FinancialReport_Gus', field + '_Q')
             if r == 'No error occurred...':
@@ -93,7 +97,8 @@ class QnTTMUpdate(FactorBase):
             start = str(start)
             end = str(end)
             df = self.influx.getDataMultiprocess(self.db, f, start, end, None)
-            fill_cols = [f, f+'_last1Q', f+'_last2Q', f+'_last3Q', f+'_lastY', f+'_last5Q']
+            fill_cols = [f, f+'_last1Q', f+'_last2Q', f+'_last3Q', f+'_last4Q', f+'_last5Q', f+'_last6Q',
+                         f+'_last7Q', f+'_last8Q', f+'_last9Q', f+'_last10Q', f+'_last11Q', f+'_last12Q']
             df[fill_cols] = df[fill_cols].fillna(method='bfill', axis=1)
             codes = df['code'].unique()
             split_codes = np.array_split(codes, n_jobs)
@@ -109,5 +114,5 @@ class QnTTMUpdate(FactorBase):
 
 if __name__ == '__main__':
     QU = QnTTMUpdate()
-    r = QU.cal_factors(20100101, 20200225, N_JOBS)
+    r = QU.cal_factors(20100101, 20200301, N_JOBS)
     print(r)
