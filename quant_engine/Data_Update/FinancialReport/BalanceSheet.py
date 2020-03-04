@@ -92,7 +92,7 @@ class BalanceSheetUpdate(FactorBase):
                 "and (STATEMENT_TYPE = '408001000' or STATEMENT_TYPE = '408005000' or STATEMENT_TYPE = '408004000') " \
                 "and (s_info_windcode like '0%' or s_info_windcode like '3%' or s_info_windcode like '6%') " \
                 "order by report_period, ann_dt, statement_type " \
-            .format((dtparser.parse(str(start)) - relativedelta(years=2)).strftime('%Y%m%d'), str(end))
+            .format((dtparser.parse(str(start)) - relativedelta(years=4)).strftime('%Y%m%d'), str(end))
         self.rdf.curs.execute(query)
         balance_sheet = \
             pd.DataFrame(self.rdf.curs.fetchall(),
