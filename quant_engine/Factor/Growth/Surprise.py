@@ -101,7 +101,7 @@ class Surprise(FactorBase):
             fail_list = []
             for r in res:
                 fail_list.extend(r)
-            return fail_list
+        return fail_list
 
 
 if __name__ == '__main__':
