@@ -153,9 +153,8 @@ class BalanceSheetUpdate(FactorBase):
         express['date'] = pd.to_datetime(express['date'])
         express['report_period'] = pd.to_datetime((express['report_period']))
         express['type'] = '1'
-        balance_sheet = pd.concat([balance_sheet.reset_index(), express.reset_index()], ignore_index=True)
+        balance_sheet = pd.concat([balance_sheet, express], ignore_index=True)
         balance_sheet = balance_sheet.sort_values(by=['code', 'date', 'report_period', 'type'])
-        balance_sheet.drop('index', axis=1, inplace=True)
         # fillna
         balance_sheet[fields] = balance_sheet.groupby('code')[fields].fillna(method='ffill')
         # 存放的db
