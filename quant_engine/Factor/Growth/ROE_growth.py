@@ -72,6 +72,6 @@ if __name__ == '__main__':
     pd.set_option('mode.use_inf_as_na', True)
     start_dt = datetime.datetime.now()
     ROEg = ROE_growth()
-    r = ROEg.cal_factors(20100101, 20200205, N_JOBS)
+    r = ROEg.cal_factors(20100101, 20200315, N_JOBS)
     print(r)
     print('time token:', datetime.datetime.now()-start_dt)

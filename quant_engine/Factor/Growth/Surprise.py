@@ -88,7 +88,7 @@ class Surprise(FactorBase):
 
     def cal_factors(self, start, end, n_jobs):
         pd.set_option('mode.use_inf_as_na', True)
-        factor_fields = ['net_profit_Q', 'net_profit_ddt_Q', 'tot_oper_rev_Q']
+        factor_fields = ['net_profit_Q', 'net_profit_ddt_Q', 'oper_rev_Q']
         for factor_field in factor_fields:
             factor = self.influx.getDataMultiprocess('FinancialReport_Gus', factor_field, start, end)
             codes = factor['code'].unique()
@@ -108,6 +108,6 @@ if __name__ == '__main__':
     pd.set_option('mode.use_inf_as_na', True)
     start_dt = datetime.datetime.now()
     sup = Surprise()
-    r = sup.cal_factors(20100101, 20200301, N_JOBS)
+    r = sup.cal_factors(20100101, 20200315, N_JOBS)
     print(r)
     print('time token:', datetime.datetime.now()-start_dt)

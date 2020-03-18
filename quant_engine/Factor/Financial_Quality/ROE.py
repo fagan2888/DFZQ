@@ -117,7 +117,7 @@ class ROE_series(FactorBase):
 
 if __name__ == '__main__':
     roe = ROE_series()
-    r = roe.cal_factors(20100101, 20200205, N_JOBS)
+    r = roe.cal_factors(20100101, 20200315, N_JOBS)
     print('task finish')
     print(r)
     print(datetime.datetime.now())

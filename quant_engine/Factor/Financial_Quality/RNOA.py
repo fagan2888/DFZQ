@@ -93,7 +93,7 @@ class RNOA_series(FactorBase):
 
 if __name__ == '__main__':
     RNOA = RNOA_series()
-    r = RNOA.cal_factors(20100101, 20200225, N_JOBS)
+    r = RNOA.cal_factors(20100101, 20200315, N_JOBS)
     print('task finish')
     print(r)
     print(datetime.datetime.now())
