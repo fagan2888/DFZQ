@@ -26,7 +26,7 @@ class BalanceSheetUpdate(FactorBase):
             code_df = code_df.fillna(method='ffill')
             code_df = code_df.dropna(subset=['code'])
             code_df = code_df.loc[str(start):, ]
-            # 所有report_period 为 columns 去掉第一列(code)
+            # 所有report_period 为 columns, 去掉第一列(code)
             rps = np.flipud(code_df.columns[1:]).astype('datetime64[ns]')
             rp_keys = np.flipud(code_df.columns[1:])
             # 选择最新的report_period
@@ -97,7 +97,24 @@ class BalanceSheetUpdate(FactorBase):
             balance_sheet['type'].apply(lambda x: '2' if x == '408001000' else ('3' if x == '408005000' else '4'))
         balance_sheet = balance_sheet.sort_values(by=['code', 'date', 'report_period', 'type'])
         balance_sheet['date'] = pd.to_datetime(balance_sheet['date'])
-        balance_sheet['report_period'] = pd.to_datetime((balance_sheet['report_period']))
+        balance_sheet['report_period'] = pd.to_datetime(balance_sheet['report_period'])
+        # ***************************************************************************
+        # 读取业绩快报
+        query = "select ANN_DT, S_INFO_WINDCODE, REPORT_PERIOD, TOT_ASSETS, TOT_SHRHLDR_EQY_EXCL_MIN_INT " \
+                "from wind_filesync.AShareProfitExpress " \
+                "where ANN_DT >= {0} and ANN_DT <= {1} " \
+                "and (s_info_windcode like '0%' or s_info_windcode like '3%' or s_info_windcode like '6%') " \
+                "order by report_period, ann_dt" \
+            .format((dtparser.parse(str(start)) - relativedelta(years=4)).strftime('%Y%m%d'), str(end))
+        self.rdf.curs.execute(query)
+        express = pd.DataFrame(self.rdf.curs.fetchall(),
+                               columns=['date', 'code', 'report_period', 'tot_assets', 'net_equity'])
+        express['date'] = pd.to_datetime(express['date'])
+        express['report_period'] = pd.to_datetime(express['report_period'])
+        express['type'] = '1'
+        # ***************************************************************************
+        balance_sheet = pd.concat([balance_sheet, express], ignore_index=True)
+        balance_sheet = balance_sheet.sort_values(by=['code', 'date', 'report_period', 'type'])
         # NOA 为净经营资产
         # NOA = 经营资产 - 经营负债
         #     = 股东权益 + 金融负债 - 金融资产
@@ -111,54 +128,18 @@ class BalanceSheetUpdate(FactorBase):
                                balance_sheet['held_to_maturity_invest'] - balance_sheet['invest_real_estate'] - \
                                balance_sheet['time_deposits'] - balance_sheet['other_assets'] - \
                                balance_sheet['longterm_rec']
+        # 需要的field
+        fields = ['NOA', 'tot_assets', 'tot_liab', 'net_equity']
+        # fillna
+        balance_sheet[fields] = balance_sheet.groupby('code')[fields].fillna(method='ffill')
         # 处理数据
         calendar = self.rdf.get_trading_calendar()
         calendar = \
             set(calendar.loc[(calendar >= (dtparser.parse(str(start)) - relativedelta(years=2)).strftime('%Y%m%d')) &
                              (calendar <= str(end))])
-        # 需要的field
-        fields = ['NOA', 'tot_assets', 'tot_liab', 'net_equity']
         # 存放的db
         save_db = 'FinancialReport_Gus'
         fail_list = []
-        for f in fields:
-            print('ONLY FINANCIALREPORT \n field: %s begins processing...' %f)
-            df = pd.DataFrame(balance_sheet.dropna(subset=[f]).groupby(['code', 'date', 'report_period'])[f].last())\
-                .reset_index()
-            df = df.sort_values(by=['report_period', 'date'])
-            df.set_index(['code', 'date', 'report_period'], inplace=True)
-            df = df.unstack(level=2)
-            df = df.loc[:, f]
-            df = df.reset_index().set_index('date')
-            codes = df['code'].unique()
-            split_codes = np.array_split(codes, n_jobs)
-            with parallel_backend('multiprocessing', n_jobs=n_jobs):
-                res = Parallel()(delayed(BalanceSheetUpdate.JOB_factors)
-                                 (df, f, codes, calendar, start, save_db) for codes in split_codes)
-            print('%s finish' % f)
-            print('-' * 30)
-            for r in res:
-                fail_list.extend(r)
-
-        # 读取业绩快报
-        query = "select ANN_DT, S_INFO_WINDCODE, REPORT_PERIOD, TOT_ASSETS, TOT_SHRHLDR_EQY_EXCL_MIN_INT " \
-                "from wind_filesync.AShareProfitExpress " \
-                "where ANN_DT >= {0} and ANN_DT <= {1} " \
-                "and (s_info_windcode like '0%' or s_info_windcode like '3%' or s_info_windcode like '6%') " \
-                "order by report_period, ann_dt" \
-            .format((dtparser.parse(str(start)) - relativedelta(years=4)).strftime('%Y%m%d'), str(end))
-        self.rdf.curs.execute(query)
-        express = pd.DataFrame(self.rdf.curs.fetchall(),
-                               columns=['date', 'code', 'report_period', 'tot_assets', 'net_equity'])
-        express['date'] = pd.to_datetime(express['date'])
-        express['report_period'] = pd.to_datetime((express['report_period']))
-        express['type'] = '1'
-        balance_sheet = pd.concat([balance_sheet, express], ignore_index=True)
-        balance_sheet = balance_sheet.sort_values(by=['code', 'date', 'report_period', 'type'])
-        # fillna
-        balance_sheet[fields] = balance_sheet.groupby('code')[fields].fillna(method='ffill')
-        # 存放的db
-        save_db = 'AllAnnounce_Gus'
         for f in fields:
             print('ALL ANNOUNCEMENT \n field: %s begins processing...' % f)
             df = pd.DataFrame(balance_sheet.dropna(subset=[f]).groupby(['code', 'date', 'report_period'])[f].last()) \
