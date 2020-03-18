@@ -89,6 +89,7 @@ class Surprise(FactorBase):
     def cal_factors(self, start, end, n_jobs):
         pd.set_option('mode.use_inf_as_na', True)
         factor_fields = ['net_profit_Q', 'net_profit_ddt_Q', 'oper_rev_Q']
+        fail_list = []
         for factor_field in factor_fields:
             factor = self.influx.getDataMultiprocess('FinancialReport_Gus', factor_field, start, end)
             codes = factor['code'].unique()
@@ -98,7 +99,6 @@ class Surprise(FactorBase):
                                  (codes, factor, factor_field, self.db, self.measure) for codes in split_codes)
             print('Surprise: %s finish' % factor_field)
             print('-' * 30)
-            fail_list = []
             for r in res:
                 fail_list.extend(r)
         return fail_list
