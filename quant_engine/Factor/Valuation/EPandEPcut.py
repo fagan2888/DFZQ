@@ -59,7 +59,7 @@ class EPandEPcut(FactorBase):
 if __name__ == '__main__':
     print(datetime.datetime.now())
     ep = EPandEPcut()
-    r = ep.cal_factors(20150101, 20150205, N_JOBS)
+    r = ep.cal_factors(20100101, 20200315, N_JOBS)
     print('task finish')
     print(r)
     print(datetime.datetime.now())
