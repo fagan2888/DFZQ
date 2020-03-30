@@ -7,6 +7,7 @@ class IndexCompSQL:
         self.usr = 'dfreader'
         self.pwd = 'dfreader'
         self.database = 'PriceData'
+
     def get_IndexComp(self,index,start=None,end=None):
         conn = pymssql.connect(server=self.server, user=self.usr, password=self.pwd, database=self.database, charset='utf8')
         cur = conn.cursor()
