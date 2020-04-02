@@ -45,7 +45,6 @@ class coverage_and_divergence(FactorBase):
     # 计算机构净利润预测的分歧度
     @staticmethod
     def JOB_net_profit_divergence(ranges, df, db, measure):
-        pd.set_option('mode.use_inf_as_na', True)
         influx = influxdbData()
         save_res = []
         for range_start, range_end in ranges:
@@ -67,7 +66,10 @@ class coverage_and_divergence(FactorBase):
             divergence = pd.DataFrame(divergence)
             divergence['date'] = dtparser.parse(range_end)
             divergence = divergence.reset_index().set_index('date')
-            divergence = divergence.where(pd.notnull(divergence), None)
+            divergence = divergence.replace(np.inf, np.nan)
+            divergence = divergence.dropna()
+            if divergence.empty:
+                continue
             print('Time range: %s - %s' % (range_start, range_end))
             r = influx.saveData(divergence, db, measure)
             if r == 'No error occurred...':
@@ -116,6 +118,8 @@ class coverage_and_divergence(FactorBase):
                              (ranges, net_profit, self.db, self.measure) for ranges in split_ranges)
         print('FACTOR: net_profit_divergence FINISH!')
         print('-' * 30)
+        for r in res:
+            self.fail_list.extend(r)
 
     def cal_factors(self, start, end, n_jobs):
         self.n_jobs = n_jobs
