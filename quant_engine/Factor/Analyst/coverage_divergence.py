@@ -61,7 +61,7 @@ class coverage_and_divergence(FactorBase):
                 continue
             mean = range_df.groupby('code')['net_profit'].mean()
             std = range_df.groupby('code')['net_profit'].std()
-            divergence = std / mean
+            divergence = std / abs(mean)
             divergence.name = 'net_profit_divergence'
             divergence = pd.DataFrame(divergence)
             divergence['date'] = dtparser.parse(range_end)
