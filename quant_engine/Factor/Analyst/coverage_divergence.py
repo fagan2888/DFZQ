@@ -149,8 +149,7 @@ class coverage_and_divergence(FactorBase):
                                 ((data['code'].str[0] == '0') | (data['code'].str[0] == '3') |
                                  (data['code'].str[0] == '6')), 1, 0)
         data = data.loc[data['if_A'] == 1, :]
-        data.dropna(subset=['year'], inplace=True)
-        data.dropna(subset=['quarter'], inplace=True)
+        data = data.dropna(subset=['year', 'quarter'])
         # 目标价，评级，净利润 只要有一个不为空，即纳入数据
         data = data.loc[pd.notnull(data['target_price']) |
                         pd.notnull(data['score']) | pd.notnull(data['net_profit']), :]
