@@ -69,7 +69,6 @@ class Rtn_WgtRtn_ExpWgtRtn(FactorBase):
 
     @staticmethod
     def JOB_factors(codes, df, months_list, start, db, measure):
-        pd.set_option('mode.use_inf_as_na', True)
         influx = influxdbData()
         save_res = []
         for code in codes:
@@ -88,6 +87,7 @@ class Rtn_WgtRtn_ExpWgtRtn(FactorBase):
                 res_df = pd.DataFrame(res_dict).T
                 res_df['code'] = code
                 res_df = res_df.loc[str(start):, :]
+                res_df = res_df.replace(np.inf, np.nan)
                 res_df = res_df.where(pd.notnull(res_df), None)
                 print('code: %s' % code)
                 r = influx.saveData(res_df, db, measure)

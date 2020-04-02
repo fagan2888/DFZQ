@@ -17,7 +17,6 @@ class Surprise(FactorBase):
 
     @staticmethod
     def JOB_factors(codes, df, factor_field, save_db, save_measure):
-        pd.set_option('mode.use_inf_as_na', True)
         influx = influxdbData()
         save_res = []
         pairs = []
@@ -75,6 +74,7 @@ class Surprise(FactorBase):
             code_df[res_field_WD] = res_with_driff
             code_df[res_field_WOD] = res_without_driff
             code_df = code_df.loc[:, [res_field_WD, res_field_WOD]]
+            code_df = code_df.replace(np.inf, np.nan)
             code_df = pd.merge(code_and_report_period, code_df, right_index=True, left_index=True, how='left')
             code_df = code_df.fillna(method='ffill')
             code_df = code_df.where(pd.notnull(code_df), None)

@@ -17,7 +17,6 @@ class Turn_StdTurn_BiasStdTurn(FactorBase):
 
     @staticmethod
     def JOB_factors(codes, df, start, db, measure):
-        pd.set_option('mode.use_inf_as_na', True)
         influx = influxdbData()
         save_res = []
         for code in codes:
@@ -104,6 +103,7 @@ class Turn_StdTurn_BiasStdTurn(FactorBase):
             else:
                 res_df = pd.DataFrame(res_dict).T
                 res_df = res_df.loc[str(start):, ]
+                res_df = res_df.replace(np.inf, np.nan)
                 res_df = res_df.where(pd.notnull(res_df), None)
                 res_df['code'] = code
                 # save

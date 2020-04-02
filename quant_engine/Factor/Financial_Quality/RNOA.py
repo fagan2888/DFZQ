@@ -19,7 +19,6 @@ class RNOA_series(FactorBase):
 
     @staticmethod
     def JOB_factors(codes, df, cur_NOA_field, pre_NOA_field, oper_income_field, result_field, db, measure):
-        pd.set_option('mode.use_inf_as_na', True)
         influx = influxdbData()
         save_res = []
         for code in codes:
@@ -30,6 +29,7 @@ class RNOA_series(FactorBase):
                 code_df[oper_income_field] / (code_df[cur_NOA_field] + code_df[pre_NOA_field]) * 2
             code_df.set_index('date', inplace=True)
             code_df = code_df.loc[:, ['code', result_field]]
+            code_df = code_df.replace(np.inf, np.nan)
             code_df = code_df.dropna(subset=[result_field])
             print('code: %s' % code)
             if code_df.empty:

@@ -19,7 +19,6 @@ class ROE_series(FactorBase):
 
     @staticmethod
     def JOB_factors(codes, df, cur_net_equity_field, pre_net_equity_field, net_profit_field, result_field, db, measure):
-        pd.set_option('mode.use_inf_as_na', True)
         influx = influxdbData()
         save_res = []
         for code in codes:
@@ -30,6 +29,7 @@ class ROE_series(FactorBase):
                 code_df[net_profit_field] / (code_df[cur_net_equity_field] + code_df[pre_net_equity_field]) * 2
             code_df.set_index('date', inplace=True)
             code_df = code_df.loc[:, ['code', result_field]]
+            code_df = code_df.replace(np.inf, np.nan)
             code_df = code_df.dropna(subset=[result_field])
             print('code: %s' % code)
             if code_df.empty:

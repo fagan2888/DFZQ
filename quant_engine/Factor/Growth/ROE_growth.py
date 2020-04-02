@@ -17,7 +17,6 @@ class ROE_growth(FactorBase):
 
     @staticmethod
     def JOB_factors(codes, df, db, measure):
-        pd.set_option('mode.use_inf_as_na', True)
         influx = influxdbData()
         save_res = []
         for code in codes:
@@ -36,6 +35,7 @@ class ROE_growth(FactorBase):
                 code_df.apply(lambda row: FactorBase.cal_growth(row['ROE_ddt_last1Q'], row['ROE_ddt']), axis=1)
             code_df = code_df.loc[:, ['code', 'ROE_Q_growthQ', 'ROE_ddt_Q_growthQ', 'ROE_Q_growthY',
                                       'ROE_ddt_Q_growthY', 'ROE_growthQ', 'ROE_ddt_growthQ']]
+            code_df = code_df.replace(np.inf, np.nan)
             code_df = \
                 code_df.loc[
                     pd.notnull(code_df['ROE_Q_growthQ']) | pd.notnull(code_df['ROE_ddt_Q_growthQ']) |
