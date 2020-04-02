@@ -124,11 +124,9 @@ class coverage_and_divergence(FactorBase):
     def cal_factors(self, start, end, n_jobs):
         self.n_jobs = n_jobs
         self.fail_list = []
-        query = "SELECT [A].[ORIGIN_ID], [A].[CODE], [A].[ORGAN_ID], [A].[SCORE_ID], [A].[CREATE_DATE], " \
-                "[A].[INTO_DATE], [A].[TEXT5], " \
-                "[B].[TIME_YEAR], [B].[QUARTER], [B].[FORECAST_INCOME], [B].[FORECAST_PROFIT], " \
-                "[B].[FORECAST_INCOME_SHARE], [B].[FORECAST_RETURN_CASH_SHARE], " \
-                "[B].[FORECAST_RETURN_CAPITAL_SHARE], [B].[FORECAST_RETURN], [B].[R_TAR3], " \
+        query = "SELECT " \
+                "[A].[ORIGIN_ID], [A].[CODE], [A].[CREATE_DATE], [A].[INTO_DATE], [A].[SCORE_ID], [A].[TEXT5], " \
+                "[B].[TIME_YEAR], [B].[QUARTER], [B].[FORECAST_PROFIT], " \
                 "[C].[ORG_NAME] " \
                 "FROM [{0}].[dbo].[CMB_REPORT_RESEARCH] [A] " \
                 "LEFT JOIN [{0}].[dbo].[CMB_REPORT_SUBTABLE] [B] " \
@@ -138,12 +136,11 @@ class coverage_and_divergence(FactorBase):
                 "WHERE [A].[INTO_DATE] >= '{1}' and [A].[INTO_DATE] <= '{2}' " \
                 "and [A].[INTO_DATE] - [A].[CREATE_DATE] <= 7 " \
             .format(self.gogoal.database,
-                    (dtparser.parse(str(start)) - relativedelta(months=6)).strftime('%Y%m%d'), end)
+                    (dtparser.parse(str(start)) - relativedelta(years=1)).strftime('%Y%m%d'), end)
         self.gogoal.cur.execute(query)
         data = pd.DataFrame(self.gogoal.cur.fetchall(),
-                            columns=['report_id', 'code', 'organ_id', 'score', 'creat_date', 'into_date',
-                                     'target_price', 'year', 'quarter', 'oper_rev', 'net_profit',
-                                     'EPS', 'dvd_per_share', 'ROE', 'oper_income', 'EV/EBITDA', 'organ_name'])
+                            columns=['report_id', 'code', 'creat_date', 'into_date', 'score', 'target_price',
+                                     'year', 'quarter', 'net_profit', 'organ_name'])
         # 筛选出A股
         data['if_A'] = np.where((data['code'].str.len() == 6) &
                                 ((data['code'].str[0] == '0') | (data['code'].str[0] == '3') |
@@ -168,7 +165,7 @@ class coverage_and_divergence(FactorBase):
 if __name__ == '__main__':
     time_start = datetime.datetime.now()
     af = coverage_and_divergence()
-    f = af.cal_factors(20100101, 20200331, N_JOBS)
+    f = af.cal_factors(20100101, 20200401, N_JOBS)
     print(f)
     time_end = datetime.datetime.now()
     print('Time token:', time_end-time_start)
