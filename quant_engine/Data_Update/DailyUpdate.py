@@ -9,7 +9,7 @@ sys.path.extend([root_dir, root_dir + '\\Data_Resource', root_dir + '\\Engine', 
                  root_dir + '\\Data_Update\\FinancialReport', root_dir + '\\Factor\\Size',
                  root_dir + '\\Factor\\Valuation', root_dir + '\\Factor\\Financial_Quality',
                  root_dir + '\\Factor\\Growth', root_dir + '\\Factor\\Turnover',
-                 root_dir + '\\Factor\\Momentum'])
+                 root_dir + '\\Factor\\Momentum', root_dir + '\\Factor\\Analyst'])
 # -------------------------------
 from rdf_data import rdf_data
 import logging
@@ -40,6 +40,7 @@ from ROE_growth import ROE_growth
 from Surprise import Surprise
 from Turn_StdTurn_BiasStdTurn import Turn_StdTurn_BiasStdTurn
 from Rtn_WgtRtn_ExpWgtRtn import Rtn_WgtRtn_ExpWgtRtn
+from coverage_divergence import coverage_and_divergence
 
 
 class DailyUpdate:
@@ -188,6 +189,10 @@ class DailyUpdate:
             res = rtn.cal_factors(last_week, last_trade_day, [1, 3, 6], n_jobs)
             self.log_res(res)
             self.logger.info('------------------Momentum finish---------------------')
+            cov_div = coverage_and_divergence()
+            res = cov_div.cal_factors(last_week, last_trade_day, n_jobs)
+            self.log_res(res)
+            self.logger.info('---------------anlst cov div finish-------------------')
 
             self.logger.info('//////////////////////////////////////////////////////')
             self.logger.info('EndTime: %s' % datetime.datetime.now().strftime('%Y%m%d-%H:%M:%S'))
