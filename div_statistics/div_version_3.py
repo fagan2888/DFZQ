@@ -547,7 +547,7 @@ class div_pred_statistic:
             print(index_type, 'is processing...')
             print('*********************************************************')
             # regularly use RDF to get constituent df
-            index_constituent_div_df = self.constituent_div_prediction(self.dt,index_type)
+            index_constituent_div_df = self.constituent_div_prediction(self.dt, index_type)
             if not exe_date:
                 pass
             else:

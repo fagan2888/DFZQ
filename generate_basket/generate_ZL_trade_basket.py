@@ -271,6 +271,6 @@ class basket_trade:
 if __name__ == '__main__':
     bsk = basket_trade()
     bsk.get_open_close_bsk()
-    bsk.get_change_bsk(3)
-    bsk.get_ZL_buy_sell_bsk(3)
+    bsk.get_change_bsk(1)
+    bsk.get_ZL_buy_sell_bsk(1)
     bsk.get_reserve()
