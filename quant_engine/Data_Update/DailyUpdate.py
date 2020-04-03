@@ -44,6 +44,7 @@ from coverage_divergence import coverage_and_divergence
 from consensus_net_profit import consensus_net_profit
 from EP_FY1 import EP_FY1
 from score_TPER import score_TPER
+from PEG import PEG
 
 
 class DailyUpdate:
@@ -208,6 +209,10 @@ class DailyUpdate:
             res = score.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
             self.logger.info('----------------score and TPER finish-----------------')
+            peg = PEG()
+            res = peg.cal_factors(last_week, last_trade_day, n_jobs)
+            self.log_res(res)
+            self.logger.info('---------------------PEG finish-----------------------')
 
             self.logger.info('//////////////////////////////////////////////////////')
             self.logger.info('EndTime: %s' % datetime.datetime.now().strftime('%Y%m%d-%H:%M:%S'))
