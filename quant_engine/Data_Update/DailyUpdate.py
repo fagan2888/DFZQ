@@ -41,6 +41,8 @@ from Surprise import Surprise
 from Turn_StdTurn_BiasStdTurn import Turn_StdTurn_BiasStdTurn
 from Rtn_WgtRtn_ExpWgtRtn import Rtn_WgtRtn_ExpWgtRtn
 from coverage_divergence import coverage_and_divergence
+from consensus_net_profit import consensus_net_profit
+from EP_FY1 import EP_FY1
 
 
 class DailyUpdate:
@@ -193,6 +195,14 @@ class DailyUpdate:
             res = cov_div.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
             self.logger.info('---------------anlst cov div finish-------------------')
+            cnp = consensus_net_profit()
+            res = cnp.cal_factors(last_week, last_trade_day, n_jobs)
+            self.log_res(res)
+            self.logger.info('-----------consensus net profit finish----------------')
+            epfy1 = EP_FY1()
+            res = epfy1.cal_factors(last_week, last_trade_day, n_jobs)
+            self.log_res(res)
+            self.logger.info('--------------------EP_FY1 finish---------------------')
 
             self.logger.info('//////////////////////////////////////////////////////')
             self.logger.info('EndTime: %s' % datetime.datetime.now().strftime('%Y%m%d-%H:%M:%S'))
