@@ -37,6 +37,7 @@ from OCFP import OCFP
 from ROE import ROE_series
 from RNOA import RNOA_series
 from ROE_growth import ROE_growth
+from RNOA_growth import RNOA_growth
 from Surprise import Surprise
 from Turn_StdTurn_BiasStdTurn import Turn_StdTurn_BiasStdTurn
 from Rtn_WgtRtn_ExpWgtRtn import Rtn_WgtRtn_ExpWgtRtn
@@ -181,6 +182,10 @@ class DailyUpdate:
             res = rg.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
             self.logger.info('-----------------ROE growth finish--------------------')
+            rnoag = RNOA_growth()
+            res = rnoag.cal_factors(last_week, last_trade_day, n_jobs)
+            self.log_res(res)
+            self.logger.info('-----------------RNOA growth finish-------------------')
             surp = Surprise()
             res = surp.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
