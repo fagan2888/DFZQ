@@ -168,7 +168,7 @@ class FactorTest(StrategyBase):
         return IC
 
     # 此处weight_field为行业内权重分配的field
-    def group_factor(self, neutral_factor, mkt_data, size_data, weight_field):
+    def group_factor(self, neutral_factor, mkt_data):
         mkt_data = mkt_data.loc[(mkt_data['status'] != '停牌') & (pd.notnull(mkt_data['status'])) &
                                 (pd.notnull(mkt_data[self.industry])), ['code', self.industry]]
         idxs = mkt_data.index.unique()
@@ -305,7 +305,7 @@ class FactorTest(StrategyBase):
         print('validity checking finish')
         print('-' * 30)
         # 分组
-        grouped_weight = self.group_factor(self.factor_data, self.mkt_data, self.size_data, 'market_cap')
+        grouped_weight = self.group_factor(self.factor_data, self.mkt_data)
         print('factor grouping finish')
         print('-' * 30)
         # 回测
@@ -322,17 +322,22 @@ if __name__ == '__main__':
     warnings.filterwarnings("ignore")
 
     start = 20120101
-    end = 20131231
-    measurement = 'Analyst'
-    factor = 'anlst_cov'
-    direction = 1
-    if_fillna = False
+    end = 20171231
+    measurements = ['Analyst', 'Analyst']
+    factors = ['TPER', 'PEG']
+    directions = [1, -1]
+    if_fillnas = [False, False]
     benchmark = 'IF'
     select_range = 800
     industry = 'improved_lv1'
     size_field = 'ln_market_cap'
 
-    test = FactorTest(factor)
-    test.run_factor_test(start, end, benchmark, select_range, industry, size_field, measurement, factor, direction,
-                         if_fillna)
+    for i in range(len(factors)):
+        factor = factors[i]
+        measurement = measurements[i]
+        direction = directions[i]
+        if_fillna = if_fillnas[i]
+        test = FactorTest(factor)
+        test.run_factor_test(start, end, benchmark, select_range, industry, size_field, measurement, factor, direction,
+                             if_fillna)
     print('Test finish! Time token: ', datetime.datetime.now()-dt_start)
