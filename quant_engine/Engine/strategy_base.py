@@ -15,6 +15,8 @@ class StrategyBase:
         self.mkt_measure = 'marketData'
         self.factor_db = 'DailyFactors_Gus'
         self.strategy_name = strategy_name
+
+    def init_log(self):
         # 配置log
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(level=logging.INFO)
@@ -35,7 +37,7 @@ class StrategyBase:
         self.code_range = self.mkt_data.loc[
                           pd.notnull(self.mkt_data[self.industry]) &
                           ~((self.mkt_data['status'] == '停牌') | pd.isnull(self.mkt_data['status'])) &
-                          (self.mkt_data['isST'] == False), :].copy()
+                          ~(self.mkt_data['isST']), :].copy()
         if not self.select_range:
             self.code_range = self.code_range.loc[:, ['code', self.industry]]
         elif self.select_range == 300:
@@ -89,3 +91,4 @@ class StrategyBase:
         self.size_field = size_field
         self.folder_dir = global_constant.ROOT_DIR + 'Strategy/' + self.strategy_name + '/'
         self.data_prepare()
+        self.init_log()

@@ -135,7 +135,7 @@ class DataProcess:
 
     @staticmethod
     # 去极值+标准化
-    def remove_and_Z(factor_data, factor_field, index_is_date: bool, n_process=5):
+    def remove_and_Z(factor_data, factor_field, index_is_date: bool, n_process):
         if index_is_date:
             factor_data.index.names = ['date']
             factor_data.reset_index(inplace=True)
