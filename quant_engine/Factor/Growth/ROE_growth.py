@@ -1,8 +1,6 @@
 from factor_base import FactorBase
 import pandas as pd
 import numpy as np
-import dateutil.parser as dtparser
-from dateutil.relativedelta import relativedelta
 import datetime
 from influxdb_data import influxdbData
 from joblib import Parallel, delayed, parallel_backend
