@@ -5,6 +5,7 @@ import dateutil.parser as dtparser
 from dateutil.relativedelta import relativedelta
 import datetime
 
+
 class FactorBase:
     @staticmethod
     def remove_outlier(series):
@@ -46,7 +47,7 @@ class FactorBase:
         self.rdf = rdf_data()
 
     # 计算单季度指标所用函数(当季-上季)
-    def cal_Q_data(self,data_input,report_period_input):
+    def cal_Q_data(self, data_input, report_period_input):
         if report_period_input[-4:] == '0331':
             ret_data = data_input
         else:
@@ -62,11 +63,11 @@ class FactorBase:
         self.data_cache = {dtparser.parse(report_period_input): data_input}
         return ret_data
 
-    def save_factor_to_influx(self,data,db,measure):
-        self.influx.saveData(data,db,measure)
+    def save_factor_to_influx(self, data, db, measure):
+        self.influx.saveData(data, db, measure)
 
     @staticmethod
-    def cal_growth(former_data,later_data):
+    def cal_growth(former_data, later_data):
         if former_data == 0:
             growth = np.nan
         else:
