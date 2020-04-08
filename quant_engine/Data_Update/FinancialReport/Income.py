@@ -151,8 +151,6 @@ class IncomeUpdate(FactorBase):
         # 需要的field
         fields = ['net_profit', 'net_profit_ddt', 'oper_rev', 'tot_oper_rev', 'oper_profit', 'EPS_diluted',
                   'oper_income']
-        # fillna
-        income[fields] = income.groupby('code')[fields].fillna(method='ffill')
         # 处理数据
         calendar = self.rdf.get_trading_calendar()
         calendar = \
@@ -184,4 +182,4 @@ class IncomeUpdate(FactorBase):
 
 if __name__ == '__main__':
     IU = IncomeUpdate()
-    r = IU.cal_factors(20100101, 20200315, N_JOBS)
+    r = IU.cal_factors(20100101, 20200407, N_JOBS)

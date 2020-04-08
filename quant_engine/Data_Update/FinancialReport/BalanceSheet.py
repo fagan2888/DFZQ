@@ -130,8 +130,6 @@ class BalanceSheetUpdate(FactorBase):
                                balance_sheet['longterm_rec']
         # 需要的field
         fields = ['NOA', 'tot_assets', 'tot_liab', 'net_equity']
-        # fillna
-        balance_sheet[fields] = balance_sheet.groupby('code')[fields].fillna(method='ffill')
         # 处理数据
         calendar = self.rdf.get_trading_calendar()
         calendar = \
@@ -164,4 +162,4 @@ class BalanceSheetUpdate(FactorBase):
 
 if __name__ == '__main__':
     BU = BalanceSheetUpdate()
-    r = BU.cal_factors(20100101, 20200315, N_JOBS)
+    r = BU.cal_factors(20100101, 20200407, N_JOBS)
