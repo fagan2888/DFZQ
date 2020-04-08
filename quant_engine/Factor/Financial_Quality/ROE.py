@@ -30,6 +30,7 @@ class ROE_series(FactorBase):
             code_df.set_index('date', inplace=True)
             code_df = code_df.loc[:, ['code', result_field]]
             code_df = code_df.replace(np.inf, np.nan)
+            code_df = code_df.replace(-np.inf, np.nan)
             code_df = code_df.dropna(subset=[result_field])
             print('code: %s' % code)
             if code_df.empty:
