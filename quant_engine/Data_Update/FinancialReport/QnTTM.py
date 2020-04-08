@@ -103,9 +103,6 @@ class QnTTMUpdate(FactorBase):
             start = str(start)
             end = str(end)
             df = self.influx.getDataMultiprocess(self.db, f, start, end, None)
-            fill_cols = [f, f+'_last1Q', f+'_last2Q', f+'_last3Q', f+'_last4Q', f+'_last5Q', f+'_last6Q',
-                         f+'_last7Q', f+'_last8Q', f+'_last9Q', f+'_last10Q', f+'_last11Q', f+'_last12Q']
-            df[fill_cols] = df[fill_cols].fillna(method='bfill', axis=1)
             codes = df['code'].unique()
             split_codes = np.array_split(codes, n_jobs)
             with parallel_backend('multiprocessing', n_jobs=n_jobs):
