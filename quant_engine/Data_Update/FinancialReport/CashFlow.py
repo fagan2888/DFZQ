@@ -75,7 +75,7 @@ class CashFlowUpdate(FactorBase):
             if r == 'No error occurred...':
                 pass
             else:
-                save_res.append('BalanceSheet  Field: %s  Error: %s' % (field, r))
+                save_res.append('CashFlow  Field: %s  Error: %s' % (field, r))
         return save_res
 
     def cal_factors(self, start, end, n_jobs):
@@ -128,4 +128,4 @@ class CashFlowUpdate(FactorBase):
 
 if __name__ == '__main__':
     cu = CashFlowUpdate()
-    r = cu.cal_factors(20100101, 20200301, N_JOBS)
+    r = cu.cal_factors(20100101, 20200407, N_JOBS)
