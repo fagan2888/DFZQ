@@ -35,6 +35,7 @@ class BacktestDayData:
         ex_right['date'] = pd.to_datetime(ex_right['date'])
         ex_right.set_index(['date', 'code'], inplace=True)
         merged_data = pd.concat([ohlc, ex_right], join='outer', axis=1)
+        merged_data['status'] = merged_data['status'].fillna('停牌')
         print('ex_right loaded!')
 
         # 获取权重信息
