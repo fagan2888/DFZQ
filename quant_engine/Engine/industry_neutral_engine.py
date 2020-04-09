@@ -51,7 +51,7 @@ class IndustryNeutralEngine:
             measure = 'marketData'
             daily_data = influx.getDataMultiprocess(DB, measure, start, end)
         else:
-            daily_data = data_input.loc[start:end, :]
+            daily_data = data_input.loc[start:end, :].copy()
         if 'swap_date' not in daily_data.columns:
             daily_data['swap_date'] = None
         self.logger.info('Data loaded! %s' % datetime.datetime.now())
@@ -89,7 +89,7 @@ class IndustryNeutralEngine:
         stk_indu_weight = stk_indu_weight.loc[start:end, :]
         stk_indu_weight.index.names = ['date']
         stk_indu_weight.reset_index(inplace=True)
-        stk_indu_weight.drop('industry', axis=1, inplace=True)
+        stk_indu_weight = stk_indu_weight.drop('industry', axis=1)
         # 把行情数据中的industry删掉，以免跟权重中的industry字段冲突
         # 合并stk indu weight
         daily_data = pd.merge(daily_data, stk_indu_weight, on=['date', 'code'], how='left')
@@ -240,7 +240,7 @@ class IndustryNeutralEngine:
             # 刷新所属行业
             self.stk_portfolio.refresh_portfolio_industry(one_day_data['industry'])
             # 记录 portfolio value 和 locked amount
-            total_value = self.stk_portfolio.get_portfolio_value(one_day_data['close'])
+            total_value = self.stk_portfolio.get_portfolio_value(one_day_data['close'].dropna())
             portfolio_value_dict[trade_day] = \
                 {'Balance': self.stk_portfolio.balance, 'StockValue': total_value - self.stk_portfolio.balance,
                  'TotalValue': total_value, 'DelistAmount': delist_amount,
