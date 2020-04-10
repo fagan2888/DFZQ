@@ -2,4 +2,4 @@
 
 ROOT_DIR = 'D:/github/quant_engine/'
 N_JOBS = 5
-N_STRATEGY = 5
+N_STRATEGY = 3
