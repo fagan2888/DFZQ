@@ -121,43 +121,42 @@ class industry_neutral_portfolio:
     def process_ex_right(self, ex_right: pd.DataFrame):
         self.logger.info('****************************************')
         self.logger.info('Ex Right Info:')
-        shr_ex_right = ex_right.loc[(ex_right['cash_dvd_ratio'] > 0) | (ex_right['bonus_share_ratio'] > 0) |
+        shr_ex_right = ex_right.loc[ex_right['code'].isin(self.stk_positions.keys()) & (
+                                    (ex_right['cash_dvd_ratio'] > 0) | (ex_right['bonus_share_ratio'] > 0) |
                                     (ex_right['conversed_ratio'] > 0) | (ex_right['rightissue_price'] > 0) |
-                                    (ex_right['rightissue_ratio'] > 0),
+                                    (ex_right['rightissue_ratio'] > 0)),
                                     ['cash_dvd_ratio', 'bonus_share_ratio', 'conversed_ratio',
                                      'rightissue_price', 'rightissue_ratio']]
         # 默认参加配股
         for code, row in shr_ex_right.iterrows():
-            if code in self.stk_positions:
-                self.logger.info('------------------------------------')
-                self.logger.info('Code: %s, Cash DVD: %f, Bonus Share: %f, Conversed Ratio: %f, '
-                                 'RI Price: %f, RI Ratio: %f'
-                                 % (code, row['cash_dvd_ratio'], row['bonus_share_ratio'], row['conversed_ratio'],
-                                    row['rightissue_price'], row['rightissue_ratio']))
-                self.logger.info('Price Before: %f, Volume Before: %f, Latest Close Before: %f'
-                                 % (self.stk_positions[code]['price'], self.stk_positions[code]['volume'],
-                                    self.stk_positions[code]['latest_close']))
-                self.logger.info('Balance Before: %f' % self.balance)
-                self.stk_positions[code]['price'] = \
-                    (self.stk_positions[code]['price'] - row['cash_dvd_ratio']
-                     + row['rightissue_price'] * row['rightissue_ratio']) / \
-                    (1 + row['bonus_share_ratio'] + row['conversed_ratio'] + row['rightissue_ratio'])
-                # 复权后的收盘价需要保留两位小数
-                self.stk_positions[code]['latest_close'] = \
-                    round((self.stk_positions[code]['latest_close'] - row['cash_dvd_ratio']
-                           + row['rightissue_price'] * row['rightissue_ratio']) /
-                          (1 + row['bonus_share_ratio'] + row['conversed_ratio'] + row['rightissue_ratio']), 2)
-                self.balance = self.balance + self.stk_positions[code]['volume'] * row['cash_dvd_ratio'] - \
-                               row['rightissue_price'] * self.stk_positions[code]['volume'] * row['rightissue_ratio']
-                self.stk_positions[code]['volume'] = round(self.stk_positions[code]['volume'] * \
-                                                           (1 + row['bonus_share_ratio'] + row['conversed_ratio'] + row[
-                                                               'rightissue_ratio']))
-                self.logger.info('Price After: %f, Volume After: %f, Latest Close After: %f'
-                                 % (self.stk_positions[code]['price'], self.stk_positions[code]['volume'],
-                                    self.stk_positions[code]['latest_close']))
-                self.logger.info('Balance After: %f' % self.balance)
-            else:
-                pass
+            self.logger.info('------------------------------------')
+            self.logger.info('Code: %s, Cash DVD: %f, Bonus Share: %f, Conversed Ratio: %f, '
+                             'RI Price: %f, RI Ratio: %f'
+                             % (code, row['cash_dvd_ratio'], row['bonus_share_ratio'], row['conversed_ratio'],
+                                row['rightissue_price'], row['rightissue_ratio']))
+            self.logger.info('Price Before: %f, Volume Before: %f, Latest Close Before: %f'
+                             % (self.stk_positions[code]['price'], self.stk_positions[code]['volume'],
+                                self.stk_positions[code]['latest_close']))
+            self.logger.info('Balance Before: %f' % self.balance)
+            self.stk_positions[code]['price'] = \
+                (self.stk_positions[code]['price'] - row['cash_dvd_ratio']
+                 + row['rightissue_price'] * row['rightissue_ratio']) / \
+                (1 + row['bonus_share_ratio'] + row['conversed_ratio'] + row['rightissue_ratio'])
+            # 复权后的收盘价需要保留两位小数
+            self.stk_positions[code]['latest_close'] = round(
+                (self.stk_positions[code]['latest_close'] - row['cash_dvd_ratio']
+                 + row['rightissue_price'] * row['rightissue_ratio']) /
+                (1 + row['bonus_share_ratio'] + row['conversed_ratio'] + row['rightissue_ratio']), 2)
+            self.balance = \
+                self.balance + self.stk_positions[code]['volume'] * row['cash_dvd_ratio'] - \
+                row['rightissue_price'] * self.stk_positions[code]['volume'] * row['rightissue_ratio']
+            self.stk_positions[code]['volume'] = round(
+                self.stk_positions[code]['volume'] *
+                (1 + row['bonus_share_ratio'] + row['conversed_ratio'] + row['rightissue_ratio']))
+            self.logger.info('Price After: %f, Volume After: %f, Latest Close After: %f'
+                             % (self.stk_positions[code]['price'], self.stk_positions[code]['volume'],
+                                self.stk_positions[code]['latest_close']))
+            self.logger.info('Balance After: %f' % self.balance)
         self.logger.info('****************************************')
 
     def get_portfolio_value(self, price_input: pd.Series):
