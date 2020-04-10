@@ -9,7 +9,8 @@ sys.path.extend([root_dir, root_dir + '\\Data_Resource', root_dir + '\\Engine', 
                  root_dir + '\\Data_Update\\FinancialReport', root_dir + '\\Factor\\Size',
                  root_dir + '\\Factor\\Valuation', root_dir + '\\Factor\\Financial_Quality',
                  root_dir + '\\Factor\\Growth', root_dir + '\\Factor\\Turnover',
-                 root_dir + '\\Factor\\Momentum', root_dir + '\\Factor\\Analyst'])
+                 root_dir + '\\Factor\\Momentum', root_dir + '\\Factor\\Analyst',
+                 root_dir + '\\Factor\\Risk'])
 # -------------------------------
 from rdf_data import rdf_data
 import logging
@@ -46,6 +47,9 @@ from consensus_net_profit import consensus_net_profit
 from EP_FY1 import EP_FY1
 from score_TPER import score_TPER
 from PEG import PEG
+from risk_exposure import RiskFactorsExposure
+from risk_cov import RiskCov
+from specific_risk import SpecificRisk
 
 
 class DailyUpdate:
@@ -146,6 +150,18 @@ class DailyUpdate:
             res = sz.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
             self.logger.info('------------------market_cap finish-------------------')
+            risk_exp = RiskFactorsExposure()
+            res = risk_exp.cal_factors(last_week, last_trade_day)
+            self.log_res(res)
+            self.logger.info('----------------risk exposure finish------------------')
+            risk_cov = RiskCov()
+            res = risk_cov.cal_factors(last_week, last_trade_day)
+            self.log_res(res)
+            self.logger.info('------------------risk cov finish---------------------')
+            spec_risk = SpecificRisk()
+            res = spec_risk.cal_factors(last_week, last_trade_day)
+            self.log_res(res)
+            self.logger.info('-----------------spec risk finish---------------------')
             ep = EPandEPcut()
             res = ep.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
