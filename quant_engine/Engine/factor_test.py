@@ -327,7 +327,7 @@ if __name__ == '__main__':
     factors = ['TPER', 'PEG']
     directions = [1, -1]
     if_fillnas = [False, False]
-    benchmark = 'IF'
+    benchmark = 300
     select_range = 800
     industry = 'improved_lv1'
     size_field = 'ln_market_cap'

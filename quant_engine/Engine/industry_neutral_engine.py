@@ -299,6 +299,6 @@ if __name__ == '__main__':
     start_time = datetime.datetime.now()
     QE = IndustryNeutralEngine(stock_capital=5000000, save_name='g5_5', logger_lvl=logging.INFO)
     portfolio_value_dict = QE.run(d, 20120112, 20160831, adj_interval=5,
-                                  benchmark='IC', price_field='vwap', cash_reserve_rate=0.03)
+                                  benchmark=300, price_field='vwap', cash_reserve_rate=0.03)
     print('backtest finish')
     print('time used:', datetime.datetime.now() - start_time)
