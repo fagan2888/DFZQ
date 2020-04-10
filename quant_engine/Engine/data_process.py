@@ -98,7 +98,7 @@ class DataProcess:
     # 返回的date在columns里
     def add_next_period_return(data, calendar, days, benchmark):
         # 默认index是日期
-        bm_dict = {'IH': '000016.SH', 'IF': '000300.SH', 'IC': '000905.SH'}
+        bm_dict = {50: '000016.SH', 300: '000300.SH', 500: '000905.SH'}
         mkt_data = data.copy()
         idxs = mkt_data.index.unique()
         next_date_dict = {}

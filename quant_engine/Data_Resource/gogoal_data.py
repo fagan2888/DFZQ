@@ -1,5 +1,4 @@
 import pymssql
-import pandas as pd
 
 class GoGoal_data:
     def __init__(self):
