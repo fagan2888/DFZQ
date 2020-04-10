@@ -44,6 +44,10 @@ class IndustryNeutralEngine:
     def run(self, stk_indu_weight, start, end, benchmark, adj_interval,
             cash_reserve_rate=0.05, price_field='vwap', indu_field='improved_lv1', data_input=None):
         backtest_starttime = datetime.datetime.now()
+        # set benchmark weight field
+        benchmark_dict = {50: 'IH_weight', 300: 'IF_weight', 500: 'IC_weight'}
+        benchmark_weight = benchmark_dict[benchmark]
+        # load data
         if not isinstance(data_input, pd.DataFrame):
             self.logger.info('Start loading Data! %s' % backtest_starttime)
             influx = influxdbData()
@@ -56,20 +60,19 @@ class IndustryNeutralEngine:
             daily_data['swap_date'] = None
         self.logger.info('Data loaded! %s' % datetime.datetime.now())
         self.logger.info('****************************************\n')
-
         # 日线数据中的preclose已是相对前一天的复权价格
         exclude_col = ['IC_weight', 'IF_weight', 'IH_weight', 'improved_lv1', 'citics_lv1_code', 'citics_lv1_name',
                        'citics_lv2_code', 'citics_lv2_name', 'citics_lv3_code', 'citics_lv3_name', 'sw_lv1_code',
                        'sw_lv1_name', 'sw_lv2_code', 'sw_lv2_name', 'isST']
-        exclude_col.remove(benchmark + '_weight')
+        exclude_col.remove(benchmark_weight)
         exclude_col.remove(indu_field)
         daily_data = daily_data.loc[:, daily_data.columns.difference(exclude_col)]
         daily_data.rename(columns={indu_field: 'industry'}, inplace=True)
         daily_data.dropna(subset=['industry'], inplace=True)
         daily_data['swap_date'] = pd.to_datetime(daily_data['swap_date'])
-        daily_data[['bonus_share_ratio', 'cash_dvd_ratio', 'conversed_ratio', 'rightissue_price', 'rightissue_ratio']] = \
-            daily_data[['bonus_share_ratio', 'cash_dvd_ratio', 'conversed_ratio', 'rightissue_price',
-                        'rightissue_ratio']].fillna(0)
+        ex_right_related_cols = \
+            ['bonus_share_ratio', 'cash_dvd_ratio', 'conversed_ratio', 'rightissue_price', 'rightissue_ratio']
+        daily_data[ex_right_related_cols] = daily_data[ex_right_related_cols].fillna(0)
         # merge得到下一日的benchmark weight
         nxt_trade_day = self.get_next_trade_day(daily_data, 1)
         nxt_trade_day.index.names = ['date']
@@ -77,12 +80,12 @@ class IndustryNeutralEngine:
         daily_data.index.names = ['date']
         daily_data.reset_index(inplace=True)
         daily_data = pd.merge(daily_data, nxt_trade_day, how='left', on='date')
-        nxt_day_benchmark_weight = daily_data.loc[:, ['date', benchmark + '_weight', 'industry']].copy()
+        nxt_day_benchmark_weight = daily_data.loc[:, ['date', benchmark_weight, 'industry']].copy()
         nxt_day_industry_weight = pd.DataFrame(
-            nxt_day_benchmark_weight.groupby(['date', 'industry'])[benchmark + '_weight'].sum())
+            nxt_day_benchmark_weight.groupby(['date', 'industry'])[benchmark_weight].sum())
         nxt_day_industry_weight.reset_index(inplace=True)
         nxt_day_industry_weight.rename(
-            columns={'date': 'next_1_day', benchmark + '_weight': 'industry_weight'}, inplace=True)
+            columns={'date': 'next_1_day', benchmark_weight: 'industry_weight'}, inplace=True)
         daily_data = pd.merge(daily_data, nxt_day_industry_weight, on=['next_1_day', 'industry'], how='outer')
         daily_data = daily_data.dropna(subset=['date'])
         # 现将股票行业内权重与行业权重合并
@@ -106,9 +109,7 @@ class IndustryNeutralEngine:
             # 处理除权除息
             one_day_data = daily_data.loc[trade_day, :].copy()
             one_day_data.set_index('code', inplace=True)
-            ex_right = \
-                one_day_data.loc[:,
-                ['bonus_share_ratio', 'cash_dvd_ratio', 'conversed_ratio', 'rightissue_price', 'rightissue_ratio']]
+            ex_right = one_day_data.loc[:, ex_right_related_cols]
             self.stk_portfolio.process_ex_right(ex_right)
             # 没有行情且在pos里的stks记为退市
             # 统计退市金额
