@@ -32,6 +32,10 @@ class ex_right:
         ex_right['date'] = pd.to_datetime(ex_right['date'])
         ex_right.set_index('date', inplace=True)
         ex_right = ex_right.where(pd.notnull(ex_right), None)
+        ex_right = ex_right.loc[pd.notnull(ex_right['cash_dvd_ratio']) | pd.notnull(ex_right['bonus_share_ratio']) |
+                                pd.notnull(ex_right['rightissue_ratio']) | pd.notnull(ex_right['rightissue_price']) |
+                                pd.notnull(ex_right['conversed_ratio']) | pd.notnull(ex_right['split_ratio']) |
+                                pd.notnull(ex_right['seo_price']) | pd.notnull(ex_right['seo_ratio'])]
         codes = ex_right['code'].unique()
         split_codes = np.array_split(codes, n_jobs)
         with parallel_backend('multiprocessing', n_jobs=n_jobs):
