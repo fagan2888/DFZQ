@@ -1,13 +1,12 @@
-import math
 import logging
 import datetime
-import futures_constant
 import pandas as pd
+import numpy as np
 import global_constant
 
 
 class stock_portfolio:
-    def __init__(self,capital_input=1000000,slippage_input=0.001,transaction_fee_input=0.0001):
+    def __init__(self, capital_input=1000000, slippage_input=0.001, transaction_fee_input=0.0001):
         self.capital = capital_input
         self.balance = capital_input
         self.slippage = slippage_input
@@ -16,144 +15,155 @@ class stock_portfolio:
         # 股票仓位模板{'600000.SH':{'price':2.22,'volume':300}}
         self.stk_positions = {}
 
-        self.transactions_list = []
+        self.transactions = np.array([])
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(level=logging.INFO)
-        dir = global_constant.ROOT_DIR+'Transaction_Log/'
-        file_name = 'StkTransactions_'+ datetime.datetime.now().strftime("%Y%m%d-%H%M") +'.log'
-        handler = logging.FileHandler(dir+file_name)
+        dir = global_constant.ROOT_DIR + 'Transaction_Log/'
+        file_name = 'StkTransactions_' + datetime.datetime.now().strftime("%Y%m%d-%H%M") + '.log'
+        handler = logging.FileHandler(dir + file_name)
         handler.setLevel(logging.INFO)
         formatter = logging.Formatter('%(asctime)s - %(levelname)s: %(message)s')
         handler.setFormatter(formatter)
         self.logger.addHandler(handler)
 
-    def buy_stks_by_volume(self,time,stock_code,price,volume):
-        actual_price = price*(1+self.slippage)
-        amount = round(actual_price * volume,2)
-        transaction_fee = round(self.transaction_fee_ratio * amount,2)
-
+    # 函数可以接受非100倍数
+    def buy_stks_by_volume(self, time, stock_code, price, volume):
+        actual_price = price * (1 + self.slippage)
+        amount = round(actual_price * volume, 2)
+        transaction_fee = round(self.transaction_fee_ratio * amount, 2)
         if stock_code in self.stk_positions:
             weighted_volume = self.stk_positions[stock_code]['volume'] + volume
             weighted_price = \
                 (self.stk_positions[stock_code]['price'] * self.stk_positions[stock_code]['volume'] + amount) \
                 / weighted_volume
             self.stk_positions[stock_code]['volume'] = weighted_volume
-            self.stk_positions[stock_code]['price']  = weighted_price
+            self.stk_positions[stock_code]['price'] = weighted_price
         else:
-            self.stk_positions[stock_code] = {'volume':volume,'price':actual_price}
+            self.stk_positions[stock_code] = {'volume': volume, 'price': actual_price}
         self.balance = self.balance - amount - transaction_fee
-        self.logger.info("TransactionTime: %s, Type: BuyStock, Detail: %s - %f * %i, Balance: %f"
-                         % (time, stock_code, price, volume, self.balance))
-        self.transactions_list.append(pd.Series([time,'BUY',stock_code,price,actual_price,volume,self.balance,transaction_fee],
-                                                index=['Time','Type','Code','RawPrice','ActualPrice','Volume','Balance','Fee']))
+        trade = np.array([time, 'BUY', stock_code, price, actual_price, volume, self.balance, transaction_fee])
+        self.transactions = np.append(self.transactions, trade)
 
-
-    def buy_stks_by_amount(self,time,stock_code,price,goal_amount):
-        goal_volume = round(goal_amount/price,-2)
+    def buy_stks_by_amount(self, time, stock_code, price, goal_amount):
+        goal_volume = round(goal_amount / price, -2)
         if goal_volume <= 0:
             self.logger.warning("Error: goal volume <= 0, won't execute transaction!")
         else:
             self.logger.info('Estimate Trade Volume: %i' % goal_volume)
-            self.buy_stks_by_volume(time,stock_code,price,goal_volume)
+            self.buy_stks_by_volume(time, stock_code, price, goal_volume)
 
-
-    def sell_stks_by_volume(self,time,stock_code,price,volume):
+    # 函数可以接受非100倍数
+    def sell_stks_by_volume(self, time, stock_code, price, volume):
+        # 零股可卖不可买
         if stock_code in self.stk_positions:
-            if volume > self.stk_positions[stock_code]['volume']:
-                self.logger.warning("Error: volume to sell > volume in positions, adjust to volume in positions!")
-                volume = self.stk_positions[stock_code]['volume']
-            else:
-                pass
             actual_price = price * (1 - self.slippage)
-            amount = round(actual_price * volume,2)
-            transaction_fee = round(self.transaction_fee_ratio * amount,2)
-            tax = round(self.tax_ratio * amount,2)
+            # volume 调整
+            if volume > self.stk_positions[stock_code]['volume']:
+                self.logger.warning("Code: %s Error: volume to sell > volume in positions, "
+                                    "adjust to volume in positions!" % stock_code)
+                volume = self.stk_positions[stock_code]['volume']
+            amount = round(actual_price * volume, 2)
+            transaction_fee = round(self.transaction_fee_ratio * amount, 2)
+            tax = round(self.tax_ratio * amount, 2)
             weighted_volume = self.stk_positions[stock_code]['volume'] - volume
             if weighted_volume == 0:
                 self.stk_positions.pop(stock_code)
             else:
                 self.stk_positions[stock_code]['volume'] = weighted_volume
             self.balance = self.balance + amount - transaction_fee - tax
-            self.logger.info("TransactionTime: %s, Type: SellStock, Detail: %s - %f * %i, Balance: %f"
-                             % (time, stock_code, price, volume, self.balance))
-            self.transactions_list.append(pd.Series([time, 'SELL', stock_code, price, actual_price, volume, self.balance, transaction_fee],
-                                                    index=['Time', 'Type', 'Code', 'RawPrice', 'ActualPrice', 'Volume', 'Balance', 'Fee']))
+            trade = np.array([time, 'SELL', stock_code, price, actual_price, volume, self.balance, transaction_fee])
+            self.transactions = np.append(self.transactions, trade)
         else:
-            self.logger.warning("Error: this stk not in portfolio!")
+            print("Code: %s Error: this stk not in portfolio!" % stock_code)
+            raise NameError
 
-
-    def sell_stks_by_amount(self,time,stock_code,price,goal_amount):
-        goal_volume = round(goal_amount/price,-2)
+    def sell_stks_by_amount(self, time, stock_code, price, goal_amount):
+        goal_volume = round(goal_amount / price, -2)
         if goal_volume <= 0:
-            self.logger.warning("Error: goal volume <= 0, won't execute transaction!")
+            self.logger.warning("Code: %s Error: goal volume <= 0, won't execute transaction!" % stock_code)
+            raise NameError
         else:
             self.logger.info('Estimate Trade Volume: %i' % goal_volume)
-            self.sell_stks_by_volume(time,stock_code,price,goal_volume)
+            self.sell_stks_by_volume(time, stock_code, price, goal_volume)
 
-
-    def trade_stks_to_target_volume(self,time,stock_code,price,target_volume,price_limit='no_limit'):
-        try:
+    def trade_stks_to_target_volume(self, time, stock_code, price, target_volume, price_limit='no_limit'):
+        if stock_code in self.stk_positions:
             volume_held = self.stk_positions[stock_code]['volume']
-        except KeyError:
+        else:
             volume_held = 0
-        volume_to_trade = round(target_volume - volume_held,-2)
+        vol_diff = target_volume - volume_held
+        round_vol = round(vol_diff, -2)
         # 考虑了涨跌停一字板的情况
-        if volume_to_trade > 0 and price_limit != 'high':
-            self.buy_stks_by_volume(time,stock_code,price,volume_to_trade)
-        elif volume_to_trade < 0 and volume_to_trade*(-1) < volume_held and price_limit != 'low':
-            self.sell_stks_by_volume(time,stock_code,price,volume_to_trade*-1)
-        elif volume_to_trade < 0 and volume_to_trade*(-1) >= volume_held and price_limit != 'low':
-            self.sell_stks_by_volume(time,stock_code,price,volume_held)
+        # 仅在 买入 >=100股 | 卖出 <=100股 且目标股数不为 0 | 目标股数为0 时发生交易
+        # 卖出情况
+        if vol_diff < 0:
+            if target_volume == 0:
+                if price_limit == 'low':
+                    return 'Trade Fail'
+                else:
+                    self.sell_stks_by_volume(time, stock_code, price, volume_held)
+                    return 'Trade Succeed'
+            else:
+                if round_vol < 0:
+                    if price_limit == 'low':
+                        return 'Trade Fail'
+                    else:
+                        self.sell_stks_by_volume(time, stock_code, price, round_vol * -1)
+                        return 'Trade Succeed'
+        # 买入情况
+        elif vol_diff > 0:
+            if round_vol > 0:
+                if price_limit == 'high':
+                    return 'Trade Fail'
+                else:
+                    self.buy_stks_by_volume(time, stock_code, price, round_vol)
+                    return 'Trade Succeed'
         else:
             pass
 
-
-    def process_ex_right(self,ex_right:pd.DataFrame):
+    def process_ex_right(self, ex_right: pd.DataFrame):
         self.logger.info('****************************************')
         self.logger.info('Ex Right Info:')
-        shr_ex_right = ex_right.loc[(ex_right['cash_dvd_ratio'] > 0) | (ex_right['bonus_share_ratio'] > 0) |
-                                    (ex_right['conversed_ratio'] > 0) | (ex_right['rightissue_price'] > 0) |
-                                    (ex_right['rightissue_ratio'] > 0),
-                                    ['cash_dvd_ratio','bonus_share_ratio','conversed_ratio',
-                                     'rightissue_price','rightissue_ratio']]
+        shr_ex_right = ex_right.loc[ex_right['code'].isin(self.stk_positions.keys()) & (
+                (ex_right['cash_dvd_ratio'] > 0) | (ex_right['bonus_share_ratio'] > 0) |
+                (ex_right['conversed_ratio'] > 0) | (ex_right['rightissue_price'] > 0) |
+                (ex_right['rightissue_ratio'] > 0)),
+                                    ['cash_dvd_ratio', 'bonus_share_ratio', 'conversed_ratio',
+                                     'rightissue_price', 'rightissue_ratio']]
         # 默认参加配股
-        for code,row in shr_ex_right.iterrows():
-            if code in self.stk_positions:
-                self.logger.info('------------------------------------')
-                self.logger.info('Code: %s, Cash DVD: %f, Bonus Share: %f, Conversed Ratio: %f, '
-                                 'RI Price: %f, RI Ratio: %f'
-                                 %(code, row['cash_dvd_ratio'], row['bonus_share_ratio'], row['conversed_ratio'],
-                                   row['rightissue_price'], row['rightissue_ratio']))
-                self.logger.info('Price Before: %f, Volume Before: %f, Latest Close Before: %f'
-                                 %(self.stk_positions[code]['price'],self.stk_positions[code]['volume'],
-                                   self.stk_positions[code]['latest_close']))
-                self.logger.info('Balance Before: %f' %self.balance)
-                self.stk_positions[code]['price'] = \
-                    (self.stk_positions[code]['price'] - row['cash_dvd_ratio']
-                     + row['rightissue_price'] * row['rightissue_ratio']) / \
-                    (1 + row['bonus_share_ratio'] + row['conversed_ratio'] + row['rightissue_ratio'])
-                # 复权后的收盘价需要保留两位小数
-                self.stk_positions[code]['latest_close'] = \
-                    round((self.stk_positions[code]['latest_close'] - row['cash_dvd_ratio']
-                           + row['rightissue_price'] * row['rightissue_ratio']) /
-                          (1 + row['bonus_share_ratio'] + row['conversed_ratio'] + row['rightissue_ratio']),2)
-                self.balance = self.balance + self.stk_positions[code]['volume'] * row['cash_dvd_ratio'] - \
-                               row['rightissue_price'] * self.stk_positions[code]['volume'] * row['rightissue_ratio']
-                self.stk_positions[code]['volume'] = round(self.stk_positions[code]['volume'] * \
-                                (1 + row['bonus_share_ratio'] + row['conversed_ratio'] + row['rightissue_ratio']))
-                self.logger.info('Price After: %f, Volume After: %f, Latest Close After: %f'
-                                 % (self.stk_positions[code]['price'], self.stk_positions[code]['volume'],
-                                    self.stk_positions[code]['latest_close']))
-                self.logger.info('Balance After: %f' %self.balance)
-            else:
-                pass
+        for code, row in shr_ex_right.iterrows():
+            self.logger.info('------------------------------------')
+            self.logger.info('Code: %s, Cash DVD: %f, Bonus Share: %f, Conversed Ratio: %f, '
+                             'RI Price: %f, RI Ratio: %f'
+                             % (code, row['cash_dvd_ratio'], row['bonus_share_ratio'], row['conversed_ratio'],
+                                row['rightissue_price'], row['rightissue_ratio']))
+            self.logger.info('Price Before: %f, Volume Before: %f, Latest Close Before: %f'
+                             % (self.stk_positions[code]['price'], self.stk_positions[code]['volume'],
+                                self.stk_positions[code]['latest_close']))
+            self.logger.info('Balance Before: %f' % self.balance)
+            self.stk_positions[code]['price'] = \
+                (self.stk_positions[code]['price'] - row['cash_dvd_ratio']
+                 + row['rightissue_price'] * row['rightissue_ratio']) / \
+                (1 + row['bonus_share_ratio'] + row['conversed_ratio'] + row['rightissue_ratio'])
+            # 复权后的收盘价需要保留两位小数
+            self.stk_positions[code]['latest_close'] = \
+                round((self.stk_positions[code]['latest_close'] - row['cash_dvd_ratio']
+                       + row['rightissue_price'] * row['rightissue_ratio']) /
+                      (1 + row['bonus_share_ratio'] + row['conversed_ratio'] + row['rightissue_ratio']), 2)
+            self.balance = self.balance + self.stk_positions[code]['volume'] * row['cash_dvd_ratio'] - \
+                           row['rightissue_price'] * self.stk_positions[code]['volume'] * row['rightissue_ratio']
+            self.stk_positions[code]['volume'] = round(
+                self.stk_positions[code]['volume'] *
+                (1 + row['bonus_share_ratio'] + row['conversed_ratio'] + row['rightissue_ratio']))
+            self.logger.info('Price After: %f, Volume After: %f, Latest Close After: %f'
+                             % (self.stk_positions[code]['price'], self.stk_positions[code]['volume'],
+                                self.stk_positions[code]['latest_close']))
+            self.logger.info('Balance After: %f' % self.balance)
         self.logger.info('****************************************')
 
-
-    def get_portfolio_value(self,price_input:pd.Series):
+    def get_portfolio_value(self, price_input: pd.Series):
         self.logger.info('****************************************')
-        self.logger.info('Balance: %f' %self.balance)
-
+        self.logger.info('Balance: %f' % self.balance)
         stk_value = 0
         for stk in self.stk_positions:
             # lastest_close 最新的close, 以防数据缺失
@@ -162,118 +172,19 @@ class stock_portfolio:
             else:
                 pass
             stk_value += self.stk_positions[stk]['latest_close'] * self.stk_positions[stk]['volume']
-        self.logger.info('Stock Value: %f' %stk_value)
+        self.logger.info('Stock Value: %f' % stk_value)
         total_value = self.balance + stk_value
-        self.logger.info('Total Value: %f' %total_value)
+        self.logger.info('Total Value: %f' % total_value)
         self.logger.info('***************************************')
         return total_value
 
 
-# 尚未启用
-class futures_portfolio:
-    def __init__(self,capital_input=1000000):
-        self.account_right = capital_input
-        self.slippage_multi = 1
-        # 期货仓位模板{'IH1901.CFE':{'price':2536,'volume':-25}}
-        self.ftrs_positions = {}
-
-        self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(level=logging.INFO)
-        #dir = global_constant.ROOT_DIR+'Log/'
-        file_name = 'ftrs_log_' + datetime.datetime.now().strftime("%Y%m%d") + '.log'
-        handler = logging.FileHandler(dir + file_name)
-        handler.setLevel(logging.INFO)
-        console = logging.StreamHandler()
-        formatter = logging.Formatter('%(asctime)s - %(levelname)s: %(message)s')
-        handler.setFormatter(formatter)
-        self.logger.addHandler(handler)
-        self.logger.addHandler(console)
-
-    def buy_ftrs_by_volume(self,time,symbol,price,volume):
-        slippage = self.slippage_multi * futures_constant.FuturesTools.get_ftrs_tick(symbol)
-        multi = futures_constant.FuturesTools.get_ftrs_multi(symbol)
-        fee_rate = futures_constant.FuturesTools.get_ftrs_fee(symbol)
-        margin_rate = futures_constant.FuturesTools.get_ftrs_margin(symbol)
-
-        actual_price = price + slippage
-        fee = round(actual_price * multi * volume * fee_rate, 2)
-
-        if symbol not in self.ftrs_positions:
-            self.ftrs_positions[symbol] = {'price':actual_price,'volume':volume,'margin':margin_rate}
-            profit = 0
-        else:
-            weighted_volume = self.ftrs_positions[symbol]['volume'] + volume
-            if (self.ftrs_positions[symbol]['volume'] < 0) and (abs(self.ftrs_positions[symbol]['volume']) >= volume):
-                profit = round((self.ftrs_positions[symbol]['price'] - actual_price) * multi * volume,2)
-                weighted_price = self.ftrs_positions[symbol]['price']
-            elif (self.ftrs_positions[symbol]['volume'] < 0) and (abs(self.ftrs_positions[symbol]['volume']) < volume):
-                profit = round((self.ftrs_positions[symbol]['price'] - actual_price) * multi * abs(self.ftrs_positions[symbol]['volume']),2)
-                weighted_price = actual_price
-            else:
-                profit = 0
-                weighted_price = round((self.ftrs_positions[symbol]['price'] * self.ftrs_positions[symbol]['volume'] \
-                                 + actual_price * volume) / weighted_volume,3)
-
-            if weighted_volume == 0:
-                self.ftrs_positions.pop(symbol)
-            else:
-                self.ftrs_positions[symbol]['price'] = weighted_price
-                self.ftrs_positions[symbol]['volume'] = weighted_volume
-
-        self.account_right = self.account_right + profit - fee
-        self.logger.info("TransactionTime: %s, Type: BuyFutures, Detail: %s - %f * %i"
-                         % (time.strftime('%Y%m%d-%H:%M:%S'), symbol, price, volume))
-
-    def sell_ftrs_by_volume(self,time,symbol,price,volume):
-        slippage = self.slippage_multi * futures_constant.FuturesTools.get_ftrs_tick(symbol)
-        multi = futures_constant.FuturesTools.get_ftrs_multi(symbol)
-        fee_rate = futures_constant.FuturesTools.get_ftrs_fee(symbol)
-        margin_rate = futures_constant.FuturesTools.get_ftrs_margin(symbol)
-
-        actual_price = price - slippage
-        fee = round(actual_price * multi * volume * fee_rate, 2)
-
-        if symbol not in self.ftrs_positions:
-            self.ftrs_positions[symbol] = {'price':actual_price,'volume':volume*(-1),'margin':margin_rate}
-            profit = 0
-        else:
-            weighted_volume = self.ftrs_positions[symbol]['volume'] - volume
-            fee = round(actual_price * multi * volume * fee_rate,2)
-            if (self.ftrs_positions[symbol]['volume'] >= volume):
-                profit = round((actual_price - self.ftrs_positions[symbol]['price']) * multi * volume,2)
-                weighted_price = self.ftrs_positions[symbol]['price']
-            elif (self.ftrs_positions[symbol]['volume'] > 0) and (self.ftrs_positions[symbol]['volume'] < volume):
-                profit = round((actual_price - self.ftrs_positions[symbol]['price']) * multi * self.ftrs_positions[symbol]['volume'],2)
-                weighted_price = actual_price
-            else:
-                profit = 0
-                weighted_price = (self.ftrs_positions[symbol]['price'] * abs(self.ftrs_positions[symbol]['volume']) \
-                                 + actual_price * volume) / abs(weighted_volume)
-
-            if weighted_volume == 0:
-                self.ftrs_positions.pop(symbol)
-            else:
-                self.ftrs_positions[symbol]['price'] = weighted_price
-                self.ftrs_positions[symbol]['volume'] = weighted_volume
-
-        self.account_right = self.account_right + profit - fee
-        self.logger.info("TransactionTime: %s, Type: SellFutures, Detail: %s - %f * %i"
-                         % (time.strftime('%Y%m%d-%H:%M:%S'), symbol, price, volume))
-
-    def get_portfolio_margin(self,price_input:pd.Series):
-        margin = 0
-        for symbol in self.ftrs_positions:
-            multi = futures_constant.FuturesTools.get_ftrs_multi(symbol)
-            margin += price_input[symbol] * multi * self.ftrs_positions[symbol]['volume'] * self.ftrs_positions[symbol]['margin']
-        return margin
-
-
-
 if __name__ == '__main__':
-     futures_portfolio = futures_portfolio()
-     dt1 = datetime.datetime(1990,9,4)
-     dt2 = datetime.datetime(1990,11,26)
-     futures_portfolio.buy_ftrs_by_volume(dt1,'IH01.CFE',3000,2)
-     futures_portfolio.buy_ftrs_by_volume(dt1,'IH01.CFE',2000,3)
-     futures_portfolio.sell_ftrs_by_volume(dt2,'IH01.CFE',1000,1)
-     print('ok')
+    portfolio = stock_portfolio()
+    dt1 = datetime.datetime(1990, 9, 4)
+    dt2 = datetime.datetime(1990, 11, 26)
+    portfolio.trade_stks_to_target_volume(dt1, '000001.SZ', 5, 60)
+    portfolio.buy_stks_by_volume(dt1, '000001.SZ', 6, 20)
+    portfolio.trade_stks_to_target_volume(dt2, '000001.SZ', 66, 50)
+    portfolio.trade_stks_to_target_volume(dt2, '000001.SZ', 66, 0)
+    print('ok')
