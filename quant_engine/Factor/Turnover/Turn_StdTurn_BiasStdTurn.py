@@ -118,7 +118,7 @@ class Turn_StdTurn_BiasStdTurn(FactorBase):
 
     def cal_factors(self, start, end, n_jobs):
         data_start = (dtparser.parse(str(start)) - relativedelta(years=2)).strftime('%Y%m%d')
-        turnover = self.influx.getDataMultiprocess('DailyData_Gus', 'indicators', data_start, end,
+        turnover = self.influx.getDataMultiprocess('DailyMarket_Gus', 'shares_turnover', data_start, end,
                                                    ['code', 'turnover', 'float_turnover', 'free_turnover'])
         codes = turnover['code'].unique()
         split_codes = np.array_split(codes, n_jobs)

@@ -100,11 +100,11 @@ class Rtn_WgtRtn_ExpWgtRtn(FactorBase):
 
     def cal_factors(self, start, end, months_list, n_jobs):
         data_start = (dtparser.parse(str(start)) - relativedelta(years=1)).strftime('%Y%m%d')
-        daily_data = self.influx.getDataMultiprocess('DailyData_Gus', 'marketData', data_start, end,
+        daily_data = self.influx.getDataMultiprocess('DailyMarket_Gus', 'market', data_start, end,
                                                      ['code', 'adj_factor', 'close', 'preclose'])
         daily_data.index.names = ['date']
         daily_data.reset_index(inplace=True)
-        turnover = self.influx.getDataMultiprocess('DailyData_Gus', 'indicators', data_start, end,
+        turnover = self.influx.getDataMultiprocess('DailyMarket_Gus', 'shares_turnover', data_start, end,
                                                    ['code', 'turnover', 'float_turnover', 'free_turnover'])
         turnover.index.names = ['date']
         turnover.reset_index(inplace=True)

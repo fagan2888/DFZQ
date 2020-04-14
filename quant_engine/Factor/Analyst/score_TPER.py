@@ -58,7 +58,7 @@ class score_TPER(FactorBase):
         target_price = consensus.loc[:, ['date', 'code', 'target_price']].copy()
         target_price = target_price.dropna()
         # 获取股价
-        curr_price = self.influx.getDataMultiprocess('DailyData_Gus', 'marketData', start, end, ['code', 'close'])
+        curr_price = self.influx.getDataMultiprocess('DailyMarket_Gus', 'market', start, end, ['code', 'close'])
         curr_price.index.names = ['date']
         curr_price.reset_index(inplace=True)
         merge_df = pd.merge(curr_price, target_price, how='inner', on=['date', 'code'])
