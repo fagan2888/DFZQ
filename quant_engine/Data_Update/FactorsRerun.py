@@ -13,39 +13,15 @@ sys.path.extend([root_dir, root_dir + '\\Data_Resource', root_dir + '\\Engine', 
 # -------------------------------
 from rdf_data import rdf_data
 import logging
-import datetime
-import dateutil.parser as dtparser
-from dateutil.relativedelta import relativedelta
 from global_constant import N_JOBS
-from BacktestDayData import BacktestDayData
-from AdjFactor import AdjFactor
-from Industry_Lv1 import IndustryLv1
-from StkSwap import UpdateSwapData
-from SwapDataProcess import FillSwapData
-from shares_and_turnover import shares_and_turnover
-from BalanceSheet import BalanceSheetUpdate
-from Income import IncomeUpdate
-from CashFlow import CashFlowUpdate
-from QnTTM import QnTTMUpdate
-from market_cap import market_cap
 from EPandEPcut import EPandEPcut
 from BP import BP
 from SP import SP
-from DP import DP
-from NCFP import NCFP
-from OCFP import OCFP
 from ROE import ROE_series
 from RNOA import RNOA_series
 from ROE_growth import ROE_growth
 from RNOA_growth import RNOA_growth
 from Surprise import Surprise
-from Turn_StdTurn_BiasStdTurn import Turn_StdTurn_BiasStdTurn
-from Rtn_WgtRtn_ExpWgtRtn import Rtn_WgtRtn_ExpWgtRtn
-from coverage_divergence import coverage_and_divergence
-from consensus_net_profit import consensus_net_profit
-from EP_FY1 import EP_FY1
-from score_TPER import score_TPER
-from PEG import PEG
 
 
 class FactorsRerun:
