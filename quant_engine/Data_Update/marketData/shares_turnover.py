@@ -5,12 +5,12 @@ from influxdb_data import influxdbData
 from joblib import Parallel, delayed, parallel_backend
 from global_constant import N_JOBS
 
-class shares_and_turnover:
+class shares_turnover:
     def __init__(self):
         self.rdf = rdf_data()
         self.influx = influxdbData()
-        self.db = 'DailyData_Gus'
-        self.measure = 'indicators'
+        self.db = 'DailyMarket_Gus'
+        self.measure = 'shares_turnover'
 
     def process_data(self, start, end, n_jobs):
         query = "select TRADE_DT, S_INFO_WINDCODE, TOT_SHR_TODAY, FLOAT_A_SHR_TODAY, FREE_SHARES_TODAY " \
@@ -23,25 +23,23 @@ class shares_and_turnover:
         shares = pd.DataFrame(self.rdf.curs.fetchall(),
                               columns=['date', 'code', 'tot_shares', 'float_shares', 'free_shares'])
         shares = shares.loc[
-                 pd.notnull(shares['tot_shares']) | pd.notnull(shares['float_shares']) | pd.notnull(
-                     shares['free_shares']), :]
+                 pd.notnull(shares['tot_shares']) | pd.notnull(shares['float_shares']) |
+                 pd.notnull(shares['free_shares']), :]
         shares.replace(0, np.nan, inplace=True)
-        shares = shares.fillna(method='ffill', axis=1)
+        shares[['tot_shares', 'float_shares', 'free_shares']] = \
+            shares[['tot_shares', 'float_shares', 'free_shares']].fillna(method='ffill', axis=1)
         shares['date'] = pd.to_datetime(shares['date'])
         shares = shares.groupby(['date', 'code']).last()
         shares = shares.reset_index()
-        print('shares got')
-        mkt = self.influx.getDataMultiprocess('DailyData_Gus', 'marketData', start, end, ['code', 'volume'])
+        mkt = self.influx.getDataMultiprocess('DailyMarket_Gus', 'market', start, end, ['code', 'volume'])
         mkt.index.names = ['date']
         mkt.reset_index(inplace=True)
-        print('mkt got')
         merge = pd.merge(mkt, shares, on=['date', 'code'])
         merge['turnover'] = merge['volume'] / merge['tot_shares']
         merge['float_turnover'] = merge['volume'] / merge['float_shares']
         merge['free_turnover'] = merge['volume'] / merge['free_shares']
         merge = merge.drop('volume', axis=1)
-        merge = merge.groupby(['date', 'code']).last()
-        merge = merge.reset_index().set_index('date')
+        merge = merge.set_index('date')
         merge = merge.where(pd.notnull(merge), None)
         codes = merge['code'].unique()
         split_codes = np.array_split(codes, n_jobs)
@@ -57,5 +55,5 @@ class shares_and_turnover:
 
 
 if __name__ == '__main__':
-    i = shares_and_turnover()
-    i.process_data(20190801, 20200201, N_JOBS)
+    i = shares_turnover()
+    i.process_data(20100101, 20200401, N_JOBS)
