@@ -18,11 +18,12 @@ import datetime
 import dateutil.parser as dtparser
 from dateutil.relativedelta import relativedelta
 from global_constant import N_JOBS
-from BacktestDayData import BacktestDayData
-from AdjFactor import AdjFactor
-from Industry_Lv1 import IndustryLv1
-from StkSwap import UpdateSwapData
-from SwapDataProcess import FillSwapData
+from market_ohlc import mkt_ohlc
+from is_ST import isst
+from ex_right import ex_right
+from stk_swap import stk_swap
+from stk_industry import StkIndustry
+from index_weight import index_weight
 from shares_and_turnover import shares_and_turnover
 from BalanceSheet import BalanceSheetUpdate
 from Income import IncomeUpdate
@@ -96,26 +97,30 @@ class DailyUpdate:
             self.logger.info('******************************************************')
             self.logger.info('===================基础数据日常更新=====================')
             self.logger.info('******************************************************')
-            btd = BacktestDayData()
-            res = btd.process_data(last_week, last_trade_day, n_jobs)
+            mkt = mkt_ohlc()
+            res = mkt.process_data(last_week, last_trade_day, n_jobs)
             self.log_res(res)
             self.logger.info('------------------market data finish------------------')
-            adj = AdjFactor()
-            res = adj.process_data(last_week, last_trade_day)
+            st = isst()
+            res = st.process_data(last_week, last_trade_day, n_jobs)
             self.logger.info(res)
-            self.logger.info('------------------adj factor finish-------------------')
-            idsty = IndustryLv1()
-            res = idsty.process_data(last_week, last_trade_day)
+            self.logger.info('-------------------st data finish---------------------')
+            ex = ex_right()
+            res = ex.process_data(last_week, last_trade_day, n_jobs)
             self.logger.info(res)
-            self.logger.info('-----------------improved Lv1 finish------------------')
-            usd = UpdateSwapData()
-            res = usd.process_data(last_1yr, last_trade_day)
+            self.logger.info('-------------------ex right finish--------------------')
+            swap = stk_swap()
+            res = swap.process_data(last_1yr, last_trade_day, n_jobs)
             self.logger.info(res)
             self.logger.info('-------------------swap data finish-------------------')
-            fsd = FillSwapData()
-            res = fsd.process_data()
+            indu = StkIndustry()
+            res = indu.process_data(last_week, last_trade_day, n_jobs)
             self.logger.info(res)
-            self.logger.info('-----------------fill swap data finish----------------')
+            self.logger.info('------------------stk industry finish-----------------')
+            idx_weight = index_weight()
+            res = idx_weight.process_data(last_week, last_trade_day, n_jobs)
+            self.logger.info(res)
+            self.logger.info('------------------index weight finish-----------------')
             sh = shares_and_turnover()
             res = sh.process_data(last_week, last_trade_day, n_jobs)
             self.log_res(res)
