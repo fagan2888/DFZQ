@@ -15,7 +15,7 @@ class StkIndustry:
         self.rdf = rdf_data()
         self.influx = influxdbData()
         self.db = 'DailyMarket_Gus'
-        self.measure = 'market'
+        self.measure = 'industry'
 
     @staticmethod
     def JOB_get_indu(indu_type, start, end, calendar):
