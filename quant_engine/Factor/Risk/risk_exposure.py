@@ -26,21 +26,24 @@ class RiskFactorsExposure:
             query = "SELECT {0} FROM dfrisk.{1} WHERE tradingdate ='{2}' and universe='{3}'" \
                 .format(field, table, date, uni)
             DFQr.cur.execute(query)
-            day_df = pd.read_json(DFQr.cur.fetchone()[0], orient='split', convert_axes=False)
-            day_df['date'] = pd.to_datetime(date)
-            day_df.index.names = ['code']
-            day_df = day_df.reset_index().set_index('date')
-            day_df['code'] = \
-                np.where(day_df['code'].str[0] == '6', day_df['code'] + '.SH', day_df['code'] + '.SZ')
-            day_df = day_df.rename(columns=factor_dict)
-            day_df = day_df.where(pd.notnull(day_df), None)
-            # save
-            print('date: %s' % date)
-            r = influx.saveData(day_df, db, measure)
-            if r == 'No error occurred...':
-                pass
-            else:
-                save_res.append('%s Error: %s' % ('RiskExposure', r))
+            try:
+                day_df = pd.read_json(DFQr.cur.fetchone()[0], orient='split', convert_axes=False)
+                day_df['date'] = pd.to_datetime(date)
+                day_df.index.names = ['code']
+                day_df = day_df.reset_index().set_index('date')
+                day_df['code'] = \
+                    np.where(day_df['code'].str[0] == '6', day_df['code'] + '.SH', day_df['code'] + '.SZ')
+                day_df = day_df.rename(columns=factor_dict)
+                day_df = day_df.where(pd.notnull(day_df), None)
+                # save
+                print('date: %s' % date)
+                r = influx.saveData(day_df, db, measure)
+                if r == 'No error occurred...':
+                    pass
+                else:
+                    save_res.append('%s Error: %s' % ('RiskExposure', r))
+            except TypeError:
+                save_res.append('%s Error from DB! Date: %s' % ('RiskExposure', date))
         return save_res
 
 
@@ -64,4 +67,5 @@ class RiskFactorsExposure:
 
 if __name__ == '__main__':
     rfe = RiskFactorsExposure()
-    rfe.cal_factors(20100101, 20100408)
+    res = rfe.cal_factors(20200406, 20200413)
+    print(res)

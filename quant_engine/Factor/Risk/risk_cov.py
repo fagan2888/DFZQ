@@ -26,20 +26,23 @@ class RiskCov:
             query = "SELECT {0} FROM dfrisk.{1} WHERE tradingdate ='{2}' and universe='{3}'" \
                 .format(field, table, date, uni)
             DFQr.cur.execute(query)
-            day_df = pd.read_json(DFQr.cur.fetchone()[0], orient='split', convert_axes=False)
-            day_df['date'] = pd.to_datetime(date)
-            day_df = day_df.rename(columns=factor_dict, index=factor_dict)
-            day_df.index.names = ['factor']
-            day_df = day_df.reset_index().set_index('date')
-            day_df['code'] = '999999.SB'
-            day_df = day_df.where(pd.notnull(day_df), None)
-            # save
-            print('date: %s' % date)
-            r = influx.saveData(day_df, db, measure)
-            if r == 'No error occurred...':
-                pass
-            else:
-                save_res.append('%s Error: %s' % ('RiskCov', r))
+            try:
+                day_df = pd.read_json(DFQr.cur.fetchone()[0], orient='split', convert_axes=False)
+                day_df['date'] = pd.to_datetime(date)
+                day_df = day_df.rename(columns=factor_dict, index=factor_dict)
+                day_df.index.names = ['factor']
+                day_df = day_df.reset_index().set_index('date')
+                day_df['code'] = '999999.SB'
+                day_df = day_df.where(pd.notnull(day_df), None)
+                # save
+                print('date: %s' % date)
+                r = influx.saveData(day_df, db, measure)
+                if r == 'No error occurred...':
+                    pass
+                else:
+                    save_res.append('%s Error: %s' % ('RiskCov', r))
+            except TypeError:
+                save_res.append('%s Error from DB! Date: %s' % ('RiskCov', date))
         return save_res
 
 

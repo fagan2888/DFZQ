@@ -26,22 +26,25 @@ class SpecificRisk:
             query = "SELECT {0} FROM dfrisk.{1} WHERE tradingdate ='{2}' and universe='{3}'" \
                 .format(field, table, date, uni)
             DFQr.cur.execute(query)
-            day_df = pd.read_json(DFQr.cur.fetchone()[0], orient='split', convert_axes=False, typ='series')
-            day_df.name = 'specific_risk'
-            day_df = pd.DataFrame(day_df)
-            day_df['date'] = pd.to_datetime(date)
-            day_df.index.names = ['code']
-            day_df = day_df.reset_index().set_index('date')
-            day_df['code'] = \
-                np.where(day_df['code'].str[0] == '6', day_df['code'] + '.SH', day_df['code'] + '.SZ')
-            day_df = day_df.dropna(subset=['specific_risk'])
-            # save
-            print('date: %s' % date)
-            r = influx.saveData(day_df, db, measure)
-            if r == 'No error occurred...':
-                pass
-            else:
-                save_res.append('%s Error: %s' % ('SpecificRisk', r))
+            try:
+                day_df = pd.read_json(DFQr.cur.fetchone()[0], orient='split', convert_axes=False, typ='series')
+                day_df.name = 'specific_risk'
+                day_df = pd.DataFrame(day_df)
+                day_df['date'] = pd.to_datetime(date)
+                day_df.index.names = ['code']
+                day_df = day_df.reset_index().set_index('date')
+                day_df['code'] = \
+                    np.where(day_df['code'].str[0] == '6', day_df['code'] + '.SH', day_df['code'] + '.SZ')
+                day_df = day_df.dropna(subset=['specific_risk'])
+                # save
+                print('date: %s' % date)
+                r = influx.saveData(day_df, db, measure)
+                if r == 'No error occurred...':
+                    pass
+                else:
+                    save_res.append('%s Error: %s' % ('SpecificRisk', r))
+            except TypeError:
+                save_res.append('%s Error from DB! Date: %s' % ('SpecificRisk', date))
         return save_res
 
 
