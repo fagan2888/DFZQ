@@ -8,10 +8,13 @@ from dateutil.relativedelta import relativedelta
 
 
 class influxdbData:
-    def __init__(self, db_input=None):
-        self.client = influxdb.DataFrameClient \
-            (host='192.168.58.71', port=8086, username='root', password='root', database=db_input)
-        # 服务器:192.168.58.71 阿毛:192.168.38.176
+    def __init__(self, db_input=None, usr='root', pwd='root', cloud=False):
+        if not cloud:
+            host = '192.168.58.71'
+            # 公司:192.168.58.71 阿毛:192.168.38.176
+        else:
+            host = '39.100.15.89'
+        self.client = influxdb.DataFrameClient(host=host, port=8086, username=usr, password=pwd, database=db_input)
 
     def getDBs(self):
         self.dbs = self.client.get_list_database()
@@ -29,8 +32,8 @@ class influxdbData:
         return tables
 
     @staticmethod
-    def JOB_getData(database, measure, startdate=None, enddate=None, fields=None):
-        influx = influxdbData(database)
+    def JOB_getData(database, measure, startdate=None, enddate=None, fields=None, usr='root', pwd='root', cloud=False):
+        influx = influxdbData(database, usr, pwd, cloud)
         if fields:
             fields = ','.join(str(fld) for fld in fields)
         else:
@@ -79,8 +82,8 @@ class influxdbData:
 
     # 多进程存数据的工具函数
     @staticmethod
-    def JOB_saveData(whole_data, field, list, database, measure):
-        influx = influxdbData()
+    def JOB_saveData(whole_data, field, list, database, measure, usr='root', pwd='root', cloud=False):
+        influx = influxdbData(usr=usr, pwd=pwd, cloud=cloud)
         dbs = influx.getDBs()
         if not {'name': database} in dbs:
             influx.client.create_database(database)
