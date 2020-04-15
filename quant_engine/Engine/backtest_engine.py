@@ -1,24 +1,30 @@
 import pandas as pd
-from portfolio import stock_portfolio,futures_portfolio
+from portfolio import stock_portfolio
 from influxdb_data import influxdbData
-import dateutil.parser as dtparser
 import logging
 import datetime
 import copy
 import global_constant
+import os.path
+
 
 class BacktestEngine:
-    def __init__(self,stock_capital=1000000,stk_slippage=0.001,stk_fee=0.0001,save_name=None,logger_lvl=logging.INFO):
-        self.stk_portfolio = stock_portfolio(capital_input=stock_capital,slippage_input=stk_slippage,transaction_fee_input=stk_fee)
+    def __init__(self, save_name, stock_capital=1000000, stk_slippage=0.001, stk_fee=0.0001, logger_lvl=logging.INFO):
+        # 配置钱包
+        self.stk_portfolio = \
+            stock_portfolio(save_name, capital_input=stock_capital, slippage_input=stk_slippage,
+                            transaction_fee_input=stk_fee)
+        # 配置logger
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(level=logger_lvl)
         self.save_name = save_name
-        dir = global_constant.ROOT_DIR+'Backtest_Result/Portfolio_Value/'
-        if not self.save_name:
-            file_name = 'Backtest_' + datetime.datetime.now().strftime("%Y%m%d-%H%M") + '.log'
+        self.dir = global_constant.ROOT_DIR + 'Backtest_Result/{0}/'.format(self.save_name)
+        if os.path.exists(self.dir):
+            pass
         else:
-            file_name = save_name + '.log'
-        handler = logging.FileHandler(dir + file_name)
+            os.makedirs(self.dir.rstrip('/'))
+        file_name = 'Backtest_{0}.log'.format(self.save_name)
+        handler = logging.FileHandler(self.dir + file_name)
         handler.setLevel(logging.INFO)
         console = logging.StreamHandler()
         formatter = logging.Formatter('%(asctime)s - %(levelname)s: %(message)s')
@@ -26,66 +32,140 @@ class BacktestEngine:
         self.logger.addHandler(handler)
         self.logger.addHandler(console)
 
-    def run(self,stk_weight,start,end,cash_reserve_rate=0.05,price_field='vwap',data_input=None):
+    def initialize_engine(self, start, end, benchmark, price_field='vwap', indu_field='improved_lv1'):
+        bm_dict = {50: '000016.SH', 300: '000300.SH', 500: '000905.SH'}
+        self.benchmark_code = bm_dict[benchmark]
+        influx = influxdbData()
+        DB = 'DailyMarket_Gus'
+        # 读取数据
+        measure = 'market'
+        self.market = influx.getDataMultiprocess(
+            DB, measure, start, end, ['code', 'status', 'preclose', 'high', 'low', 'close', price_field])
+        self.market.index.names = ['date']
+        measure = 'exright'
+        self.exright = influx.getDataMultiprocess(DB, measure, start, end)
+        self.exright.index.names = ['date']
+        measure = 'swap'
+        self.swap = influx.getDataMultiprocess(DB, measure, start, end)
+        self.swap.index.names = ['date']
+        # industry 为统计用数据
+        measure = 'industry'
+        self.industry = influx.getDataMultiprocess(DB, measure, start, end, ['code', indu_field])
+        self.industry.index.names = ['date']
+        self.calendar = self.market.index.unique()
+        self.calendar = self.calendar.strftime('%Y%m%d')
+        # benchmark 的报价 Series
+        self.benchmark_quote = self.market.loc[self.market['code'] == self.benchmark_code, 'close'].copy()
+        print('All Data Needed is ready...')
+
+
+    # 默认输入的权重 以日期为index
+    def run(self, stk_weight, start, end, adj_interval, benchmark, cash_reserve_rate=0.05,
+            price_field='vwap', indu_field='improved_lv1'):
         backtest_starttime = datetime.datetime.now()
-        if not isinstance(data_input,pd.DataFrame):
-            self.logger.info('Start loading Data! %s' %backtest_starttime)
-            influx = influxdbData()
-            DB = 'DailyData_Gus'
-            measure = 'marketData'
-            daily_data = influx.getDataMultiprocess(DB,measure,str(start),str(end))
-        else:
-            daily_data = data_input
-        self.logger.info('Data loaded! %s' %datetime.datetime.now())
-        self.logger.info('****************************************\n')
-
-        # 日线数据中的preclose已是相对前一天的复权价格
-        exclude_col = ['IC_weight','IF_weight','IH_weight','citics_lv1_code','citics_lv1_name','citics_lv2_code',
-                       'citics_lv2_name','citics_lv3_code','citics_lv3_name','sw_lv1_code','sw_lv1_name','sw_lv2_code',
-                       'sw_lv2_name','isST']
-        daily_data = daily_data.loc[:,daily_data.columns.difference(exclude_col)]
-        daily_data['swap_date'] = pd.to_datetime(daily_data['swap_date'])
-        daily_data[['bonus_share_ratio', 'cash_dvd_ratio', 'conversed_ratio', 'rightissue_price', 'rightissue_ratio']] = \
-            daily_data[['bonus_share_ratio', 'cash_dvd_ratio', 'conversed_ratio', 'rightissue_price', 'rightissue_ratio']].fillna(0)
-
-        daily_data.index.names = ['index']
-        stk_weight.index.names = ['index']
-        daily_data.reset_index(inplace=True)
-        stk_weight.reset_index(inplace=True)
-        daily_data = pd.merge(daily_data,stk_weight,on=['index','code'],how='outer')
-        daily_data.set_index('index',inplace=True)
-        daily_data['weight'] = daily_data['weight'].fillna(0)
-        daily_data.sort_index(inplace=True)
-
-        trade_days = daily_data.index.unique()
+        # initialize engine
+        self.initialize_engine(start, end, benchmark, price_field, indu_field)
+        # 默认输入的权重 以日期为index
+        stk_weight.index.names = ['date']
+        mkt_with_weight = pd.merge(self.market.reset_index(), stk_weight.reset_index(),
+                                   on=['date', 'code'], how='left')
+        mkt_with_weight['weight'] = mkt_with_weight['weight'].fillna(0)
+        mkt_with_weight.set_index('date', inplace=True)
+        mkt_with_weight.sort_index(inplace=True)
+        # backtest begins
+        day_counter = 0
         positions_dict = {}
         portfolio_value_dict = {}
-        total_value = self.stk_portfolio.get_portfolio_value(price_input=None)
-        for trade_day in trade_days:
-            self.logger.info('Trade Day: %s' %trade_day)
-            one_day_data = daily_data.loc[trade_day,:].copy()
-            one_day_data.set_index('code',inplace=True)
-            ex_right = \
-                one_day_data.loc[:,['bonus_share_ratio','cash_dvd_ratio','conversed_ratio','rightissue_price','rightissue_ratio']]
-            self.stk_portfolio.process_ex_right(ex_right)
-            target_capital = (1-cash_reserve_rate) * total_value
-            one_day_data['target_volume'] = target_capital * one_day_data['weight'] /100 / one_day_data['preclose']
-            trade_data = one_day_data.loc[(one_day_data['target_volume'] > 0) |
-                                          (one_day_data.index.isin(self.stk_portfolio.stk_positions.keys())),:]
-            for idx,row in trade_data.iterrows():
-                if row['status'] == '停牌' or row['status'] != row['status']:
-                    pass
-                else:
-                    self.stk_portfolio.trade_stks_to_target_volume(trade_day,idx,row[price_field],row['target_volume'])
-            # 处理 吸收合并
-            swap_info = one_day_data.loc[(one_day_data['swap_date']==trade_day) &
-                                         (one_day_data.index.isin(self.stk_portfolio.stk_positions)), :]
-            if swap_info.empty:
-                pass
+        suspend_stk_dict = {}
+        balance, stk_value, total_value = self.stk_portfolio.get_portfolio_value(price_input=pd.Series([]))
+        portfolio_start_value = total_value
+        # 记录 benchmark 净值
+        benchmark_networth = self.benchmark_quote[self.calendar[0]]
+        benchmark_start_value = total_value
+        for trade_day in self.calendar:
+            self.logger.info('Trade Day: %s' % trade_day)
+            day_mkt_with_weight = mkt_with_weight.loc[mkt_with_weight.index == trade_day, :].copy()
+            day_mkt_with_weight.set_index('code', inplace=True)
+            day_ex_right = self.exright.loc[self.exright.index == trade_day, :].copy()
+            # 开盘前处理除权除息分红送股
+            self.stk_portfolio.process_ex_right(day_ex_right)
+            # 没有行情且在position里的stk记为退市，并统计退市金额
+            delist_amount = 0
+            no_quote_stks = set(self.stk_portfolio.stk_positions.keys()) - set(day_mkt_with_weight.index)
+            for stk in no_quote_stks:
+                delist_amount += self.stk_portfolio.stk_positions[stk]['volume'] * \
+                                 self.stk_portfolio.stk_positions[stk]['latest_close']
+            # 退市股票的金额需在stock_value中剔除，以免资金占用
+            target_capital = (1 - cash_reserve_rate) * (total_value + delist_amount)
+            # 计算目标成交量
+            day_mkt_with_weight['target_volume'] = \
+                target_capital * day_mkt_with_weight['weight'] / 100 / day_mkt_with_weight['preclose']
+            # -----------------------------------------------------------------------------------------------
+            # 每隔x天调仓
+            if day_counter % adj_interval == 0:
+                # 记录没法交易的股票
+                # 记录 (weight不为0 或者 已在position中) 且 状态停牌 的票
+                codes = day_mkt_with_weight.loc[
+                    ((day_mkt_with_weight['target_volume'] > 0) |
+                     (day_mkt_with_weight.index.isin(self.stk_portfolio.stk_positions.keys()))) &
+                    (day_mkt_with_weight['status'] == '停牌'), :].index.values
+                weights = day_mkt_with_weight.loc[
+                    ((day_mkt_with_weight['target_volume'] > 0) |
+                     (day_mkt_with_weight.index.isin(self.stk_portfolio.stk_positions.keys()))) &
+                    (day_mkt_with_weight['status'] == '停牌'), 'weight'].values
+                untradeable = dict(zip(codes, weights))
+                # (weight不为0 或者 已在position中) 且 状态不停牌 的票
+                tradeable_df = day_mkt_with_weight.loc[
+                    ((day_mkt_with_weight['target_volume'] > 0) |
+                     (day_mkt_with_weight.index.isin(self.stk_portfolio.stk_positions.keys()))) &
+                    (day_mkt_with_weight['status'] != '停牌'), :].copy()
+                for code, row in tradeable_df.iterrows():
+                    if (row['low'] == row['high']) and (row['high'] >= round(row['preclose'] * 1.1, 2)):
+                        price_limit = 'high'
+                    elif (row['low'] == row['high']) and (row['low'] <= round(row['preclose'] * 0.9, 2)):
+                        price_limit = 'low'
+                    else:
+                        price_limit = 'no_limit'
+                    # 因涨跌停没有交易成功的股票代码会返回
+                    trade_res = self.stk_portfolio.trade_stks_to_target_volume(
+                        trade_day, code, row[price_field], row['target_volume'], price_limit)
+                    # 记录可以交易，但是因为涨跌停无法交易 的票
+                    if trade_res == 'Trade Fail':
+                        untradeable[code] = row['weight']
+            # 不是调仓日时，之前因涨跌停没买到的stks也要补
             else:
-                for idx,row in swap_info.iterrows():
-                    swap_price = self.stk_portfolio.stk_positions[idx]['price']/row['swap_ratio']
-                    swap_volume = round(self.stk_portfolio.stk_positions[idx]['volume']*row['swap_ratio'])
+                # 没有行情的认为已退市，从失败列表中剔除
+                no_quote_in_untradeable = set(untradeable.keys()) - set(day_mkt_with_weight.index)
+                for stk in no_quote_in_untradeable:
+                    untradeable.pop(stk)
+                # untradeable 不为空时，补买卖stk
+                if untradeable:
+                    tradeable_df = day_mkt_with_weight.loc[
+                                   (day_mkt_with_weight['status'] != '停牌') &
+                                   day_mkt_with_weight.index.isin(untradeable.keys()), :].copy()
+                    if not tradeable_df.empty:
+                        tradeable_df['weight'] = tradeable_df.reset_index()['code'].map()
+                        tradeable_df['target_volume'] = \
+                            target_capital * tradeable_df['weight'] / 100 / tradeable_df['preclose']
+                        for code, row in tradeable_df.iterrows():
+                            if (row['low'] == row['high']) and (row['high'] >= round(row['preclose'] * 1.1, 2)):
+                                price_limit = 'high'
+                            elif (row['low'] == row['high']) and (row['low'] <= round(row['preclose'] * 0.9, 2)):
+                                price_limit = 'low'
+                            else:
+                                price_limit = 'no_limit'
+                            trade_res = self.stk_portfolio.trade_stks_to_target_volume(
+                                trade_day, code, row[price_field], row['target_volume'], price_limit)
+                            if trade_res == 'Trade Succeed':
+                                untradeable.pop(code)
+            # -------------------------------------------------------------------------------
+            # 处理 吸收合并
+            day_swap = self.swap.loc[self.swap.index == trade_day, :].copy()
+            day_swap = day_swap.loc[day_swap['code'].isin(self.stk_portfolio.stk_positions.keys())]
+            if not day_swap.empty:
+                for date, row in day_swap.iterrows():
+                    swap_price = self.stk_portfolio.stk_positions[row['code']]['price'] / row['swap_ratio']
+                    swap_volume = round(self.stk_portfolio.stk_positions[row['code']]['volume'] * row['swap_ratio'])
                     if row['swap_code'] in self.stk_portfolio.stk_positions:
                         merged_volume = self.stk_portfolio.stk_positions[row['swap_code']]['volume'] + swap_volume
                         merged_price = (self.stk_portfolio.stk_positions[row['swap_code']]['volume'] *
@@ -98,28 +178,38 @@ class BacktestEngine:
                         self.stk_portfolio.stk_positions[row['swap_code']]['volume'] = swap_volume
                         self.stk_portfolio.stk_positions[row['swap_code']]['price'] = swap_price
                         self.stk_portfolio.stk_positions[row['swap_code']]['latest_close'] = \
-                            self.stk_portfolio.stk_positions[idx]['latest_close']/row['swap_ratio']
-                    self.stk_portfolio.stk_positions.pop(idx)
-
-            # 记录 portfolio value
-            total_value = self.stk_portfolio.get_portfolio_value(one_day_data['close'])
-            portfolio_value_dict[trade_day] = \
-                {'Balance':self.stk_portfolio.balance, 'StockValue':total_value-self.stk_portfolio.balance, 'TotalValue':total_value}
-            self.logger.info(' -Balance: %f   -StockValue: %f   -TotalValue %f'
-                             %(self.stk_portfolio.balance, total_value-self.stk_portfolio.balance, total_value))
-            # 记录持仓
+                            self.stk_portfolio.stk_positions[row['code']]['latest_close'] / row['swap_ratio']
+                    self.stk_portfolio.stk_positions.pop(row['code'])
+            # 记录 已有持仓中停牌的stk
+            suspend_stks_in_pos = \
+                day_mkt_with_weight.loc[
+                day_mkt_with_weight.index.isin(self.stk_portfolio.stk_positions.keys()) &
+                (day_mkt_with_weight['status'] == '停牌'), :].index.values
+            suspend_stk_dict[trade_day] = suspend_stks_in_pos
+            # 记录 持仓
             positions_dict[trade_day] = copy.deepcopy(self.stk_portfolio.stk_positions)
-
+            # 记录 benchmark value
+            # 记录 portfolio value
+            # 记录 accum_alpha
+            benchmark_value = benchmark_start_value / benchmark_networth * self.benchmark_quote[trade_day]
+            balance, stk_value, total_value = self.stk_portfolio.get_portfolio_value(day_mkt_with_weight['close'])
+            accum_alpha = total_value / portfolio_start_value - benchmark_value / benchmark_start_value
+            portfolio_value_dict[trade_day] = \
+                {'Balance': balance, 'StockValue': stk_value, 'TotalValue': total_value,
+                 'DelistAmount': delist_amount, 'SuspendStk': len(suspend_stks_in_pos),
+                 'BenchmarkValue': benchmark_value, 'AccumAlpha': accum_alpha}
+            self.logger.info(' \n -Balance: %f \n -StockValue: %f \n -TotalValue %f \n -DelistAmount: %f \n '
+                             ' -SuspendStk: %i \n -BenchmarkValue: %f \n -AccumAlpha: %f'
+                             % (balance, stk_value, total_value, delist_amount, len(suspend_stks_in_pos),
+                                benchmark_value, accum_alpha))
         # 输出交易记录
-        transactions = pd.concat(self.stk_portfolio.transactions_list, axis=1 ,ignore_index=True).T
-        transactions.set_index('Time',inplace=True)
-        if not self.save_name:
-            filename = global_constant.ROOT_DIR + 'Transaction_Log/' + \
-                       'Transactions_' + backtest_starttime.strftime("%Y%m%d-%H%M") + '.csv'
-        else:
-            filename = global_constant.ROOT_DIR + 'Transaction_Log/' + \
-                       'Transactions_' + self.save_name + '.csv'
-        transactions.to_csv(filename,encoding='gbk')
+        transactions = pd.DataFrame(self.stk_portfolio.transactions.
+                                    reshape(int(self.stk_portfolio.transactions.shape[0]/8), 8),
+                                    columns=['Time', 'Direction', 'Code', 'RawPrice', 'ActualPrice', 'Volume',
+                                             'Balance', 'TransFee'])
+        transactions.set_index('Time', inplace=True)
+        filename = self.dir + 'Transactions_' + self.save_name + '.csv'
+        transactions.to_csv(filename, encoding='gbk')
         # 输出持仓记录
         positions_dfs = []
         for time in positions_dict:
@@ -127,47 +217,22 @@ class BacktestEngine:
             trade_day_position['Time'] = time
             trade_day_position.index.name = 'Code'
             positions_dfs.append(trade_day_position.reset_index())
-        positions = pd.concat(positions_dfs,ignore_index=True)
-        positions.set_index('Time',inplace=True)
-        if not self.save_name:
-            filename = global_constant.ROOT_DIR + 'Backtest_Result/Positions/' + \
-                       'Positions_' + backtest_starttime.strftime("%Y%m%d-%H%M") + '.csv'
-        else:
-            filename = global_constant.ROOT_DIR + 'Backtest_Result/Positions/' + \
-                       'Positions_' + self.save_name + '.csv'
-        positions.to_csv(filename,encoding='gbk')
+        positions = pd.concat(positions_dfs, ignore_index=True)
+        positions.set_index('Time', inplace=True)
+        filename = self.dir + 'Positions_{0}.csv'.format(self.save_name)
+        positions.to_csv(filename, encoding='gbk')
         # 输出净值
         portfolio_value = pd.DataFrame(portfolio_value_dict).T
-        if not self.save_name:
-            filename = global_constant.ROOT_DIR + 'Backtest_Result/Portfolio_Value/' + \
-                       'Backtest_' + backtest_starttime.strftime("%Y%m%d-%H%M") + '.csv'
-        else:
-            filename = global_constant.ROOT_DIR + 'Backtest_Result/Portfolio_Value/' + \
-                       'Backtest_' + self.save_name + '.csv'
-        portfolio_value.to_csv(filename,encoding='gbk')
+        filename = self.dir + 'Value_{0}.csv'.format(self.save_name)
+        portfolio_value.to_csv(filename, encoding='gbk')
+        print('Backtest %s finish! Time used: ', datetime.datetime.now() - backtest_starttime)
         return portfolio_value
 
 
 if __name__ == '__main__':
-    influx = influxdbData()
-
-    mkt = influx.getDataMultiprocess('DailyData_Gus','marketData','20120105','20160831')
-    d = mkt.loc[pd.notnull(mkt['IF_weight']) & (mkt['volume']>0),['code','IF_weight','vwap']]
-    d.columns = ['code','weight','vwap']
-    d = d.loc[:,['code','weight']]
-    start_time = datetime.datetime.now()
-    QE = BacktestEngine(stock_capital=5000000,save_name='test',logger_lvl=logging.INFO)
-    portfolio_value_dict = QE.run(d,20120106,20160831,price_field='vwap',cash_reserve_rate=0,data_input=mkt)
-    print('backtest finish')
-    print('time used:',datetime.datetime.now()-start_time)
-    '''
-    weight = pd.read_csv('D:/github/quant_engine/Backtest_Result/Factor_Group_Weight/EPcut_TTM_5groups.csv',encoding='gbk')
-    weight.set_index('next_trade_day',inplace=True)
-    weight.index = pd.to_datetime(weight.index)
-    weight = weight.loc[weight['group']=='group_5',['code','weight']]
-    start_time = datetime.datetime.now()
-    QE = BacktestEngine(stock_capital=5000000, save_name='g5', logger_lvl=logging.INFO)
-    portfolio_value_dict = QE.run(weight, 20120105, 20160831, price_field='vwap', cash_reserve_rate=0)
-    print('backtest finish')
-    print('time used:', datetime.datetime.now() - start_time)
-    '''
+    i = influxdbData()
+    weight = i.getDataMultiprocess('DailyMarket_Gus', 'index_weight', 20140901, 20160202)
+    weight = weight.loc[weight['index_code'] == '000300.SH', ['code', 'weight']]
+    print('Weight_loaded')
+    QE = BacktestEngine(stock_capital=5000000, save_name='test', logger_lvl=logging.INFO)
+    QE.run(weight, 20150101, 20160101, 5, 300)
