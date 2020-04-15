@@ -172,7 +172,7 @@ class stock_portfolio:
         stk_value = 0
         for stk in self.stk_positions:
             # lastest_close 最新的close, 以防数据缺失
-            if stk in price_input:
+            if stk in price_input.index:
                 self.stk_positions[stk]['latest_close'] = price_input[stk]
             else:
                 pass

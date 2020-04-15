@@ -48,6 +48,8 @@ class BacktestEngine:
         measure = 'swap'
         self.swap = influx.getDataMultiprocess(DB, measure, start, end)
         self.swap.index.names = ['date']
+        self.swap['str_date'] = self.swap.index.strftime('%Y%m%d')
+        self.swap = self.swap.loc[self.swap['swap_date'] == self.swap['str_date'], :]
         # industry 为统计用数据
         measure = 'industry'
         self.industry = influx.getDataMultiprocess(DB, measure, start, end, ['code', indu_field])
@@ -160,8 +162,8 @@ class BacktestEngine:
                                 untradeable.pop(code)
             # -------------------------------------------------------------------------------
             # 处理 吸收合并
-            day_swap = self.swap.loc[self.swap.index == trade_day, :].copy()
-            day_swap = day_swap.loc[day_swap['code'].isin(self.stk_portfolio.stk_positions.keys())]
+            day_swap = self.swap.loc[self.swap['code'].isin(self.stk_portfolio.stk_positions.keys()) &
+                                     (self.swap.index == trade_day), :].copy()
             if not day_swap.empty:
                 for date, row in day_swap.iterrows():
                     swap_price = self.stk_portfolio.stk_positions[row['code']]['price'] / row['swap_ratio']
@@ -186,8 +188,6 @@ class BacktestEngine:
                 day_mkt_with_weight.index.isin(self.stk_portfolio.stk_positions.keys()) &
                 (day_mkt_with_weight['status'] == '停牌'), :].index.values
             suspend_stk_dict[trade_day] = suspend_stks_in_pos
-            # 记录 持仓
-            positions_dict[trade_day] = copy.deepcopy(self.stk_portfolio.stk_positions)
             # 记录 benchmark value
             # 记录 portfolio value
             # 记录 accum_alpha
@@ -198,10 +198,12 @@ class BacktestEngine:
                 {'Balance': balance, 'StockValue': stk_value, 'TotalValue': total_value,
                  'DelistAmount': delist_amount, 'SuspendStk': len(suspend_stks_in_pos),
                  'BenchmarkValue': benchmark_value, 'AccumAlpha': accum_alpha}
-            self.logger.info(' \n -Balance: %f \n -StockValue: %f \n -TotalValue %f \n -DelistAmount: %f \n '
+            self.logger.info(' \n -Balance: %f \n -StockValue: %f \n -TotalValue %f \n -DelistAmount: %f \n'
                              ' -SuspendStk: %i \n -BenchmarkValue: %f \n -AccumAlpha: %f'
                              % (balance, stk_value, total_value, delist_amount, len(suspend_stks_in_pos),
                                 benchmark_value, accum_alpha))
+            # 记录 持仓
+            positions_dict[trade_day] = copy.deepcopy(self.stk_portfolio.stk_positions)
         # 输出交易记录
         transactions = pd.DataFrame(self.stk_portfolio.transactions.
                                     reshape(int(self.stk_portfolio.transactions.shape[0]/8), 8),
@@ -225,14 +227,14 @@ class BacktestEngine:
         portfolio_value = pd.DataFrame(portfolio_value_dict).T
         filename = self.dir + 'Value_{0}.csv'.format(self.save_name)
         portfolio_value.to_csv(filename, encoding='gbk')
-        print('Backtest %s finish! Time used: ', datetime.datetime.now() - backtest_starttime)
+        print('Backtest finish! Time used: ', datetime.datetime.now() - backtest_starttime)
         return portfolio_value
 
 
 if __name__ == '__main__':
     i = influxdbData()
-    weight = i.getDataMultiprocess('DailyMarket_Gus', 'index_weight', 20140901, 20160202)
+    weight = i.getDataMultiprocess('DailyMarket_Gus', 'index_weight', 20100101, 20200401)
     weight = weight.loc[weight['index_code'] == '000300.SH', ['code', 'weight']]
     print('Weight_loaded')
     QE = BacktestEngine(stock_capital=5000000, save_name='test', logger_lvl=logging.INFO)
-    QE.run(weight, 20150101, 20160101, 5, 300)
+    QE.run(weight, 20100101, 20200401, 5, 300)
