@@ -151,11 +151,10 @@ class DataProcess:
     # 市值行业中性化: 因子先去极值标准化，ln市值标准化，行业变换哑变量，回归完取残差
     # 数据中不能有nan，否则答案全为nan
     # 返回的date在columns里
-    def neutralize(factor_data, factor_field, industry_dummies, size_data, size_field='ln_market_cap', n_process=5):
+    def neutralize(factor_data, factor_field, industry_dummies, size_data, n_process=5):
         industry_dummies.index.names = ['date']
         factor_data.index.names = ['date']
         size_data.index.names = ['date']
-        size_data.rename(columns={size_field: 'size'}, inplace=True)
         factor = factor_data.reset_index().loc[:, ['date', 'code', factor_field]].copy()
         industry = industry_dummies.reset_index()
         size = size_data.reset_index().loc[:, ['date', 'code', 'size']].copy()
