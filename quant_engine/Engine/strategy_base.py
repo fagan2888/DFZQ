@@ -4,6 +4,7 @@ import numpy as np
 from rdf_data import rdf_data
 from influxdb_data import influxdbData
 from data_process import DataProcess
+from joblib import Parallel, delayed, parallel_backend
 import logging
 import os.path
 
@@ -38,6 +39,7 @@ class StrategyBase:
     # 行情信息为全市场，以免吸收合并出现没有行情的情况
     # data_prepare 所生成的所有数据，date都是index
     def data_prepare(self):
+        # =============================================================================
         # --------------------------------load data------------------------------------
         # market data
         self.mkt_data = self.influx.getDataMultiprocess(self.mkt_db, self.mkt_measure, self.start, self.end)
@@ -58,18 +60,21 @@ class StrategyBase:
         # size
         self.size_data = \
             self.influx.getDataMultiprocess(self.factor_db, 'Size', self.start, self.end, ['code', self.size_field])
+        self.size_data.rename(columns={self.size_field: 'size'}, inplace=True)
         self.size_data.index.names = ['date']
         # risk_exposure
         self.risk_exp = self.influx.getDataMultiprocess(self.factor_db, self.risk_exp_measure, self.start, self.end)
         self.risk_exp.index.names = ['date']
         # risk cov
         self.risk_cov = self.influx.getDataMultiprocess(self.factor_db, self.risk_cov_measure, self.start, self.end)
+        self.risk_cov.drop('code', axis=1, inplace=True)
         self.risk_cov.index.names = ['date']
         # specific risk
         self.spec_risk = self.influx.getDataMultiprocess(self.factor_db, self.spec_risk_measure, self.start, self.end)
         self.spec_risk.index.names = ['date']
         print('Raw Data loaded...')
-        # ----------------剔除没有行业或者状态为停牌(没有状态)或为st的股票-----------------
+        # ========================================================================
+        # ----------------------select codes in select range----------------------
         # 过滤 select range内 的票
         if self.select_range == 300:
             self.code_range = self.idx_wgt_data.loc[self.idx_wgt_data['index_code'] == '000300.SH', ['code']].copy()
@@ -90,25 +95,34 @@ class StrategyBase:
         st = self.st_data.copy().reset_index()
         self.code_range = pd.merge(self.code_range, st, how='left', on=['date', 'code'])
         self.code_range = self.code_range.loc[pd.isnull(self.code_range['isST']), ['date', 'code']]
-        # 过滤没有行业的票
+        # 过滤 没有行业 的票
         indu = self.industry_data.copy().reset_index()
         self.code_range = pd.merge(self.code_range, indu, how='left', on=['date', 'code'])
         self.code_range = self.code_range.loc[pd.notnull(self.code_range['industry']), :]
+        # 过滤 没有风险因子 的票
+        self.code_range = pd.merge(self.code_range, self.size_data.reset_index(), how='inner', on=['date', 'code'])
+        self.code_range = pd.merge(self.code_range, self.risk_exp.reset_index(), how='inner', on=['date', 'code'])
+        self.code_range = pd.merge(self.code_range, self.spec_risk.reset_index(), how='inner', on=['date', 'code'])
+        self.code_range = self.code_range.loc[:, ['date', 'code', 'industry']]
         self.code_range.set_index('date', inplace=True)
+        # ========================================================================
+        # -------------------indu dummies in select range-------------------------
         self.industry_dummies = DataProcess.get_industry_dummies(self.code_range, 'industry')
         self.industry_dummies.index.names = ['date']
+        # ----------------------z size in select range----------------------------
+        size_in_range = pd.merge(self.code_range.reset_index(), self.size_data.reset_index(),
+                                 how='inner', on=['date', 'code'])
+        dates = self.size_data['date'].unique()
+        split_dates = np.array_split(dates, self.n_jobs)
+        with parallel_backend('multiprocessing', n_jobs=self.n_jobs):
+            parallel_res = Parallel()(delayed(DataProcess.JOB_cross_section_Z_score)
+                                      (size_in_range, 'size', dates) for dates in split_dates)
+        self.z_size = pd.concat(parallel_res)
         # ----------------------benchmark_stock_weight----------------------------
         benchmark_code_dict = {50: '000016.SH', 300: '000300.SH', 500: '000905.SH'}
         self.benchmark_code = benchmark_code_dict[self.benchmark]
         self.bm_stk_wgt = self.idx_wgt_data.loc[self.idx_wgt_data['index_code'] == self.benchmark_code,
                                                 ['code', 'weight']].copy()
-        # --------------------benchmark_industry_weight---------------------------
-        self.bm_indu_wgt = pd.merge(self.bm_stk_wgt.reset_index(), self.industry_data.reset_index(),
-                                    how='inner', on=['date', 'code'])
-        self.bm_indu_wgt = self.bm_indu_wgt.groupby(['date', 'industry'])['weight'].sum()
-        self.bm_indu_wgt = self.bm_indu_wgt.reset_index().set_index('date')
-        print('All mkt data is ready!')
-        print('-' * 30)
 
     def process_factor(self, measure, factor, direction, if_fillna=True):
         factor_df = self.influx.getDataMultiprocess(self.factor_db, measure, self.start, self.end, ['code', factor])
@@ -116,13 +130,12 @@ class StrategyBase:
         factor_df.reset_index(inplace=True)
         if direction == -1:
             factor_df[factor] = factor_df[factor] * -1
-        code_range = self.code_range.copy().reset_index()
         # 缺失的因子用行业中位数代
         if if_fillna:
-            factor_df = pd.merge(factor_df, code_range, how='right', on=['date', 'code'])
+            factor_df = pd.merge(factor_df, self.code_range.reset_index(), how='right', on=['date', 'code'])
             factor_df[factor] = factor_df.groupby(['date', 'industry'])[factor].apply(lambda x: x.fillna(x.median()))
         else:
-            factor_df = pd.merge(factor_df, code_range, how='inner', on=['date', 'code'])
+            factor_df = pd.merge(factor_df, self.code_range.reset_index(), how='inner', on=['date', 'code'])
         factor_df.set_index('date', inplace=True)
         industry_dummies = self.industry_dummies.copy()
         size_data = self.size_data.copy()
