@@ -121,8 +121,8 @@ class StrategyBase:
         # ----------------------benchmark_stock_weight----------------------------
         benchmark_code_dict = {50: '000016.SH', 300: '000300.SH', 500: '000905.SH'}
         self.benchmark_code = benchmark_code_dict[self.benchmark]
-        self.bm_stk_wgt = self.idx_wgt_data.loc[self.idx_wgt_data['index_code'] == self.benchmark_code,
-                                                ['code', 'weight']].copy()
+        self.bm_stk_wgt = self.idx_wgt_data.loc[
+            self.idx_wgt_data['index_code'] == self.benchmark_code, ['code', 'weight']].copy()
 
     def process_factor(self, measure, factor, direction, if_fillna=True):
         factor_df = self.influx.getDataMultiprocess(self.factor_db, measure, self.start, self.end, ['code', factor])
