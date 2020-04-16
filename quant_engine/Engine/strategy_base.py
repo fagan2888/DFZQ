@@ -118,6 +118,7 @@ class StrategyBase:
             parallel_res = Parallel()(delayed(DataProcess.JOB_cross_section_Z_score)
                                       (size_in_range, 'size', dates) for dates in split_dates)
         self.z_size = pd.concat(parallel_res)
+        self.z_size.set_index('date', inplace=True)
         # ----------------------benchmark_stock_weight----------------------------
         benchmark_code_dict = {50: '000016.SH', 300: '000300.SH', 500: '000905.SH'}
         self.benchmark_code = benchmark_code_dict[self.benchmark]
