@@ -28,9 +28,14 @@ class index_weight:
         miss_dates = set(calendar) - set(weight_50.index.unique())
         if miss_dates:
             miss_dates = pd.DatetimeIndex(miss_dates).strftime('%Y%m%d')
-            query = "select TRADE_DT,S_INFO_WINDCODE,S_CON_WINDCODE,weight " \
-                    "from wind_filesync.AIndexSSE50Weight " \
-                    "where TRADE_DT in " + str(tuple(miss_dates))
+            if miss_dates.shape[0] == 1:
+                query = "select TRADE_DT,S_INFO_WINDCODE,S_CON_WINDCODE,weight " \
+                        "from wind_filesync.AIndexSSE50Weight " \
+                        "where TRADE_DT = {0}".format(miss_dates[0])
+            else:
+                query = "select TRADE_DT,S_INFO_WINDCODE,S_CON_WINDCODE,weight " \
+                        "from wind_filesync.AIndexSSE50Weight " \
+                        "where TRADE_DT in " + str(tuple(miss_dates))
             self.rdf.curs.execute(query)
             miss_df = pd.DataFrame(self.rdf.curs.fetchall(), columns=['date', 'index_code', 'code', 'weight'])
             miss_df['date'] = pd.to_datetime(miss_df['date'])
@@ -44,9 +49,14 @@ class index_weight:
             dates_before_miss = {}
             for d in miss_dates:
                 dates_before_miss[calendar[calendar < d].iloc[-1].strftime('%Y%m%d')] = d.strftime('%Y%m%d')
-            query = "select TRADE_DT,S_INFO_WINDCODE,S_CON_WINDCODE,i_weight " \
-                    "from wind_filesync.AIndexHS300Weight " \
-                    "where TRADE_DT in " + str(tuple(dates_before_miss.keys()))
+            if len(dates_before_miss) == 1:
+                query = "select TRADE_DT,S_INFO_WINDCODE,S_CON_WINDCODE,i_weight " \
+                        "from wind_filesync.AIndexHS300Weight " \
+                        "where TRADE_DT = {0}".format(list(dates_before_miss.keys())[0])
+            else:
+                query = "select TRADE_DT,S_INFO_WINDCODE,S_CON_WINDCODE,i_weight " \
+                        "from wind_filesync.AIndexHS300Weight " \
+                        "where TRADE_DT in " + str(tuple(dates_before_miss.keys()))
             self.rdf.curs.execute(query)
             miss_df = pd.DataFrame(self.rdf.curs.fetchall(), columns=['last_date', 'index_code', 'code', 'weight'])
             miss_df['date'] = miss_df['last_date'].map(dates_before_miss)
@@ -60,9 +70,14 @@ class index_weight:
         miss_dates = set(calendar) - set(weight_500.index.unique())
         if miss_dates:
             miss_dates = pd.DatetimeIndex(miss_dates).strftime('%Y%m%d')
-            query = "select TRADE_DT,S_INFO_WINDCODE,S_CON_WINDCODE,weight " \
-                    "from wind_filesync.AIndexCSI500Weight " \
-                    "where TRADE_DT in " + str(tuple(miss_dates))
+            if miss_dates.shape[0] == 1:
+                query = "select TRADE_DT,S_INFO_WINDCODE,S_CON_WINDCODE,weight " \
+                        "from wind_filesync.AIndexCSI500Weight " \
+                        "where TRADE_DT = {0}".format(miss_dates[0])
+            else:
+                query = "select TRADE_DT,S_INFO_WINDCODE,S_CON_WINDCODE,weight " \
+                        "from wind_filesync.AIndexCSI500Weight " \
+                        "where TRADE_DT in " + str(tuple(miss_dates))
             self.rdf.curs.execute(query)
             miss_df = pd.DataFrame(self.rdf.curs.fetchall(), columns=['date', 'index_code', 'code', 'weight'])
             miss_df['date'] = pd.to_datetime(miss_df['date'])
