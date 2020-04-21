@@ -45,6 +45,7 @@ class BacktestEngine:
         measure = 'exright'
         self.exright = influx.getDataMultiprocess(DB, measure, start, end)
         self.exright.index.names = ['date']
+        self.exright = self.exright.fillna(0)
         measure = 'swap'
         self.swap = influx.getDataMultiprocess(DB, measure, start, end)
         self.swap.index.names = ['date']
@@ -234,7 +235,7 @@ class BacktestEngine:
 if __name__ == '__main__':
     i = influxdbData()
     weight = i.getDataMultiprocess('DailyMarket_Gus', 'index_weight', 20100101, 20200401)
-    weight = weight.loc[weight['index_code'] == '000300.SH', ['code', 'weight']]
+    weight = weight.loc[weight['index_code'] == '000905.SH', ['code', 'weight']]
     print('Weight_loaded')
-    QE = BacktestEngine(stock_capital=5000000, save_name='test', logger_lvl=logging.INFO)
-    QE.run(weight, 20100101, 20200401, 5, 300)
+    QE = BacktestEngine(stock_capital=5000000, save_name='copy_500', logger_lvl=logging.INFO)
+    QE.run(weight, 20100101, 20200401, 1, 500)
