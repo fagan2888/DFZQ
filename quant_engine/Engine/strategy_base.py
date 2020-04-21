@@ -57,6 +57,7 @@ class StrategyBase:
                                                              self.start, self.end, ['code', self.industry])
         self.industry_data.rename(columns={self.industry: 'industry'}, inplace=True)
         self.industry_data.index.names = ['date']
+        print('-market related data loaded...')
         # size
         self.size_data = \
             self.influx.getDataMultiprocess(self.factor_db, 'Size', self.start, self.end, ['code', self.size_field])
@@ -67,12 +68,11 @@ class StrategyBase:
         self.risk_exp.index.names = ['date']
         # risk cov
         self.risk_cov = self.influx.getDataMultiprocess(self.factor_db, self.risk_cov_measure, self.start, self.end)
-        self.risk_cov.drop('code', axis=1, inplace=True)
         self.risk_cov.index.names = ['date']
         # specific risk
         self.spec_risk = self.influx.getDataMultiprocess(self.factor_db, self.spec_risk_measure, self.start, self.end)
         self.spec_risk.index.names = ['date']
-        print('Raw Data loaded...')
+        print('-risk data loaded...')
         # ========================================================================
         # ----------------------select codes in select range----------------------
         # 过滤 select range内 的票
@@ -112,18 +112,22 @@ class StrategyBase:
         # ----------------------z size in select range----------------------------
         size_in_range = pd.merge(self.code_range.reset_index(), self.size_data.reset_index(),
                                  how='inner', on=['date', 'code'])
-        dates = self.size_data['date'].unique()
+        dates = size_in_range['date'].unique()
         split_dates = np.array_split(dates, self.n_jobs)
         with parallel_backend('multiprocessing', n_jobs=self.n_jobs):
             parallel_res = Parallel()(delayed(DataProcess.JOB_cross_section_Z_score)
                                       (size_in_range, 'size', dates) for dates in split_dates)
         self.z_size = pd.concat(parallel_res)
         self.z_size.set_index('date', inplace=True)
-        # ----------------------benchmark_stock_weight----------------------------
+        # -------------------------benchmark_weight-------------------------------
         benchmark_code_dict = {50: '000016.SH', 300: '000300.SH', 500: '000905.SH'}
         self.benchmark_code = benchmark_code_dict[self.benchmark]
         self.bm_stk_wgt = self.idx_wgt_data.loc[
             self.idx_wgt_data['index_code'] == self.benchmark_code, ['code', 'weight']].copy()
+        self.bm_indu_wgt = pd.merge(self.bm_stk_wgt.reset_index(), self.industry_data.reset_index(),
+                                    how='inner', on=['date', 'code'])
+        self.bm_indu_wgt = self.bm_indu_wgt.groupby(['date', 'industry'])['weight'].sum()
+        self.bm_indu_wgt = self.bm_indu_wgt.reset_index().set_index('date')
 
     def process_factor(self, measure, factor, direction, if_fillna=True):
         factor_df = self.influx.getDataMultiprocess(self.factor_db, measure, self.start, self.end, ['code', factor])
@@ -142,7 +146,7 @@ class StrategyBase:
         size_data = self.size_data.copy()
         # 进行remove outlier, z score和中性化
         factor_df = \
-            DataProcess.neutralize(factor_df, factor, industry_dummies, size_data, self.size_field, self.n_jobs)
+            DataProcess.neutralize(factor_df, factor, industry_dummies, size_data, self.n_jobs)
         return factor_df
 
     def initialize_strategy(self, start, end, benchmark, select_range, industry, size_field):
