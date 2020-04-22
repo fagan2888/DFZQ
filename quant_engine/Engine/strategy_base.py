@@ -49,6 +49,11 @@ class StrategyBase:
         # index weight
         self.idx_wgt_data = self.influx.getDataMultiprocess(self.mkt_db, self.idx_wgt_measure, self.start, self.end)
         self.idx_wgt_data.index.names = ['date']
+        # benchmark_weight
+        benchmark_code_dict = {50: '000016.SH', 300: '000300.SH', 500: '000905.SH'}
+        self.benchmark_code = benchmark_code_dict[self.benchmark]
+        self.bm_stk_wgt = self.idx_wgt_data.loc[
+            self.idx_wgt_data['index_code'] == self.benchmark_code, ['code', 'weight']].copy()
         # isST
         self.st_data = self.influx.getDataMultiprocess(self.mkt_db, self.st_measure, self.start, self.end)
         self.st_data.index.names = ['date']
@@ -57,6 +62,9 @@ class StrategyBase:
                                                              self.start, self.end, ['code', self.industry])
         self.industry_data.rename(columns={self.industry: 'industry'}, inplace=True)
         self.industry_data.index.names = ['date']
+        # industry dummies
+        self.industry_dummies = DataProcess.get_industry_dummies(self.industry_data, 'industry')
+        self.industry_dummies.index.names = ['date']
         print('-market related data loaded...')
         # size
         self.size_data = \
@@ -99,6 +107,7 @@ class StrategyBase:
         indu = self.industry_data.copy().reset_index()
         self.code_range = pd.merge(self.code_range, indu, how='left', on=['date', 'code'])
         self.code_range = self.code_range.loc[pd.notnull(self.code_range['industry']), :]
+        '''
         # 过滤 没有风险因子 的票
         self.code_range = pd.merge(self.code_range, self.size_data.reset_index(), how='inner', on=['date', 'code'])
         self.code_range = pd.merge(self.code_range, self.risk_exp.reset_index(), how='inner', on=['date', 'code'])
@@ -106,9 +115,7 @@ class StrategyBase:
         self.code_range = self.code_range.loc[:, ['date', 'code', 'industry']]
         self.code_range.set_index('date', inplace=True)
         # ========================================================================
-        # -------------------indu dummies in select range-------------------------
-        self.industry_dummies = DataProcess.get_industry_dummies(self.code_range, 'industry')
-        self.industry_dummies.index.names = ['date']
+        '''
         # ----------------------z size in select range----------------------------
         size_in_range = pd.merge(self.code_range.reset_index(), self.size_data.reset_index(),
                                  how='inner', on=['date', 'code'])
@@ -119,15 +126,6 @@ class StrategyBase:
                                       (size_in_range, 'size', dates) for dates in split_dates)
         self.z_size = pd.concat(parallel_res)
         self.z_size.set_index('date', inplace=True)
-        # -------------------------benchmark_weight-------------------------------
-        benchmark_code_dict = {50: '000016.SH', 300: '000300.SH', 500: '000905.SH'}
-        self.benchmark_code = benchmark_code_dict[self.benchmark]
-        self.bm_stk_wgt = self.idx_wgt_data.loc[
-            self.idx_wgt_data['index_code'] == self.benchmark_code, ['code', 'weight']].copy()
-        self.bm_indu_wgt = pd.merge(self.bm_stk_wgt.reset_index(), self.industry_data.reset_index(),
-                                    how='inner', on=['date', 'code'])
-        self.bm_indu_wgt = self.bm_indu_wgt.groupby(['date', 'industry'])['weight'].sum()
-        self.bm_indu_wgt = self.bm_indu_wgt.reset_index().set_index('date')
 
     def process_factor(self, measure, factor, direction, if_fillna=True):
         factor_df = self.influx.getDataMultiprocess(self.factor_db, measure, self.start, self.end, ['code', factor])
@@ -150,7 +148,7 @@ class StrategyBase:
         return factor_df
 
     def initialize_strategy(self, start, end, benchmark, select_range, industry, size_field):
-        self.n_jobs = global_constant.N_STRATEGY
+        self.n_jobs = global_constant.N_JOBS
         self.start = start
         self.end = end
         self.benchmark = benchmark
