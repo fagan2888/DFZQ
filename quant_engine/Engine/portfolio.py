@@ -19,7 +19,7 @@ class stock_portfolio:
         self.transactions = np.array([])
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(level=logging.INFO)
-        dir = global_constant.ROOT_DIR + '{0}/'.format(save_name)
+        dir = global_constant.ROOT_DIR + 'Transaction_Log/{0}/'.format(save_name)
         if os.path.exists(dir):
             pass
         else:

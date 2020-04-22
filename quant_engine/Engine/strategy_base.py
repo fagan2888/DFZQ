@@ -106,26 +106,16 @@ class StrategyBase:
         # 过滤 没有行业 的票
         indu = self.industry_data.copy().reset_index()
         self.code_range = pd.merge(self.code_range, indu, how='left', on=['date', 'code'])
-        self.code_range = self.code_range.loc[pd.notnull(self.code_range['industry']), :]
-        '''
+        self.code_range = self.code_range.dropna(subset=['industry'])
         # 过滤 没有风险因子 的票
         self.code_range = pd.merge(self.code_range, self.size_data.reset_index(), how='inner', on=['date', 'code'])
+        '''
         self.code_range = pd.merge(self.code_range, self.risk_exp.reset_index(), how='inner', on=['date', 'code'])
         self.code_range = pd.merge(self.code_range, self.spec_risk.reset_index(), how='inner', on=['date', 'code'])
+        '''
         self.code_range = self.code_range.loc[:, ['date', 'code', 'industry']]
         self.code_range.set_index('date', inplace=True)
         # ========================================================================
-        '''
-        # ----------------------z size in select range----------------------------
-        size_in_range = pd.merge(self.code_range.reset_index(), self.size_data.reset_index(),
-                                 how='inner', on=['date', 'code'])
-        dates = size_in_range['date'].unique()
-        split_dates = np.array_split(dates, self.n_jobs)
-        with parallel_backend('multiprocessing', n_jobs=self.n_jobs):
-            parallel_res = Parallel()(delayed(DataProcess.JOB_cross_section_Z_score)
-                                      (size_in_range, 'size', dates) for dates in split_dates)
-        self.z_size = pd.concat(parallel_res)
-        self.z_size.set_index('date', inplace=True)
 
     def process_factor(self, measure, factor, direction, if_fillna=True):
         factor_df = self.influx.getDataMultiprocess(self.factor_db, measure, self.start, self.end, ['code', factor])
