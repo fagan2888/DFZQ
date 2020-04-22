@@ -19,6 +19,7 @@
       <sourceFolder url="file://$MODULE_DIR$/Strategy/Alpha_version_3" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/Factor/Analyst" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/Factor/Risk" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/Strategy/Alpha_version_4" isTestSource="false" />
     </content>
     <orderEntry type="jdk" jdkName="Python 3.6 (quant_engine)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />

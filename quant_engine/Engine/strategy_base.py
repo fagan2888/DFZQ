@@ -138,7 +138,7 @@ class StrategyBase:
         return factor_df
 
     def initialize_strategy(self, start, end, benchmark, select_range, industry, size_field):
-        self.n_jobs = global_constant.N_JOBS
+        self.n_jobs = global_constant.N_STRATEGY
         self.start = start
         self.end = end
         self.benchmark = benchmark
