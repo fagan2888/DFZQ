@@ -173,10 +173,11 @@ class alpha_version_3(StrategyBase):
             if prob.status in ('optimal', 'optimal_inaccurate'):
                 opti_weight = np.array(solve_weight.value)
             else:
+                print(date)
                 print(prob.status)
                 raise ValueError('优化失败')
             base_weight['weight'] = np.round(base_weight['base_weight'].values + opti_weight, 3)
-            base_weight = base_weight.loc[:, ['date', 'code', 'weight']]
+            base_weight = base_weight.loc[base_weight['weight'] > 0, ['date', 'code', 'weight']]
             dfs.append(base_weight)
         res_df = pd.concat(dfs)
         return res_df
