@@ -57,6 +57,18 @@ class alpha_version_3(StrategyBase):
         range_z_size.set_index('date', inplace=True)
         return range_z_size
 
+    def get_base_weight(self, overall_factor, z_size):
+        base_weight = pd.merge(overall_factor.reset_index(), self.bm_stk_wgt.reset_index(),
+                               how='outer', on=['date', 'code'])
+        base_weight['base_weight'] = base_weight['weight'].fillna(0)
+        indus = self.industry_dummies.columns.difference(['code'])
+        base_weight = pd.merge(base_weight, self.industry_dummies.reset_index(), how='left', on=['date', 'code'])
+        base_weight[indus] = base_weight[indus].fillna(0)
+        base_weight['sum_dummies'] = base_weight[indus].sum(axis=1)
+        base_weight = pd.merge(base_weight, z_size.reset_index(), how='left', on=['date', 'code'])
+        base_weight.set_index('date', inplace=True)
+        return base_weight
+
     def get_factors(self, measure, factor, direction, if_fillna, weight):
         print('-Factor: %s is processing...' % factor)
         factor_df = self.process_factor(measure, factor, direction, if_fillna)
@@ -90,41 +102,29 @@ class alpha_version_3(StrategyBase):
         return merged_df
 
     @staticmethod
-    def JOB_opti_weight(factor, dates, adj_interval, opt_option, target_sigma, risk_aversion, mv_max_exp,
-                        mv_min_exp, bm_stk_wgt, indu_dummies, z_size, risk_exp, risk_cov, spec_risk):
+    def JOB_opti_weight(base_weight, dates, adj_interval, opt_option, target_sigma, risk_aversion, mv_max_exp,
+                        mv_min_exp, risk_exp, risk_cov, spec_risk):
         dfs = []
         fail_dates = []
+        indus = base_weight.columns.difference(['code', 'overall', 'weight', 'base_weight', 'size', 'sum_dummies'])
         for date in dates:
-            day_factor = factor.loc[date, :].sort_values('code').copy()
-            # -------------------------权重设置--------------------------
-            # 设置基准权重
-            day_bm_stk_wgt = bm_stk_wgt.loc[date, :].sort_values('code').copy()
-            base_weight = pd.merge(day_factor.reset_index(), day_bm_stk_wgt.reset_index(),
-                                   how='outer', on=['date', 'code'])
-            base_weight['base_weight'] = base_weight['weight'].fillna(0).values
-            day_indu_dummies = indu_dummies.loc[date, :].copy()
-            indus = day_indu_dummies.columns.difference(['code'])
-            base_weight = pd.merge(base_weight, day_indu_dummies, how='left', on=['date', 'code'])
-            # 过滤出没有在列表中，但没有行业的stk
-            base_weight[indus] = base_weight[indus].fillna(0)
-            base_weight['sum_dummies'] = base_weight[indus].sum(axis=1)
-            z_size_dict = dict(zip(z_size.loc[date, 'code'].values, z_size.loc[date, 'size'].values))
-            base_weight['z_size'] = base_weight['code'].map(z_size_dict)
+            day_base_weight = base_weight.loc[date, :].copy()
             # get array
-            codes = base_weight['code'].values
+            codes = day_base_weight['code'].values
+            array_overall = day_base_weight['overall'].fillna(0).values
+            array_base_weight = day_base_weight['base_weight'].values
+            array_z_size = day_base_weight['size'].fillna(0).values
+            array_indu_dummies = day_base_weight[indus].values
+            # -------------------------权重设置--------------------------
             # 设置权重上下限
-            #   基准权重大于1的话 可以到 2 + 1.5base_weight
+            #   基准权重大于1的话 可以到 2 + 1.5 * base_weight
             #   基准权重小于1的话 只能到 2
             #   没有overall 或 z_size 或 industry 因子值的 总权重为0
-            conditions = [pd.isnull(base_weight['overall']).values | pd.isnull(base_weight['z_size']).values |
-                          base_weight['sum_dummies'].values == 0,
-                          base_weight['base_weight'].values <= 1]
-            choices = [-1 * base_weight['base_weight'].values, 2 - base_weight['base_weight'].values]
-            array_upbound = np.select(conditions, choices, default=2 + 0.5 * base_weight['base_weight'].values)
-            array_lowbound = -1 * base_weight['base_weight'].values
-            array_overall = base_weight['overall'].fillna(0).values
-            array_z_size = base_weight['z_size'].fillna(0).values
-            array_indu_dummies = day_indu_dummies.loc[codes, indus].values
+            conditions = [pd.isnull(day_base_weight['overall']).values | pd.isnull(day_base_weight['size']).values |
+                          (day_base_weight['sum_dummies'].values == 0), day_base_weight['base_weight'].values <= 1]
+            choices = [-1 * day_base_weight['base_weight'].values, 2 - day_base_weight['base_weight'].values]
+            array_upbound = np.select(conditions, choices, default=2 + 0.5 * day_base_weight['base_weight'].values)
+            array_lowbound = -1 * day_base_weight['base_weight'].values
             # ----------------------风险因子设置------------------------
             day_risk_exp = risk_exp.loc[date, :].set_index('code')
             risk_factors = day_risk_exp.columns
@@ -151,7 +151,7 @@ class alpha_version_3(StrategyBase):
             overall_exp = array_overall * solve_weight
             if opt_option == 1:
                 obj = overall_exp
-                sigma = target_sigma / np.sqrt(250/adj_interval)
+                sigma = target_sigma / np.sqrt(250 / adj_interval)
                 cons.append(risk_variance <= sigma ** 2)
             else:
                 obj = overall_exp - risk_aversion * risk_variance
@@ -182,11 +182,11 @@ class alpha_version_3(StrategyBase):
                 print('%s OPTI ERROR!\n -status: %s' % (date, prob.status))
                 fail_dates.append(date)
                 continue
-            base_weight['weight'] = np.round(base_weight['base_weight'].values + opti_weight, 3)
-            base_weight = base_weight.loc[base_weight['weight'] > 0, ['date', 'code', 'weight']]
+            day_base_weight['weight'] = np.round(array_base_weight + opti_weight, 3)
+            day_base_weight = day_base_weight.loc[day_base_weight['weight'] > 0, ['date', 'code', 'weight']]
             print('%s OPTI finish \n -n_codes: %i  n_selections: %i' %
-                  (date, day_factor.shape[0], base_weight.shape[0]))
-            dfs.append(base_weight)
+                  (date, codes.shape[0], day_base_weight.shape[0]))
+            dfs.append(day_base_weight)
         res_df = pd.concat(dfs)
         return [res_df, fail_dates]
 
@@ -215,16 +215,18 @@ class alpha_version_3(StrategyBase):
         self.initialize_strategy()
         range_z_size = self.get_z_size()
         overall_factor = self.factors_combination()
+        # get base weight
+        base_weight = self.get_base_weight(overall_factor, range_z_size)
         # get target weight
-        dates = overall_factor.index.unique().strftime("%Y%m%d")
+        dates = base_weight.index.unique().strftime("%Y%m%d")
         split_dates = np.array_split(dates, self.n_jobs)
         with parallel_backend('multiprocessing', n_jobs=self.n_jobs):
             parallel_res = \
                 Parallel()(delayed(alpha_version_3.JOB_opti_weight)
-                           (overall_factor, dates, self.adj_interval, self.opt_option, self.target_sigma,
-                            self.risk_aversion, self.mv_max_exp, self.mv_min_exp, self.bm_stk_wgt,
-                            self.industry_dummies, range_z_size, self.risk_exp, self.risk_cov, self.spec_risk)
-                           for dates in split_dates)
+                           (base_weight, dates, self.adj_interval, self.opt_option, self.target_sigma,
+                            self.risk_aversion, self.mv_max_exp, self.mv_min_exp, self.risk_exp,
+                            self.risk_cov, self.spec_risk) for dates in split_dates)
+        # fill target weight
         parallel_dfs = []
         fail_dates = []
         for res in parallel_res:
@@ -245,7 +247,7 @@ class alpha_version_3(StrategyBase):
         bt_start = target_weight.index[0].strftime('%Y%m%d')
         bt_end = (target_weight.index[-1] - datetime.timedelta(days=1)).strftime('%Y%m%d')
         QE.run(target_weight, bt_start, bt_end, self.adj_interval, self.benchmark)
-        print('Time used:', datetime.datetime.now()-start_time)
+        print('Time used:', datetime.datetime.now() - start_time)
 
 
 if __name__ == '__main__':

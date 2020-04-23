@@ -2,7 +2,7 @@
 
 STRATEGY_CONFIG = \
     {
-        'start': 20150101,
+        'start': 20140101,
         'end': 20181231,
         'benchmark': 300,
         'select_range': None,
