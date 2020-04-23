@@ -109,10 +109,8 @@ class StrategyBase:
         self.code_range = self.code_range.dropna(subset=['industry'])
         # 过滤 没有风险因子 的票
         self.code_range = pd.merge(self.code_range, self.size_data.reset_index(), how='inner', on=['date', 'code'])
-        '''
         self.code_range = pd.merge(self.code_range, self.risk_exp.reset_index(), how='inner', on=['date', 'code'])
         self.code_range = pd.merge(self.code_range, self.spec_risk.reset_index(), how='inner', on=['date', 'code'])
-        '''
         self.code_range = self.code_range.loc[:, ['date', 'code', 'industry']]
         self.code_range.set_index('date', inplace=True)
         # ========================================================================

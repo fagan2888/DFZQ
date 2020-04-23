@@ -102,24 +102,29 @@ class alpha_version_3(StrategyBase):
             base_weight = pd.merge(day_factor.reset_index(), day_bm_stk_wgt.reset_index(),
                                    how='outer', on=['date', 'code'])
             base_weight['base_weight'] = base_weight['weight'].fillna(0).values
-            codes = base_weight['code'].values
+            day_indu_dummies = indu_dummies.loc[date, :].copy()
+            indus = day_indu_dummies.columns.difference(['code'])
+            base_weight = pd.merge(base_weight, day_indu_dummies, how='left', on=['date', 'code'])
+            # 过滤出没有在列表中，但没有行业的stk
+            base_weight[indus] = base_weight[indus].fillna(0)
+            base_weight['sum_dummies'] = base_weight[indus].sum(axis=1)
             z_size_dict = dict(zip(z_size.loc[date, 'code'].values, z_size.loc[date, 'size'].values))
             base_weight['z_size'] = base_weight['code'].map(z_size_dict)
+            # get array
+            codes = base_weight['code'].values
             # 设置权重上下限
-            #   基准权重大于1的话 可以到 2*base_weight
+            #   基准权重大于1的话 可以到 2 + 1.5base_weight
             #   基准权重小于1的话 只能到 2
-            #   没有overall或z_size因子值的 总权重为0
-            conditions = [pd.isnull(base_weight['overall']).values | pd.isnull(base_weight['z_size']).values,
+            #   没有overall 或 z_size 或 industry 因子值的 总权重为0
+            conditions = [pd.isnull(base_weight['overall']).values | pd.isnull(base_weight['z_size']).values |
+                          base_weight['sum_dummies'].values == 0,
                           base_weight['base_weight'].values <= 1]
             choices = [-1 * base_weight['base_weight'].values, 2 - base_weight['base_weight'].values]
-            array_upbound = np.select(conditions, choices, default=base_weight['base_weight'].values)
+            array_upbound = np.select(conditions, choices, default=2 + 0.5 * base_weight['base_weight'].values)
             array_lowbound = -1 * base_weight['base_weight'].values
             array_overall = base_weight['overall'].fillna(0).values
             array_z_size = base_weight['z_size'].fillna(0).values
-            # -----------------------哑变量设置-------------------------
-            day_indu_dummies = indu_dummies.loc[date, :].set_index('code')
-            array_indu_dummies = day_indu_dummies.loc[codes, :].values
-            indus = day_indu_dummies.columns
+            array_indu_dummies = day_indu_dummies.loc[codes, indus].values
             # ----------------------风险因子设置------------------------
             day_risk_exp = risk_exp.loc[date, :].set_index('code')
             risk_factors = day_risk_exp.columns
