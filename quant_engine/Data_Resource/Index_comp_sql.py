@@ -27,7 +27,9 @@ class IndexCompSQL:
         df = pd.DataFrame(cur.fetchall(), columns=['code', 'date', 'weight'])
         df['date'] = pd.to_datetime(df['date'])
         df.set_index('date', inplace=True)
-        df['code'] = df.apply(lambda row: row['code'] + '.SH' if row['code'][0] == '6' else row['code'] + '.SZ', axis=1)
+        if not df.empty:
+            df['code'] = df.apply(lambda row: row['code'] + '.SH' if row['code'][0] == '6' else row['code'] + '.SZ',
+                                  axis=1)
         return df
 
 

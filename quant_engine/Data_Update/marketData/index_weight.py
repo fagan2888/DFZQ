@@ -48,7 +48,10 @@ class index_weight:
         if miss_dates:
             dates_before_miss = {}
             for d in miss_dates:
-                dates_before_miss[calendar[calendar < d].iloc[-1].strftime('%Y%m%d')] = d.strftime('%Y%m%d')
+                if calendar[calendar < d].empty:
+                    pass
+                else:
+                    dates_before_miss[calendar[calendar < d].iloc[-1].strftime('%Y%m%d')] = d.strftime('%Y%m%d')
             if len(dates_before_miss) == 1:
                 query = "select TRADE_DT,S_INFO_WINDCODE,S_CON_WINDCODE,i_weight " \
                         "from wind_filesync.AIndexHS300Weight " \
