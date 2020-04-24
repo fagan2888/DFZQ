@@ -26,9 +26,7 @@ class alpha_version_3(StrategyBase):
         super().initialize_strategy(start, end, benchmark, select_range, industry, size_field)
         self.capital = STRATEGY_CONFIG['capital']
         self.adj_interval = STRATEGY_CONFIG['adj_interval']
-        self.opt_option = STRATEGY_CONFIG['opt_option']
         self.target_sigma = STRATEGY_CONFIG['target_sigma']
-        self.risk_aversion = STRATEGY_CONFIG['risk_aversion']
         self.mv_max_exp = STRATEGY_CONFIG['mv_max_exp']
         self.mv_min_exp = STRATEGY_CONFIG['mv_min_exp']
 
