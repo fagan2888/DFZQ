@@ -195,7 +195,7 @@ class alpha_version_3(StrategyBase):
     # 工具函数 当某天优化失败时，用前面最近一个优化成功的权重复制
     @staticmethod
     def JOB_fill_df(target_weight, dates):
-        idx = target_weight.index.unique()
+        idx = target_weight.index.unique().copy()
         fill_dfs = []
         for date in dates:
             if idx[idx < date].empty:
@@ -236,7 +236,6 @@ class alpha_version_3(StrategyBase):
             fail_dates.extend(res[1])
         target_weight = pd.concat(parallel_dfs)
         target_weight.set_index('date', inplace=True)
-        target_weight = target_weight.sort_index()
         split_fail_dates = np.array_split(fail_dates, self.n_jobs)
         with parallel_backend('multiprocessing', n_jobs=self.n_jobs):
             parallel_res = Parallel()(delayed(alpha_version_3.JOB_fill_df)
