@@ -29,6 +29,7 @@ class alpha_version_3(StrategyBase):
         self.target_sigma = STRATEGY_CONFIG['target_sigma']
         self.mv_max_exp = STRATEGY_CONFIG['mv_max_exp']
         self.mv_min_exp = STRATEGY_CONFIG['mv_min_exp']
+        self.n_codes = STRATEGY_CONFIG['n_codes']
 
     def get_factors(self, measure, factor, direction, if_fillna, weight):
         print('-Factor: %s is processing...' % factor)
@@ -87,9 +88,20 @@ class alpha_version_3(StrategyBase):
         range_z_size.set_index('date', inplace=True)
         return range_z_size
 
-    def get_base_weight(self, overall_factor, z_size):
-        trade_dates = self.bm_stk_wgt.reset_index()['date'].unique()
-        base_weight = pd.merge(overall_factor.reset_index(), self.bm_stk_wgt.reset_index(),
+    def get_next_bm_stk_wgt(self):
+        next_bm_stk_wgt = self.bm_stk_wgt.copy()
+        next_bm_stk_wgt['str_date'] = next_bm_stk_wgt.index.strftime('%Y%m%d')
+        former_dict = dict(zip(self.calendar[1:], self.calendar[:-1]))
+        next_bm_stk_wgt['former_date'] = next_bm_stk_wgt['str_date'].map(former_dict)
+        next_bm_stk_wgt = next_bm_stk_wgt.dropna(subset=['former_date'])
+        next_bm_stk_wgt['former_date'] = pd.to_datetime(next_bm_stk_wgt['former_date'])
+        next_bm_stk_wgt.set_index('former_date', inplace=True)
+        next_bm_stk_wgt.index.names = ['date']
+        return next_bm_stk_wgt
+
+    def get_base_weight(self, overall_factor, z_size, next_bm_stk_wgt):
+        trade_dates = next_bm_stk_wgt.reset_index()['date'].unique()
+        base_weight = pd.merge(overall_factor.reset_index(), next_bm_stk_wgt.reset_index(),
                                how='outer', on=['date', 'code'])
         base_weight['filled_overall'] = base_weight['overall'].fillna(0)
         # 需考虑到因子出现在不在交易日的情况
@@ -184,8 +196,8 @@ class alpha_version_3(StrategyBase):
                 print('%s OPTI ERROR!\n -status: %s' % (date, prob.status))
                 fail_dates.append(date)
                 continue
-            day_base_weight['target_weight'] = np.round(array_base_weight + opti_weight, 3)
-            day_base_weight = day_base_weight.loc[day_base_weight['target_weight'] > 0, ['code', 'target_weight']]
+            day_base_weight['weight'] = np.round(array_base_weight + opti_weight, 3)
+            day_base_weight = day_base_weight.loc[day_base_weight['weight'] > 0, ['code', 'weight']]
             print('%s OPTI finish \n -n_codes: %i  n_selections: %i' %
                   (date, array_codes.shape[0], day_base_weight.shape[0]))
             dfs.append(day_base_weight)
@@ -211,24 +223,46 @@ class alpha_version_3(StrategyBase):
         df = pd.concat(fill_dfs)
         return df
 
+    @staticmethod
+    def JOB_limit_n_stk(target_weight, dates, stk_count, n_codes, next_bm_stk_weight):
+        revise_dfs = []
+        for date in dates:
+            # 如果优化后选股数量大于限制，标配
+            if stk_count[date] > n_codes:
+                tmp = stk_count[stk_count.index < date].copy()
+                if tmp.empty:
+                    revise_dfs.append(next_bm_stk_weight.loc[date, :].copy())
+                else:
+                    former_date = tmp[tmp <= n_codes].index[-1]
+                    # 如果间隔 <= 10天，copy，否则 标配
+                    if (pd.to_datetime('date') - former_date).days <= 10:
+                        revise_dfs.append(target_weight.loc[former_date, :].copy())
+                    else:
+                        revise_dfs.append(next_bm_stk_weight.loc[date, :].copy())
+            else:
+                revise_dfs.append(target_weight.loc[date, :].copy())
+        df = pd.concat(revise_dfs)
+        return df
+
     def run(self):
         start_time = datetime.datetime.now()
-        # get data
+        # -----------------------------get data------------------------------
         self.initialize_strategy()
         range_z_size = self.get_z_size()
         overall_factor = self.factors_combination()
+        next_bm_stk_wgt = self.get_next_bm_stk_wgt()
         # get base weight
-        base_weight = self.get_base_weight(overall_factor, range_z_size)
+        base_weight = self.get_base_weight(overall_factor, range_z_size, next_bm_stk_wgt)
         # get target weight
         dates = base_weight.index.unique().strftime("%Y%m%d")
         split_dates = np.array_split(dates, self.n_jobs)
         with parallel_backend('multiprocessing', n_jobs=self.n_jobs):
             parallel_res = \
                 Parallel()(delayed(alpha_version_3.JOB_opti_weight)
-                           (base_weight, self.risk_cov, self.indus, self.risks ,dates, self.adj_interval,
+                           (base_weight, self.risk_cov, self.indus, self.risks, dates, self.adj_interval,
                             self.target_sigma, self.mv_max_exp, self.mv_min_exp)
                            for dates in split_dates)
-        # fill target weight
+        # ----------------------fill target weight--------------------------
         parallel_dfs = []
         fail_dates = []
         for res in parallel_res:
@@ -242,8 +276,18 @@ class alpha_version_3(StrategyBase):
                                           (target_weight, dates) for dates in split_fail_dates)
             tot_fill_df = pd.concat(parallel_res)
             target_weight = pd.concat([target_weight, tot_fill_df])
+        target_weight.to_csv(self.folder_dir + 'RAW_TARGET_WEIGHT.csv', encoding='gbk')
+        # ------------------------limit n_codes-----------------------------
+        stk_count = target_weight.groupby('date')['code'].count()
+        dates = target_weight.index.unique().strftime('%Y%m%d')
+        split_dates = np.array_split(dates, self.n_jobs)
+        with parallel_backend('multiprocessing', n_jobs=self.n_jobs):
+            parallel_res = Parallel()(delayed(alpha_version_3.JOB_limit_n_stk)
+                                      (target_weight, dates, stk_count, self.n_codes, next_bm_stk_wgt)
+                                      for dates in split_dates)
+        target_weight = pd.concat(parallel_res)
         target_weight.to_csv(self.folder_dir + 'TARGET_WEIGHT.csv', encoding='gbk')
-        # backtest
+        # --------------------------backtest--------------------------------
         QE = BacktestEngine(save_name=self.strategy_name, stock_capital=STRATEGY_CONFIG['capital'])
         bt_start = target_weight.index[0].strftime('%Y%m%d')
         bt_end = (target_weight.index[-1] - datetime.timedelta(days=1)).strftime('%Y%m%d')

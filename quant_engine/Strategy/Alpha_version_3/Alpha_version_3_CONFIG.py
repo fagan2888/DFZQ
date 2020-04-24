@@ -14,7 +14,8 @@ STRATEGY_CONFIG = \
         # 市值主动最大暴露
         'mv_max_exp': 0.3,
         # 市值主动最小暴露
-        'mv_min_exp': 0.2
+        'mv_min_exp': 0.2,
+        'n_codes': 250
     }
 
 CATEGORY_WEIGHT = \
