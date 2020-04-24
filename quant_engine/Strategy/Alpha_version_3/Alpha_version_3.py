@@ -230,6 +230,7 @@ class alpha_version_3(StrategyBase):
             # 如果优化后选股数量大于限制，标配
             if stk_count[date] > n_codes:
                 tmp = stk_count[stk_count.index < date].copy()
+                tmp = tmp[tmp <= n_codes]
                 if tmp.empty:
                     revise_dfs.append(next_bm_stk_weight.loc[date, :].copy())
                 else:
