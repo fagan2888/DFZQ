@@ -76,9 +76,12 @@ class StrategyBase:
         self.risk_exp.index.names = ['date']
         # risk cov
         self.risk_cov = self.influx.getDataMultiprocess(self.factor_db, self.risk_cov_measure, self.start, self.end)
+        cols = self.risk_cov.columns.difference(['code'])
+        self.risk_cov[cols] = self.risk_cov[cols] * 21 * 0.0001
         self.risk_cov.index.names = ['date']
         # specific risk
         self.spec_risk = self.influx.getDataMultiprocess(self.factor_db, self.spec_risk_measure, self.start, self.end)
+        self.spec_risk['specific_risk'] = self.spec_risk['specific_risk'] * np.sqrt(21) * 0.01
         self.spec_risk.index.names = ['date']
         print('-risk data loaded...')
         # ========================================================================
@@ -103,17 +106,6 @@ class StrategyBase:
         st = self.st_data.copy().reset_index()
         self.code_range = pd.merge(self.code_range, st, how='left', on=['date', 'code'])
         self.code_range = self.code_range.loc[pd.isnull(self.code_range['isST']), ['date', 'code']]
-        # 过滤 没有行业 的票
-        indu = self.industry_data.copy().reset_index()
-        self.code_range = pd.merge(self.code_range, indu, how='left', on=['date', 'code'])
-        self.code_range = self.code_range.dropna(subset=['industry'])
-        # 过滤 没有风险因子 的票
-        self.code_range = pd.merge(self.code_range, self.size_data.reset_index(), how='inner', on=['date', 'code'])
-        self.code_range = pd.merge(self.code_range, self.risk_exp.reset_index(), how='inner', on=['date', 'code'])
-        self.code_range = pd.merge(self.code_range, self.spec_risk.reset_index(), how='inner', on=['date', 'code'])
-        self.code_range = self.code_range.loc[:, ['date', 'code', 'industry']]
-        self.code_range.set_index('date', inplace=True)
-        # ========================================================================
 
     def process_factor(self, measure, factor, direction, if_fillna=True):
         factor_df = self.influx.getDataMultiprocess(self.factor_db, measure, self.start, self.end, ['code', factor])

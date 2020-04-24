@@ -10,12 +10,7 @@ STRATEGY_CONFIG = \
         'size_field': 'ln_market_cap',
         'capital': 100000000,
         'adj_interval': 5,
-        # 风险选项: 1将风险项加入约束 2将风险项放置在目标函数中
-        'opt_option': 1,
-        # 跟踪误差：仅在opt_option=1时生效
         'target_sigma': 0.05,
-        # 风险厌恶系数：仅在opt_option=2时生效
-        'risk_aversion': 20,
         # 市值主动最大暴露
         'mv_max_exp': 0.3,
         # 市值主动最小暴露
