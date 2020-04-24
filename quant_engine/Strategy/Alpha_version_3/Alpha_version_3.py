@@ -237,7 +237,11 @@ class alpha_version_3(StrategyBase):
                     former_date = tmp[tmp <= n_codes].index[-1]
                     # 如果间隔 <= 10天，copy，否则 标配
                     if (pd.to_datetime(date) - former_date).days <= 10:
-                        revise_dfs.append(target_weight.loc[former_date, :].copy())
+                        cp_df = target_weight.loc[former_date, :].copy()
+                        cp_df.reset_index()
+                        cp_df['date'] = pd.to_datetime(date)
+                        cp_df.set_index('date', inplace=True)
+                        revise_dfs.append(cp_df)
                     else:
                         revise_dfs.append(next_bm_stk_weight.loc[date, :].copy())
             else:
