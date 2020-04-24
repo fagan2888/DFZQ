@@ -106,6 +106,9 @@ class StrategyBase:
         st = self.st_data.copy().reset_index()
         self.code_range = pd.merge(self.code_range, st, how='left', on=['date', 'code'])
         self.code_range = self.code_range.loc[pd.isnull(self.code_range['isST']), ['date', 'code']]
+        # 组合 industry
+        self.code_range = pd.merge(self.code_range, self.industry_data.reset_index(), how='inner', on=['date', 'code'])
+        self.code_range.set_index('date')
 
     def process_factor(self, measure, factor, direction, if_fillna=True):
         factor_df = self.influx.getDataMultiprocess(self.factor_db, measure, self.start, self.end, ['code', factor])
