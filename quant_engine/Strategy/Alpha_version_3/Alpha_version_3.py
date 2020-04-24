@@ -235,12 +235,13 @@ class alpha_version_3(StrategyBase):
             parallel_dfs.append(res[0])
             fail_dates.extend(res[1])
         target_weight = pd.concat(parallel_dfs)
-        split_fail_dates = np.array_split(fail_dates, self.n_jobs)
-        with parallel_backend('multiprocessing', n_jobs=self.n_jobs):
-            parallel_res = Parallel()(delayed(alpha_version_3.JOB_fill_df)
-                                      (target_weight, dates) for dates in split_fail_dates)
-        tot_fill_df = pd.concat(parallel_res)
-        target_weight = pd.concat([target_weight, tot_fill_df])
+        if fail_dates:
+            split_fail_dates = np.array_split(fail_dates, self.n_jobs)
+            with parallel_backend('multiprocessing', n_jobs=self.n_jobs):
+                parallel_res = Parallel()(delayed(alpha_version_3.JOB_fill_df)
+                                          (target_weight, dates) for dates in split_fail_dates)
+            tot_fill_df = pd.concat(parallel_res)
+            target_weight = pd.concat([target_weight, tot_fill_df])
         target_weight.to_csv(self.folder_dir + 'TARGET_WEIGHT.csv', encoding='gbk')
         # backtest
         QE = BacktestEngine(save_name=self.strategy_name, stock_capital=STRATEGY_CONFIG['capital'])
