@@ -214,8 +214,11 @@ class alpha_version_3(StrategyBase):
             if idx[idx < date].empty:
                 pass
             else:
-                fill_date = idx[idx < date].iloc[-1]
+                fill_date = idx[idx < date][-1]
                 fill_df = target_weight.loc[fill_date, :].copy()
+                while fill_df.empty:
+                    fill_date = idx[idx < fill_date][-1]
+                    fill_df = target_weight.loc[fill_date, :].copy()
                 fill_df.index.names = ['date']
                 fill_df.reset_index(inplace=True)
                 fill_df['date'] = pd.to_datetime(date)
