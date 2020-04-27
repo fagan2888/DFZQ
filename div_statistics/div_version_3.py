@@ -573,8 +573,8 @@ class div_pred_statistic:
 
         summary_df = pd.DataFrame(summary_dict)
         summary_df = summary_df.loc[:,['IH','IF','IC']]
-        summary_filename = 'bonusSummary' + self.last_trading_date.strftime('%Y%m%d') + '.csv'
-        summary_df.to_csv(local_prefix + 'summary/' + summary_filename, encoding='gbk')
+        summary_filename = 'bonusSummary' + self.last_trading_date.strftime('%Y%m%d') + '.xls'
+        summary_df.to_excel(local_prefix + 'summary/' + summary_filename)
         print('dividend is done!')
         print('*********************************************************')
 
