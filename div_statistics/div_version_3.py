@@ -533,8 +533,8 @@ class div_pred_statistic:
 
     def run_daily(self,exe_date=None):
         local_prefix = 'D:/div_statistics/'
-        remote_utf8_prefix = '部门工作/indexBonus/'
-        remote_gbk_prefix = '部门工作/indexBonus_gbk/'
+        remote_utf8_prefix = 'dividend/indexBonus/'
+        remote_gbk_prefix = 'dividend/indexBonus_gbk/'
         code_dict = {"IH": "000016", "IF": "000300", "IC": "000905"}
 
         print(self.dt)
