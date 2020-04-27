@@ -156,13 +156,14 @@ class alpha_version_3(StrategyBase):
             #   基准权重大于1的话 可以到 2 + 1.5 * base_weight
             #   基准权重小于1的话 只能到 2
             #   没有overall 或 size 或 sum_dummies 或 sum_risks 或 specific_risk 因子值的 总权重为0
-            conditions = [pd.isnull(day_base_weight['overall']).values | pd.isnull(day_base_weight['size']).values |
-                          pd.isnull(day_base_weight['sum_dummies']).values |
-                          pd.isnull(day_base_weight['sum_risks']).values |
-                          pd.isnull(day_base_weight['specific_risk']).values,
-                          day_base_weight['base_weight'].values <= 1]
-            choices = [-1 * day_base_weight['base_weight'].values, 2 - day_base_weight['base_weight'].values]
-            array_upbound = np.select(conditions, choices, default=2 + 0.5 * day_base_weight['base_weight'].values)
+            array_upbound = np.where(
+                pd.isnull(day_base_weight['overall']).values |
+                pd.isnull(day_base_weight['size']).values |
+                pd.isnull(day_base_weight['sum_dummies']).values |
+                pd.isnull(day_base_weight['sum_risks']).values |
+                pd.isnull(day_base_weight['specific_risk']).values,
+                -1 * day_base_weight['base_weight'].values,
+                2 + 0.5 * day_base_weight['base_weight'].values)
             array_lowbound = -1 * day_base_weight['base_weight'].values
             # ----------------------track error-------------------------
             tot_risk_exp = array_risk_exp.T * solve_weight / 100
