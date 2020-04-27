@@ -77,11 +77,11 @@ class StrategyBase:
         # risk cov
         self.risk_cov = self.influx.getDataMultiprocess(self.factor_db, self.risk_cov_measure, self.start, self.end)
         cols = self.risk_cov.columns.difference(['code'])
-        self.risk_cov[cols] = self.risk_cov[cols] * 21 * 0.0001
+        self.risk_cov[cols] = self.risk_cov[cols] * self.adj_interval * 0.0001
         self.risk_cov.index.names = ['date']
         # specific risk
         self.spec_risk = self.influx.getDataMultiprocess(self.factor_db, self.spec_risk_measure, self.start, self.end)
-        self.spec_risk['specific_risk'] = self.spec_risk['specific_risk'] * np.sqrt(21) * 0.01
+        self.spec_risk['specific_risk'] = self.spec_risk['specific_risk'] * np.sqrt(self.adj_interval) * 0.01
         self.spec_risk.index.names = ['date']
         print('-risk data loaded...')
         # ========================================================================
@@ -130,7 +130,7 @@ class StrategyBase:
             DataProcess.neutralize(factor_df, factor, industry_dummies, size_data, self.n_jobs)
         return factor_df
 
-    def initialize_strategy(self, start, end, benchmark, select_range, industry, size_field):
+    def initialize_strategy(self, start, end, benchmark, select_range, industry, size_field, adj_interval):
         self.n_jobs = global_constant.N_STRATEGY
         self.start = start
         self.end = end
@@ -138,6 +138,7 @@ class StrategyBase:
         self.select_range = select_range
         self.industry = industry
         self.size_field = size_field
+        self.adj_interval = adj_interval
         self.folder_dir = global_constant.ROOT_DIR + 'Strategy/{0}/'.format(self.strategy_name)
         if os.path.exists(self.folder_dir):
             pass
@@ -149,4 +150,4 @@ class StrategyBase:
 
 if __name__ == '__main__':
     sb = StrategyBase('test')
-    sb.initialize_strategy(20150101, 20160101, 300, 500, 'improved_lv1', 'ln_market_cap')
+    sb.initialize_strategy(20150101, 20160101, 300, 500, 'improved_lv1', 'ln_market_cap', 5)

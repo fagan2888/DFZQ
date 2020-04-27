@@ -2,22 +2,23 @@
 
 STRATEGY_CONFIG = \
     {
-        'start': 20140101,
+        'start': 20130101,
         'end': 20181231,
         'benchmark': 300,
-        'select_range': None,
+        'select_range': 800,
         'industry': 'improved_lv1',
         'size_field': 'ln_market_cap',
         'capital': 100000000,
         'adj_interval': 5,
         'target_sigma': 0.05,
         # 市值主动最大暴露
-        'mv_max_exp': 0.3,
+        'mv_max_exp': 0,
         # 市值主动最小暴露
-        'mv_min_exp': 0.2,
+        'mv_min_exp': 0,
         'n_codes': 250
     }
 
+'''
 CATEGORY_WEIGHT = \
     {
         'VALUE': 1}
@@ -25,13 +26,8 @@ FACTOR_WEIGHT = \
     {
         'VALUE': [
             ['EP', 'EP_TTM', 1, True, 1]]}
-
-
-
-
-
-
 '''
+
 # 大类因子权重
 CATEGORY_WEIGHT = \
     {
@@ -74,4 +70,3 @@ FACTOR_WEIGHT = \
             ['Analyst', 'score', 1, True, 1],
             ['Analyst', 'PEG', -1, True, 1]]
     }
-'''

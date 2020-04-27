@@ -23,9 +23,9 @@ class alpha_version_3(StrategyBase):
         select_range = STRATEGY_CONFIG['select_range']
         industry = STRATEGY_CONFIG['industry']
         size_field = STRATEGY_CONFIG['size_field']
-        super().initialize_strategy(start, end, benchmark, select_range, industry, size_field)
+        adj_interval = STRATEGY_CONFIG['adj_interval']
+        super().initialize_strategy(start, end, benchmark, select_range, industry, size_field, adj_interval)
         self.capital = STRATEGY_CONFIG['capital']
-        self.adj_interval = STRATEGY_CONFIG['adj_interval']
         self.target_sigma = STRATEGY_CONFIG['target_sigma']
         self.mv_max_exp = STRATEGY_CONFIG['mv_max_exp']
         self.mv_min_exp = STRATEGY_CONFIG['mv_min_exp']
@@ -182,7 +182,7 @@ class alpha_version_3(StrategyBase):
                 cons.append(cp.sum(array_indu_dummies[:, i].T * solve_weight) == 0)
             #  市值主动暴露
             cons.append(cp.sum(array_z_size * solve_weight / 100) <= mv_max_exp)
-            cons.append(cp.sum(array_z_size * solve_weight / 100) >= -mv_min_exp)
+            cons.append(cp.sum(array_z_size * solve_weight / 100) >= mv_min_exp)
             # -------------------------优化-----------------------------
             prob = cp.Problem(cp.Maximize(obj), constraints=cons)
             argskw = {'mi_max_iters': 1000, 'feastol': 1e-3, 'abstol': 1e-3}
