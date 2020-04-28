@@ -134,6 +134,20 @@ class DataProcess:
         return industry_data
 
     @staticmethod
+    # 标准化
+    def standardize(factor_data, factor_field, index_is_date: bool, n_process):
+        if index_is_date:
+            factor_data.index.names = ['date']
+            factor_data.reset_index(inplace=True)
+        dates = factor_data['date'].unique()
+        split_dates = np.array_split(dates, n_process)
+        with parallel_backend('multiprocessing', n_jobs=n_process):
+            parallel_res = Parallel()(delayed(DataProcess.JOB_cross_section_remove_and_Z)
+                                      (factor_data, factor_field, dates) for dates in split_dates)
+        factor = pd.concat(parallel_res)
+        return factor
+
+    @staticmethod
     # 去极值+标准化
     def remove_and_Z(factor_data, factor_field, index_is_date: bool, n_process):
         if index_is_date:
@@ -274,4 +288,4 @@ if __name__ == '__main__':
     mkt_data = influx.getDataMultiprocess('DailyData_Gus', 'marketData', 20190101, 20190501, None)
     size_data = influx.getDataMultiprocess('DailyFactor_Gus', 'Size', 20190101, 20190501, None)
     factor = influx.getDataMultiprocess('DailyFactor_Gus', 'Growth', 20190101, 20190501, ['code', 'EPcut_TTM_growthY'])
-    a = DataProcess.neurtralize(factor, 'EPcut_TTM_growthY', mkt_data, size_data)
+    a = DataProcess.neutralize(factor, 'EPcut_TTM_growthY', mkt_data, size_data)
