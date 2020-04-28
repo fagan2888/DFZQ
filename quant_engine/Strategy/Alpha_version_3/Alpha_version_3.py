@@ -34,10 +34,7 @@ class alpha_version_3(StrategyBase):
     def get_factors(self, measure, factor, direction, if_fillna, weight):
         print('-Factor: %s is processing...' % factor)
         factor_df = self.process_factor(measure, factor, direction, if_fillna)
-        if weight == 1:
-            pass
-        else:
-            factor_df[factor] = factor_df[factor] * weight
+        factor_df[factor] = factor_df[factor] * weight
         factor_df.set_index(['date', 'code'], inplace=True)
         return factor_df
 
@@ -53,7 +50,8 @@ class alpha_version_3(StrategyBase):
             category_df = pd.concat(factors_in_category, join='inner', axis=1)
             category_df[category] = category_df.sum(axis=1)
             category_df = category_df.reset_index().loc[:, ['date', 'code', category]]
-            category_df = DataProcess.remove_and_Z(category_df, category, False, self.n_jobs)
+            # 合并时无需再去极值
+            category_df = DataProcess.standardize(category_df, category, False, self.n_jobs)
             category_df[category] = CATEGORY_WEIGHT[category] * category_df[category]
             category_df.set_index(['date', 'code'], inplace=True)
             categories.append(category_df)
@@ -153,8 +151,7 @@ class alpha_version_3(StrategyBase):
             array_risk_cov = 0.5 * (array_risk_cov + array_risk_cov.T)
             # ------------------------get bound-------------------------
             # 设置权重上下限
-            #   基准权重大于1的话 可以到 2 + 1.5 * base_weight
-            #   基准权重小于1的话 只能到 2
+            #   权重上限 可以到 1 + 1.5 * base_weight
             #   没有overall 或 size 或 sum_dummies 或 sum_risks 或 specific_risk 因子值的 总权重为0
             array_upbound = np.where(
                 pd.isnull(day_base_weight['overall']).values |
@@ -163,7 +160,7 @@ class alpha_version_3(StrategyBase):
                 pd.isnull(day_base_weight['sum_risks']).values |
                 pd.isnull(day_base_weight['specific_risk']).values,
                 -1 * day_base_weight['base_weight'].values,
-                2 + 0.5 * day_base_weight['base_weight'].values)
+                1 + 0.5 * day_base_weight['base_weight'].values)
             array_lowbound = -1 * day_base_weight['base_weight'].values
             # ----------------------track error-------------------------
             tot_risk_exp = array_risk_exp.T * solve_weight / 100
@@ -171,9 +168,10 @@ class alpha_version_3(StrategyBase):
                             cp.sum_squares(cp.multiply(array_spec_risk, solve_weight / 100))
             overall_exp = array_overall * solve_weight
             obj = overall_exp
-            sigma = target_sigma / np.sqrt(250 / adj_interval)
+            sigma = target_sigma / np.sqrt(252 / adj_interval)
             # -----------------------set cons---------------------------
             cons = []
+            #  权重上下缘
             cons.append(solve_weight <= array_upbound)
             cons.append(solve_weight >= array_lowbound)
             #  跟踪误差设置
@@ -197,7 +195,7 @@ class alpha_version_3(StrategyBase):
                 print('%s OPTI ERROR!\n -status: %s' % (date, prob.status))
                 fail_dates.append(date)
                 continue
-            day_base_weight['weight'] = np.round(array_base_weight + opti_weight, 3)
+            day_base_weight['weight'] = np.round(array_base_weight + opti_weight, 2)
             day_base_weight = day_base_weight.loc[day_base_weight['weight'] > 0, ['code', 'weight']]
             print('%s OPTI finish \n -n_codes: %i  n_selections: %i' %
                   (date, array_codes.shape[0], day_base_weight.shape[0]))
@@ -279,12 +277,13 @@ class alpha_version_3(StrategyBase):
             fail_dates.extend(res[1])
         target_weight = pd.concat(parallel_dfs)
         if fail_dates:
-            split_fail_dates = np.array_split(fail_dates, self.n_jobs)
-            with parallel_backend('multiprocessing', n_jobs=self.n_jobs):
+            split_fail_dates = np.array_split(fail_dates, min(self.n_jobs, len(fail_dates)))
+            with parallel_backend('multiprocessing', n_jobs=min(self.n_jobs, len(fail_dates))):
                 parallel_res = Parallel()(delayed(alpha_version_3.JOB_fill_df)
                                           (target_weight, dates) for dates in split_fail_dates)
             tot_fill_df = pd.concat(parallel_res)
             target_weight = pd.concat([target_weight, tot_fill_df])
+        target_weight = target_weight.sort_index()
         target_weight.to_csv(self.folder_dir + 'RAW_TARGET_WEIGHT.csv', encoding='gbk')
         # ------------------------limit n_codes-----------------------------
         stk_count = target_weight.groupby('date')['code'].count()
@@ -295,12 +294,22 @@ class alpha_version_3(StrategyBase):
                                       (target_weight, dates, stk_count, self.n_codes, next_bm_stk_wgt)
                                       for dates in split_dates)
         target_weight = pd.concat(parallel_res)
+        target_weight = target_weight.sort_index()
         target_weight.to_csv(self.folder_dir + 'TARGET_WEIGHT.csv', encoding='gbk')
         # --------------------------backtest--------------------------------
         QE = BacktestEngine(save_name=self.strategy_name, stock_capital=STRATEGY_CONFIG['capital'])
         bt_start = target_weight.index[0].strftime('%Y%m%d')
         bt_end = (target_weight.index[-1] - datetime.timedelta(days=1)).strftime('%Y%m%d')
-        QE.run(target_weight, bt_start, bt_end, self.adj_interval, self.benchmark)
+        portfolio_value = QE.run(target_weight, bt_start, bt_end, self.adj_interval, self.benchmark)
+        self.logger.info('Backtest finish time: %s' % datetime.datetime.now().strftime('%Y/%m/%d - %H:%M:%S'))
+        self.logger.info('*' * 50)
+        self.logger.info('PERFORMANCE:')
+        self.logger.info('-ANN_Alpha: %f' % DataProcess.calc_alpha_ann_return(
+            portfolio_value['TotalValue'], portfolio_value['BenchmarkValue']))
+        self.logger.info('-Alpha_MDD: %f' % DataProcess.calc_alpha_max_draw_down(
+            portfolio_value['TotalValue'], portfolio_value['BenchmarkValue']))
+        self.logger.info('-Alpha_sharpe: %f' % DataProcess.calc_alpha_sharpe(
+            portfolio_value['TotalValue'], portfolio_value['BenchmarkValue']))
         print('Time used:', datetime.datetime.now() - start_time)
 
 

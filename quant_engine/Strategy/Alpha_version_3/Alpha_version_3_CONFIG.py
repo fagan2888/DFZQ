@@ -3,7 +3,7 @@
 STRATEGY_CONFIG = \
     {
         'start': 20130101,
-        'end': 20181231,
+        'end': 20200401,
         'benchmark': 300,
         'select_range': 800,
         'industry': 'improved_lv1',
@@ -12,22 +12,11 @@ STRATEGY_CONFIG = \
         'adj_interval': 5,
         'target_sigma': 0.05,
         # 市值主动最大暴露
-        'mv_max_exp': 0,
+        'mv_max_exp': 0.1,
         # 市值主动最小暴露
-        'mv_min_exp': 0,
+        'mv_min_exp': -0.1,
         'n_codes': 120
     }
-
-'''
-CATEGORY_WEIGHT = \
-    {
-        'Analyst': 1}
-FACTOR_WEIGHT = \
-    {
-        'Analyst': [
-            ['Analyst', 'net_profit_divergence', -1, False, 1],
-            ['Analyst', 'PEG', -1, True, 1]]}
-'''
 
 # 大类因子权重
 CATEGORY_WEIGHT = \
@@ -35,7 +24,7 @@ CATEGORY_WEIGHT = \
         'VALUE': 1,
         'FIN_QUAL': 1,
         'GROWTH': 1,
-        'Analyst': 1
+        'ANALYST': 1
     }
 
 # 因子权重
@@ -57,7 +46,7 @@ FACTOR_WEIGHT = \
             ['Surprise', 'sur_net_profit_Q_WOD', 1, True, 1],
             ['Surprise', 'sur_oper_rev_Q_WD', 1, True, 1],
             ['Surprise', 'sur_oper_rev_Q_WOD', 1, True, 1]],
-        'Analyst': [
+        'ANALYST': [
             ['Analyst', 'anlst_cov', 1, False, 1],
             ['Analyst', 'net_profit_divergence', -1, False, 1],
             ['Analyst', 'score', 1, True, 1],
