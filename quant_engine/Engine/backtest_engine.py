@@ -90,6 +90,7 @@ class BacktestEngine:
             day_mkt_with_weight = mkt_with_weight.loc[mkt_with_weight.index == trade_day, :].copy()
             day_mkt_with_weight.set_index('code', inplace=True)
             day_ex_right = self.exright.loc[self.exright.index == trade_day, :].copy()
+            trade_amount = 0
             # 开盘前处理除权除息分红送股
             self.stk_portfolio.process_ex_right(day_ex_right)
             # 没有行情且在position里的stk记为退市，并统计退市金额
@@ -135,6 +136,9 @@ class BacktestEngine:
                     # 记录可以交易，但是因为涨跌停无法交易 的票
                     if trade_res == 'Trade Fail':
                         untradeable[code] = row['weight']
+                    # 记录双边的交易金额
+                    else:
+                        trade_amount += trade_res
             # 不是调仓日时，之前因涨跌停没买到的stks也要补
             else:
                 # 没有行情的认为已退市，从失败列表中剔除
@@ -159,7 +163,10 @@ class BacktestEngine:
                                 price_limit = 'no_limit'
                             trade_res = self.stk_portfolio.trade_stks_to_target_volume(
                                 trade_day, code, row[price_field], row['target_volume'], price_limit)
-                            if trade_res == 'Trade Succeed':
+                            if trade_res == 'Trade Fail':
+                                pass
+                            else:
+                                trade_amount += trade_res
                                 untradeable.pop(code)
             # -------------------------------------------------------------------------------
             # 处理 吸收合并
@@ -192,17 +199,19 @@ class BacktestEngine:
             # 记录 benchmark value
             # 记录 portfolio value
             # 记录 accum_alpha
+            # 记录双边换手率 turnover
             benchmark_value = benchmark_start_value / benchmark_networth * self.benchmark_quote[trade_day]
             balance, stk_value, total_value = self.stk_portfolio.get_portfolio_value(day_mkt_with_weight['close'])
             accum_alpha = total_value / portfolio_start_value - benchmark_value / benchmark_start_value
+            turnover = trade_amount / stk_value
             portfolio_value_dict[trade_day] = \
                 {'Balance': balance, 'StockValue': stk_value, 'TotalValue': total_value,
                  'DelistAmount': delist_amount, 'SuspendStk': len(suspend_stks_in_pos),
-                 'BenchmarkValue': benchmark_value, 'AccumAlpha': accum_alpha}
+                 'BenchmarkValue': benchmark_value, 'AccumAlpha': accum_alpha, 'Turnover': turnover}
             self.logger.info(' \n -Balance: %f \n -StockValue: %f \n -TotalValue %f \n -DelistAmount: %f \n'
-                             ' -SuspendStk: %i \n -BenchmarkValue: %f \n -AccumAlpha: %f'
+                             ' -SuspendStk: %i \n -BenchmarkValue: %f \n -AccumAlpha: %f \n -Turnover: %f'
                              % (balance, stk_value, total_value, delist_amount, len(suspend_stks_in_pos),
-                                benchmark_value, accum_alpha))
+                                benchmark_value, accum_alpha, turnover))
             # 记录 持仓
             positions_dict[trade_day] = copy.deepcopy(self.stk_portfolio.stk_positions)
         # 输出交易记录
