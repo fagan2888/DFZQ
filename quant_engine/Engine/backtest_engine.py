@@ -215,7 +215,10 @@ class BacktestEngine:
             benchmark_value = benchmark_start_value / benchmark_networth * self.benchmark_quote[trade_day]
             balance, stk_value, total_value = self.stk_portfolio.get_portfolio_value(day_mkt_with_weight['close'])
             accum_alpha = total_value / portfolio_start_value - benchmark_value / benchmark_start_value
-            turnover = trade_amount / stk_value
+            if stk_value == 0:
+                turnover = 0
+            else:
+                turnover = trade_amount / stk_value
             portfolio_value_dict[trade_day] = \
                 {'Balance': balance, 'StockValue': stk_value, 'TotalValue': total_value,
                  'DelistAmount': delist_amount, 'SuspendStk': len(suspend_stks_in_pos),

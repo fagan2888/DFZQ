@@ -187,7 +187,7 @@ class stock_portfolio:
 
 
 if __name__ == '__main__':
-    portfolio = stock_portfolio()
+    portfolio = stock_portfolio('test')
     dt1 = datetime.datetime(1990, 9, 4)
     dt2 = datetime.datetime(1990, 11, 26)
     portfolio.trade_stks_to_target_volume(dt1, '000001.SZ', 5, 60)
