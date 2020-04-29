@@ -160,7 +160,7 @@ class alpha_version_3(StrategyBase):
                 pd.isnull(day_base_weight['sum_risks']).values |
                 pd.isnull(day_base_weight['specific_risk']).values,
                 -1 * day_base_weight['base_weight'].values,
-                1 + 0.5 * day_base_weight['base_weight'].values)
+                0.8 + 0.5 * day_base_weight['base_weight'].values)
             array_lowbound = -1 * day_base_weight['base_weight'].values
             # ----------------------track error-------------------------
             tot_risk_exp = array_risk_exp.T * solve_weight / 100
@@ -277,12 +277,8 @@ class alpha_version_3(StrategyBase):
             fail_dates.extend(res[1])
         target_weight = pd.concat(parallel_dfs)
         if fail_dates:
-            split_fail_dates = np.array_split(fail_dates, min(self.n_jobs, len(fail_dates)))
-            with parallel_backend('multiprocessing', n_jobs=min(self.n_jobs, len(fail_dates))):
-                parallel_res = Parallel()(delayed(alpha_version_3.JOB_fill_df)
-                                          (target_weight, dates) for dates in split_fail_dates)
-            tot_fill_df = pd.concat(parallel_res)
-            target_weight = pd.concat([target_weight, tot_fill_df])
+            fill_df = alpha_version_3.JOB_fill_df(target_weight, fail_dates)
+            target_weight = pd.concat([target_weight, fill_df])
         target_weight = target_weight.sort_index()
         target_weight.to_csv(self.folder_dir + 'RAW_TARGET_WEIGHT.csv', encoding='gbk')
         # ------------------------limit n_codes-----------------------------
