@@ -203,25 +203,25 @@ class alpha_version_3(StrategyBase):
         res_df = pd.concat(dfs)
         return [res_df, fail_dates]
 
-    # 工具函数 当某天优化失败时，用前面最近一个优化成功的权重复制
+    # 工具函数 当某天优化失败时，用前面最近一个优化成功的权重复制，如果这天相隔超过10天，标配
     @staticmethod
-    def JOB_fill_df(target_weight, dates):
+    def JOB_fill_df(target_weight, fail_dates, next_bm_stk_weight):
         idx = target_weight.index.unique()
         fill_dfs = []
-        for date in dates:
+        for date in fail_dates:
             if idx[idx < date].empty:
-                pass
+                fill_dfs.append(next_bm_stk_weight.loc[date, :].copy())
             else:
                 fill_date = idx[idx < date][-1]
-                fill_df = target_weight.loc[fill_date, :].copy()
-                while fill_df.empty:
-                    fill_date = idx[idx < fill_date][-1]
+                if (fill_date - pd.to_datetime(date)).days <= 10:
                     fill_df = target_weight.loc[fill_date, :].copy()
-                fill_df.index.names = ['date']
-                fill_df.reset_index(inplace=True)
-                fill_df['date'] = pd.to_datetime(date)
-                fill_df.set_index('date', inplace=True)
-                fill_dfs.append(fill_df)
+                    fill_df.index.names = ['date']
+                    fill_df.reset_index(inplace=True)
+                    fill_df['date'] = pd.to_datetime(date)
+                    fill_df.set_index('date', inplace=True)
+                    fill_dfs.append(fill_df)
+                else:
+                    fill_dfs.append(next_bm_stk_weight.loc[date, :].copy())
         df = pd.concat(fill_dfs)
         return df
 
@@ -269,18 +269,14 @@ class alpha_version_3(StrategyBase):
                            (base_weight, self.risk_cov, self.indus, self.risks, dates, self.adj_interval,
                             self.target_sigma, self.mv_max_exp, self.mv_min_exp)
                            for dates in split_dates)
-        # ----------------------fill target weight--------------------------
         parallel_dfs = []
         fail_dates = []
         for res in parallel_res:
             parallel_dfs.append(res[0])
             fail_dates.extend(res[1])
         target_weight = pd.concat(parallel_dfs)
-        if fail_dates:
-            fill_df = alpha_version_3.JOB_fill_df(target_weight, fail_dates)
-            target_weight = pd.concat([target_weight, fill_df])
-        target_weight = target_weight.sort_index()
         target_weight.to_csv(self.folder_dir + 'RAW_TARGET_WEIGHT.csv', encoding='gbk')
+        target_weight = target_weight.sort_index()
         # ------------------------limit n_codes-----------------------------
         stk_count = target_weight.groupby('date')['code'].count()
         dates = target_weight.index.unique().strftime('%Y%m%d')
@@ -291,6 +287,11 @@ class alpha_version_3(StrategyBase):
                                       for dates in split_dates)
         target_weight = pd.concat(parallel_res)
         target_weight = target_weight.sort_index()
+        # ----------------------fill target weight--------------------------
+        if fail_dates:
+            fill_df = alpha_version_3.JOB_fill_df(target_weight, fail_dates, next_bm_stk_wgt)
+            target_weight = pd.concat(target_weight, fill_df)
+        # ------------------------------------------------------------------
         target_weight.to_csv(self.folder_dir + 'TARGET_WEIGHT.csv', encoding='gbk')
         # --------------------------backtest--------------------------------
         QE = BacktestEngine(save_name=self.strategy_name, stock_capital=STRATEGY_CONFIG['capital'])
