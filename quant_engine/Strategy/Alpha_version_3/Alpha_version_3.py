@@ -290,7 +290,7 @@ class alpha_version_3(StrategyBase):
         # ----------------------fill target weight--------------------------
         if fail_dates:
             fill_df = alpha_version_3.JOB_fill_df(target_weight, fail_dates, next_bm_stk_wgt)
-            target_weight = pd.concat(target_weight, fill_df)
+            target_weight = pd.concat([target_weight, fill_df])
         # ------------------------------------------------------------------
         target_weight.to_csv(self.folder_dir + 'TARGET_WEIGHT.csv', encoding='gbk')
         # --------------------------backtest--------------------------------
