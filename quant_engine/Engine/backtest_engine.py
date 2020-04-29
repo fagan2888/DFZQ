@@ -6,6 +6,7 @@ import datetime
 import copy
 import global_constant
 import os.path
+from data_process import DataProcess
 
 
 class BacktestEngine:
@@ -14,7 +15,7 @@ class BacktestEngine:
         self.stk_portfolio = \
             stock_portfolio(save_name, capital_input=stock_capital, slippage_input=stk_slippage,
                             transaction_fee_input=stk_fee)
-        # 配置logger
+        # 配置交易logger
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(level=logger_lvl)
         self.save_name = save_name
@@ -31,6 +32,17 @@ class BacktestEngine:
         handler.setFormatter(formatter)
         self.logger.addHandler(handler)
         self.logger.addHandler(console)
+        # 配置result logger
+        self.res_logger = logging.getLogger(__name__)
+        self.res_logger.setLevel(level=logger_lvl)
+        file_name = 'Result_{0}.log'.format(self.save_name)
+        handler = logging.FileHandler(self.dir + file_name)
+        handler.setLevel(logging.INFO)
+        console = logging.StreamHandler()
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s: %(message)s')
+        handler.setFormatter(formatter)
+        self.res_logger.addHandler(handler)
+        self.res_logger.addHandler(console)
 
     def initialize_engine(self, start, end, benchmark, price_field='vwap', indu_field='improved_lv1'):
         bm_dict = {50: '000016.SH', 300: '000300.SH', 500: '000905.SH'}
@@ -237,14 +249,24 @@ class BacktestEngine:
         portfolio_value = pd.DataFrame(portfolio_value_dict).T
         filename = self.dir + 'Value_{0}.csv'.format(self.save_name)
         portfolio_value.to_csv(filename, encoding='gbk')
+        self.res_logger.info('Backtest finish time: %s' % datetime.datetime.now().strftime('%Y/%m/%d - %H:%M:%S'))
+        self.res_logger.info('*' * 50)
+        self.res_logger.info('PERFORMANCE:')
+        self.res_logger.info('-ANN_Alpha: %f' % DataProcess.calc_alpha_ann_return(
+            portfolio_value['TotalValue'], portfolio_value['BenchmarkValue']))
+        self.res_logger.info('-Alpha_MDD: %f' % DataProcess.calc_alpha_max_draw_down(
+            portfolio_value['TotalValue'], portfolio_value['BenchmarkValue']))
+        self.res_logger.info('-Alpha_sharpe: %f' % DataProcess.calc_alpha_sharpe(
+            portfolio_value['TotalValue'], portfolio_value['BenchmarkValue']))
         print('Backtest finish! Time used: ', datetime.datetime.now() - backtest_starttime)
         return portfolio_value
 
 
 if __name__ == '__main__':
-    i = influxdbData()
-    weight = i.getDataMultiprocess('DailyMarket_Gus', 'index_weight', 20100101, 20200401)
-    weight = weight.loc[weight['index_code'] == '000905.SH', ['code', 'weight']]
+    weight = pd.read_csv(global_constant.ROOT_DIR + 'Strategy/Alpha_version_3/TARGET_WEIGHT.csv')
+    weight = weight.loc[:, ['date', 'code', 'weight']].copy()
+    weight['date'] = pd.to_datetime(weight['date'])
+    weight.set_index('date', inplace=True)
     print('Weight_loaded')
-    QE = BacktestEngine(stock_capital=5000000, save_name='copy_500', logger_lvl=logging.INFO)
-    QE.run(weight, 20100101, 20200401, 1, 500)
+    QE = BacktestEngine(stock_capital=100000000, save_name='alpha3.0', logger_lvl=logging.INFO)
+    QE.run(weight, 20130101, 20200401, 5, 300)
