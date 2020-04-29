@@ -109,22 +109,24 @@ class stock_portfolio:
                     self.sell_stks_by_volume(time, stock_code, price, volume_held)
                     return price * volume_held
             else:
-                if round_vol < 0:
-                    if price_limit == 'low':
-                        return 'Trade Fail'
-                    else:
-                        self.sell_stks_by_volume(time, stock_code, price, round_vol * -1)
-                        return price * round_vol * -1
-        # 买入情况
-        elif vol_diff > 0:
-            if round_vol > 0:
-                if price_limit == 'high':
+                if price_limit == 'low':
                     return 'Trade Fail'
                 else:
+                    if round_vol < 0:
+                        self.sell_stks_by_volume(time, stock_code, price, round_vol * -1)
+                        return price * round_vol * -1
+                    else:
+                        return 0
+        # 买入情况
+        elif vol_diff > 0:
+            if price_limit == 'high':
+                return 'Trade Fail'
+            else:
+                if round_vol > 0:
                     self.buy_stks_by_volume(time, stock_code, price, round_vol)
                     return price * round_vol
-        else:
-            return 0
+                else:
+                    return 0
 
     def process_ex_right(self, ex_right: pd.DataFrame):
         # date 为 index
