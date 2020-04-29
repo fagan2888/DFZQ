@@ -16,7 +16,7 @@ class BacktestEngine:
             stock_portfolio(save_name, capital_input=stock_capital, slippage_input=stk_slippage,
                             transaction_fee_input=stk_fee)
         # 配置交易logger
-        self.logger = logging.getLogger(__name__)
+        self.logger = logging.getLogger('transactions_log')
         self.logger.setLevel(level=logger_lvl)
         self.save_name = save_name
         self.dir = global_constant.ROOT_DIR + 'Backtest_Result/{0}/'.format(self.save_name)
@@ -33,7 +33,7 @@ class BacktestEngine:
         self.logger.addHandler(handler)
         self.logger.addHandler(console)
         # 配置result logger
-        self.res_logger = logging.getLogger(__name__)
+        self.res_logger = logging.getLogger('result_log')
         self.res_logger.setLevel(level=logger_lvl)
         file_name = 'Result_{0}.log'.format(self.save_name)
         handler = logging.FileHandler(self.dir + file_name)
@@ -272,4 +272,4 @@ if __name__ == '__main__':
     weight.set_index('date', inplace=True)
     print('Weight_loaded')
     QE = BacktestEngine(stock_capital=100000000, save_name='alpha3.0', logger_lvl=logging.INFO)
-    QE.run(weight, 20130101, 20200401, 5, 300)
+    QE.run(weight, 20130101, 20130401, 5, 300)
