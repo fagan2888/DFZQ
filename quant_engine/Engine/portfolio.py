@@ -102,21 +102,17 @@ class stock_portfolio:
         # 仅在 买入 >=100股 | 卖出 <=100股 且目标股数不为 0 | 目标股数为0 时发生交易
         # 卖出情况
         if vol_diff < 0:
-            if target_volume == 0:
-                if price_limit == 'low':
-                    return 'Trade Fail'
-                else:
+            if price_limit == 'low':
+                return 'Trade Fail'
+            else:
+                if target_volume == 0:
                     self.sell_stks_by_volume(time, stock_code, price, volume_held)
                     return price * volume_held
-            else:
-                if price_limit == 'low':
-                    return 'Trade Fail'
+                elif round_vol < 0:
+                    self.sell_stks_by_volume(time, stock_code, price, round_vol * -1)
+                    return price * round_vol * -1
                 else:
-                    if round_vol < 0:
-                        self.sell_stks_by_volume(time, stock_code, price, round_vol * -1)
-                        return price * round_vol * -1
-                    else:
-                        return 0
+                    return 0
         # 买入情况
         elif vol_diff > 0:
             if price_limit == 'high':
@@ -127,6 +123,9 @@ class stock_portfolio:
                     return price * round_vol
                 else:
                     return 0
+        # 不交易情况
+        else:
+            return 0
 
     def process_ex_right(self, ex_right: pd.DataFrame):
         # date 为 index

@@ -91,7 +91,6 @@ class BacktestEngine:
         day_counter = 0
         positions_dict = {}
         portfolio_value_dict = {}
-        suspend_stk_dict = {}
         balance, stk_value, total_value = self.stk_portfolio.get_portfolio_value(price_input=pd.Series([]))
         portfolio_start_value = total_value
         # 记录 benchmark 净值
@@ -163,7 +162,7 @@ class BacktestEngine:
                                    (day_mkt_with_weight['status'] != '停牌') &
                                    day_mkt_with_weight.index.isin(untradeable.keys()), :].copy()
                     if not tradeable_df.empty:
-                        tradeable_df['weight'] = tradeable_df.reset_index()['code'].map()
+                        tradeable_df['weight'] = tradeable_df.reset_index()['code'].map(untradeable)
                         tradeable_df['target_volume'] = \
                             target_capital * tradeable_df['weight'] / 100 / tradeable_df['preclose']
                         for code, row in tradeable_df.iterrows():
@@ -207,7 +206,6 @@ class BacktestEngine:
                 day_mkt_with_weight.loc[
                 day_mkt_with_weight.index.isin(self.stk_portfolio.stk_positions.keys()) &
                 (day_mkt_with_weight['status'] == '停牌'), :].index.values
-            suspend_stk_dict[trade_day] = suspend_stks_in_pos
             # 记录 benchmark value
             # 记录 portfolio value
             # 记录 accum_alpha
@@ -229,6 +227,7 @@ class BacktestEngine:
                                 benchmark_value, accum_alpha, turnover))
             # 记录 持仓
             positions_dict[trade_day] = copy.deepcopy(self.stk_portfolio.stk_positions)
+            day_counter += 1
         # 输出交易记录
         transactions = pd.DataFrame(self.stk_portfolio.transactions.
                                     reshape(int(self.stk_portfolio.transactions.shape[0]/8), 8),
@@ -272,4 +271,4 @@ if __name__ == '__main__':
     weight.set_index('date', inplace=True)
     print('Weight_loaded')
     QE = BacktestEngine(stock_capital=100000000, save_name='alpha3.0', logger_lvl=logging.INFO)
-    QE.run(weight, 20130101, 20130401, 5, 300)
+    QE.run(weight, 20130101, 20200401, 2, 300)
