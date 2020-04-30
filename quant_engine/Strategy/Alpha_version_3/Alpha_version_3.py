@@ -305,10 +305,11 @@ class alpha_version_3(StrategyBase):
         # ------------------------------------------------------------------
         target_weight.to_csv(self.folder_dir + 'TARGET_WEIGHT.csv', encoding='gbk')
         # --------------------------backtest--------------------------------
-        QE = BacktestEngine(save_name=self.strategy_name, stock_capital=STRATEGY_CONFIG['capital'])
         bt_start = target_weight.index[0].strftime('%Y%m%d')
         bt_end = (target_weight.index[-1] - datetime.timedelta(days=1)).strftime('%Y%m%d')
-        portfolio_value = QE.run(target_weight, bt_start, bt_end, self.adj_interval, self.benchmark)
+        QE = BacktestEngine(self.strategy_name, bt_start, bt_end, self.adj_interval, self.benchmark,
+                            stock_capital=self.capital)
+        portfolio_value = QE.run(target_weight, bt_start, bt_end)
         self.logger.info('Backtest finish time: %s' % datetime.datetime.now().strftime('%Y/%m/%d - %H:%M:%S'))
         self.logger.info('*' * 50)
         self.logger.info('PERFORMANCE:')
