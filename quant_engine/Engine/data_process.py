@@ -95,37 +95,6 @@ class DataProcess:
         return {today: calendar[calendar > today].iloc[days - 1]}
 
     @staticmethod
-    # 返回的date在columns里
-    def add_next_period_return(data, calendar, days, benchmark):
-        # 默认index是日期
-        bm_dict = {50: '000016.SH', 300: '000300.SH', 500: '000905.SH'}
-        mkt_data = data.copy()
-        idxs = mkt_data.index.unique()
-        next_date_dict = {}
-        for idx in idxs:
-            next_date_dict.update(DataProcess.get_next_date(calendar, idx, days))
-        field = 'next_' + str(days) + '_date'
-        mkt_data[field] = mkt_data.apply(lambda row: next_date_dict[row.name], axis=1)
-        mkt_data.index.names = ['date']
-        mkt_data.reset_index(inplace=True)
-        fq_close = mkt_data.loc[:, ['date', 'code', 'adj_factor', 'close']].copy()
-        fq_close['next_fq_close'] = fq_close['adj_factor'] * fq_close['close']
-        fq_close = fq_close.loc[:, ['date', 'code', 'next_fq_close']]
-        fq_close.rename(columns={'date': field}, inplace=True)
-        mkt_data = pd.merge(mkt_data, fq_close, how='left', on=[field, 'code'])
-        mkt_data['next_period_return'] = mkt_data['next_fq_close'] / mkt_data['adj_factor'] / mkt_data['close'] - 1
-        bm_close = mkt_data.loc[mkt_data['code'] == bm_dict[benchmark], ['date', 'close', field]].copy()
-        bm_close.rename(columns={'close': 'benchmark_close'}, inplace=True)
-        nxt_bm_close = bm_close.loc[:, ['date', 'benchmark_close']].copy()
-        nxt_bm_close.rename(columns={'date': field, 'benchmark_close': 'next_benchmark_close'}, inplace=True)
-        bm_return = pd.merge(bm_close, nxt_bm_close, on=field, how='left')
-        bm_return['next_benchmark_return'] = bm_return['next_benchmark_close'] / bm_return['benchmark_close'] - 1
-        bm_return = bm_return.loc[:, ['date', 'next_benchmark_return']]
-        mkt_data = pd.merge(mkt_data, bm_return, how='left', on='date')
-        mkt_data['next_period_alpha'] = mkt_data['next_period_return'] - mkt_data['next_benchmark_return']
-        return mkt_data
-
-    @staticmethod
     # 获取行业哑变量
     def get_industry_dummies(mkt_data, industry_field):
         df = mkt_data.dropna(subset=[industry_field])

@@ -10,7 +10,9 @@ from data_process import DataProcess
 
 
 class BacktestEngine:
-    def __init__(self, save_name, stock_capital=1000000, stk_slippage=0.001, stk_fee=0.0001, logger_lvl=logging.INFO):
+    def __init__(self, save_name, start, end, adj_interval, benchmark, cash_reserve_rate=0.05,
+                 stock_capital=1000000, stk_slippage=0.001, stk_fee=0.0001, price_field='vwap',
+                 indu_field='improved_lv1', logger_lvl=logging.INFO):
         # 配置钱包
         self.stk_portfolio = \
             stock_portfolio(save_name, capital_input=stock_capital, slippage_input=stk_slippage,
@@ -43,8 +45,12 @@ class BacktestEngine:
         handler.setFormatter(formatter)
         self.res_logger.addHandler(handler)
         self.res_logger.addHandler(console)
+        self.adj_interval = adj_interval
+        self.cash_reserve_rate = cash_reserve_rate
+        self.initialize_engine(start, end, benchmark, price_field, indu_field)
+        self.price_field = price_field
 
-    def initialize_engine(self, start, end, benchmark, price_field='vwap', indu_field='improved_lv1'):
+    def initialize_engine(self, start, end, benchmark, price_field, indu_field):
         bm_dict = {50: '000016.SH', 300: '000300.SH', 500: '000905.SH'}
         self.benchmark_code = bm_dict[benchmark]
         influx = influxdbData()
@@ -67,26 +73,22 @@ class BacktestEngine:
         measure = 'industry'
         self.industry = influx.getDataMultiprocess(DB, measure, start, end, ['code', indu_field])
         self.industry.index.names = ['date']
-        self.calendar = self.market.index.unique()
-        self.calendar = self.calendar.strftime('%Y%m%d')
         # benchmark 的报价 Series
         self.benchmark_quote = self.market.loc[self.market['code'] == self.benchmark_code, 'close'].copy()
         print('All Data Needed is ready...')
 
 
     # 默认输入的权重 以日期为index
-    def run(self, stk_weight, start, end, adj_interval, benchmark, cash_reserve_rate=0.05,
-            price_field='vwap', indu_field='improved_lv1'):
+    def run(self, stk_weight, start, end):
         backtest_starttime = datetime.datetime.now()
-        # initialize engine
-        self.initialize_engine(start, end, benchmark, price_field, indu_field)
         # 默认输入的权重 以日期为index
         stk_weight.index.names = ['date']
-        mkt_with_weight = pd.merge(self.market.reset_index(), stk_weight.reset_index(),
-                                   on=['date', 'code'], how='left')
+        mkt = self.market.loc[str(start):str(end), :].copy()
+        mkt_with_weight = pd.merge(mkt.reset_index(), stk_weight.reset_index(), on=['date', 'code'], how='left')
         mkt_with_weight['weight'] = mkt_with_weight['weight'].fillna(0)
         mkt_with_weight.set_index('date', inplace=True)
         mkt_with_weight.sort_index(inplace=True)
+        calendar = mkt_with_weight.index.unique().strftime('%Y%m%d')
         # backtest begins
         day_counter = 0
         positions_dict = {}
@@ -94,9 +96,9 @@ class BacktestEngine:
         balance, stk_value, total_value = self.stk_portfolio.get_portfolio_value(price_input=pd.Series([]))
         portfolio_start_value = total_value
         # 记录 benchmark 净值
-        benchmark_networth = self.benchmark_quote[self.calendar[0]]
+        benchmark_networth = self.benchmark_quote[calendar[0]]
         benchmark_start_value = total_value
-        for trade_day in self.calendar:
+        for trade_day in calendar:
             self.logger.info('Trade Day: %s' % trade_day)
             day_mkt_with_weight = mkt_with_weight.loc[mkt_with_weight.index == trade_day, :].copy()
             day_mkt_with_weight.set_index('code', inplace=True)
@@ -111,13 +113,13 @@ class BacktestEngine:
                 delist_amount += self.stk_portfolio.stk_positions[stk]['volume'] * \
                                  self.stk_portfolio.stk_positions[stk]['latest_close']
             # 退市股票的金额需在stock_value中剔除，以免资金占用
-            target_capital = (1 - cash_reserve_rate) * (total_value + delist_amount)
+            target_capital = (1 - self.cash_reserve_rate) * (total_value + delist_amount)
             # 计算目标成交量
             day_mkt_with_weight['target_volume'] = \
                 target_capital * day_mkt_with_weight['weight'] / 100 / day_mkt_with_weight['preclose']
             # -----------------------------------------------------------------------------------------------
             # 每隔x天调仓
-            if day_counter % adj_interval == 0:
+            if day_counter % self.adj_interval == 0:
                 # 记录没法交易的股票
                 # 记录 (weight不为0 或者 已在position中) 且 状态停牌 的票
                 codes = day_mkt_with_weight.loc[
@@ -143,7 +145,7 @@ class BacktestEngine:
                         price_limit = 'no_limit'
                     # 因涨跌停没有交易成功的股票代码会返回
                     trade_res = self.stk_portfolio.trade_stks_to_target_volume(
-                        trade_day, code, row[price_field], row['target_volume'], price_limit)
+                        trade_day, code, row[self.price_field], row['target_volume'], price_limit)
                     # 记录可以交易，但是因为涨跌停无法交易 的票
                     if trade_res == 'Trade Fail':
                         untradeable[code] = row['weight']
@@ -174,7 +176,7 @@ class BacktestEngine:
                             else:
                                 price_limit = 'no_limit'
                             trade_res = self.stk_portfolio.trade_stks_to_target_volume(
-                                trade_day, code, row[price_field], row['target_volume'], price_limit)
+                                trade_day, code, row[self.price_field], row['target_volume'], price_limit)
                             if trade_res == 'Trade Fail':
                                 pass
                             else:
@@ -266,10 +268,9 @@ class BacktestEngine:
 
 
 if __name__ == '__main__':
-    weight = pd.read_csv(global_constant.ROOT_DIR + 'Strategy/Alpha_version_3/TARGET_WEIGHT.csv')
-    weight = weight.loc[:, ['date', 'code', 'weight']].copy()
-    weight['date'] = pd.to_datetime(weight['date'])
-    weight.set_index('date', inplace=True)
+    i = influxdbData()
+    weight = i.getDataMultiprocess('DailyMarket_Gus', 'index_weight', 20130101, 20140101)
+    weight = weight.loc[weight['index_code'] == '000300.SH', ['code', 'weight']]
     print('Weight_loaded')
-    QE = BacktestEngine(stock_capital=100000000, save_name='alpha3.0', logger_lvl=logging.INFO)
-    QE.run(weight, 20130101, 20200401, 2, 300)
+    QE = BacktestEngine('test_new_engine', 20130101, 20140101, 3, 300, stock_capital=100000000,)
+    QE.run(weight, 20130101, 20130401)
