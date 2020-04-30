@@ -127,6 +127,15 @@ class alpha_version_3(StrategyBase):
         base_weight.set_index('date', inplace=True)
         return base_weight
 
+    def shift_target_weight(self, target_weight):
+        next_date_dict = dict(zip(self.calendar[:-1], self.calendar[1:]))
+        target_weight['next_date'] = target_weight.index.strftime('%Y%m%d')
+        target_weight['next_date'] = target_weight['next_date'].map(next_date_dict)
+        target_weight['next_date'] = pd.to_datetime(target_weight['next_date'])
+        target_weight.set_index('next_date', inplace=True)
+        target_weight.index.names = ['date']
+        return target_weight
+
     @staticmethod
     def JOB_opti_weight(base_weight, risk_cov, dummies_field, risks_field, dates, adj_interval,
                         target_sigma, mv_max_exp, mv_min_exp):
@@ -160,7 +169,7 @@ class alpha_version_3(StrategyBase):
                 pd.isnull(day_base_weight['sum_risks']).values |
                 pd.isnull(day_base_weight['specific_risk']).values,
                 -1 * day_base_weight['base_weight'].values,
-                0.8 + 0.5 * day_base_weight['base_weight'].values)
+                1 + 0.5 * day_base_weight['base_weight'].values)
             array_lowbound = -1 * day_base_weight['base_weight'].values
             # ----------------------track error-------------------------
             tot_risk_exp = array_risk_exp.T * solve_weight / 100
@@ -291,6 +300,8 @@ class alpha_version_3(StrategyBase):
         if fail_dates:
             fill_df = alpha_version_3.JOB_fill_df(target_weight, fail_dates, next_bm_stk_wgt)
             target_weight = pd.concat([target_weight, fill_df])
+        # ---------------------------date shift-----------------------------
+        target_weight = self.shift_target_weight(target_weight)
         # ------------------------------------------------------------------
         target_weight.to_csv(self.folder_dir + 'TARGET_WEIGHT.csv', encoding='gbk')
         # --------------------------backtest--------------------------------
