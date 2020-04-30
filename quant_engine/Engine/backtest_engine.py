@@ -162,7 +162,8 @@ class BacktestEngine:
                                    (day_mkt_with_weight['status'] != '停牌') &
                                    day_mkt_with_weight.index.isin(untradeable.keys()), :].copy()
                     if not tradeable_df.empty:
-                        tradeable_df['weight'] = tradeable_df.reset_index()['code'].map(untradeable)
+                        tradeable_df['weight'] = tradeable_df.index
+                        tradeable_df['weight'] = tradeable_df['weight'].map(untradeable)
                         tradeable_df['target_volume'] = \
                             target_capital * tradeable_df['weight'] / 100 / tradeable_df['preclose']
                         for code, row in tradeable_df.iterrows():
