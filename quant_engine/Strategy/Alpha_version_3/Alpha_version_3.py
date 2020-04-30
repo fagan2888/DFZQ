@@ -88,9 +88,9 @@ class alpha_version_3(StrategyBase):
 
     def get_next_bm_stk_wgt(self):
         next_bm_stk_wgt = self.bm_stk_wgt.copy()
-        next_bm_stk_wgt['str_date'] = next_bm_stk_wgt.index.strftime('%Y%m%d')
+        next_bm_stk_wgt['former_date'] = next_bm_stk_wgt.index.strftime('%Y%m%d')
         former_dict = dict(zip(self.calendar[1:], self.calendar[:-1]))
-        next_bm_stk_wgt['former_date'] = next_bm_stk_wgt['str_date'].map(former_dict)
+        next_bm_stk_wgt['former_date'] = next_bm_stk_wgt['former_date'].map(former_dict)
         next_bm_stk_wgt = next_bm_stk_wgt.dropna(subset=['former_date'])
         next_bm_stk_wgt['former_date'] = pd.to_datetime(next_bm_stk_wgt['former_date'])
         next_bm_stk_wgt.set_index('former_date', inplace=True)
