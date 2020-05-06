@@ -15,7 +15,6 @@ class stock_portfolio:
         self.tax_ratio = 0.001
         # 股票仓位模板{'600000.SH':{'price':2.22,'volume':300}}
         self.stk_positions = {}
-
         self.transactions = np.array([])
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(level=logging.INFO)
@@ -30,6 +29,13 @@ class stock_portfolio:
         formatter = logging.Formatter('%(asctime)s - %(levelname)s: %(message)s')
         handler.setFormatter(formatter)
         self.logger.addHandler(handler)
+
+    # 重置
+    def reset_portfolio(self, capital_input):
+        self.capital = capital_input
+        self.balance = capital_input
+        self.stk_positions = {}
+        self.transactions = np.array([])
 
     # 函数可以接受非100倍数
     def buy_stks_by_volume(self, time, stock_code, price, volume):
