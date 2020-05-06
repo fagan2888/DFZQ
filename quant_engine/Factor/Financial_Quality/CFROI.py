@@ -81,7 +81,7 @@ class CFROI_series(FactorBase):
         self.cal_CFROI('net_OCF_Q_lastY', 'NOA_lastY', 'NOA_last5Q', 'CFROI_Q_lastY')
         # *****************************************************************************
         self.raw_profit_data = \
-            self.influx.getDataMultiprocess('FinancialReport_Gus', 'OCF_TTM', start, end,
+            self.influx.getDataMultiprocess('FinancialReport_Gus', 'net_OCF_TTM', start, end,
                                             ['code', 'net_OCF_TTM', 'net_OCF_TTM_last1Q'])
         self.raw_profit_data.index.names = ['date']
         self.raw_profit_data.reset_index(inplace=True)
