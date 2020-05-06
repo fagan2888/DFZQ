@@ -55,31 +55,32 @@ class FactorTest:
                 # 行业成分不足10支票时，所有group配置一样
                 if day_industry_factor.shape[0] < 10:
                     day_industry_factor['group'] = 'same group'
-                    day_industry_factor['weight_in_industry'] = 100 / day_industry_factor.shape[0]
+                    day_industry_factor['weight'] = \
+                        day_industry_factor['industry_weight'] / day_industry_factor.shape[0]
                 else:
                     day_industry_factor['group'] = pd.qcut(day_industry_factor[factor_field], 5, labels=labels)
-                    group_counts = day_industry_factor['group'].value_counts()
-                    day_industry_factor['weight_in_industry'] = day_industry_factor.apply(
-                        lambda row: 100 / group_counts[row['group']], axis=1)
+                    group_counts = day_industry_factor['group'].value_counts().to_dict()
+                    day_industry_factor['weight'] = day_industry_factor['group'].map(group_counts)
+                    day_industry_factor['weight'] = \
+                        day_industry_factor['industry_weight'] / day_industry_factor['weight']
                 res.append(day_industry_factor)
         res_df = pd.concat(res)
         res_df.set_index('next_1_day', inplace=True)
+        res_df.drop('date', axis=1, inplace=True)
         return res_df
 
     # 回测所用的工具函数
     @staticmethod
-    def JOB_backtest(group_name, grouped_weight, benchmark, adj_interval, cash_reserve, price_field, indu_field,
-                     data_input, stock_capital, stk_slippage, stk_fee, logger_lvl=logging.INFO):
+    def JOB_backtest(backtest_engine, group_name, grouped_weight):
         weight = grouped_weight.loc[
             (grouped_weight['group'] == group_name) | (grouped_weight['group'] == 'same_group'),
-            ['code', 'industry', 'weight_in_industry']].copy()
-        BE = IndustryNeutralEngine(stock_capital, stk_slippage, stk_fee, save_name=group_name, logger_lvl=logger_lvl)
+            ['code', 'weight']].copy()
         start = weight.index[0].strftime('%Y%m%d')
         end = weight.index[-1].strftime('%Y%m%d')
-        portfolio_value = BE.run(weight, start, end, benchmark, adj_interval, cash_reserve, price_field, indu_field,
-                                 data_input)
-        portfolio_value.rename(columns={'TotalValue': group_name + '_TotalValue'}, inplace=True)
-        portfolio_value = pd.DataFrame(portfolio_value[group_name + '_TotalValue'])
+        portfolio_value = backtest_engine.run(weight, start, end)
+        portfolio_value = portfolio_value.loc[:, ['TotalValue', 'AccumAlpha']]
+        portfolio_value.rename(columns={'TotalValue': group_name + '_TotalValue',
+                                        'AccumAlpha': group_name + '_AccumAlpha'}, inplace=True)
         print('%s backtest finish!' % group_name)
         return portfolio_value
 
@@ -98,7 +99,7 @@ class FactorTest:
 
     def init_log(self):
         # 配置log
-        self.logger = logging.getLogger(__name__)
+        self.logger = logging.getLogger('FactorTest')
         self.logger.setLevel(level=self.logger_lvl)
         folder_dir = global_constant.ROOT_DIR + 'Factor_Test/{0}/'.format(self.factor)
         if os.path.exists(folder_dir):
@@ -127,7 +128,7 @@ class FactorTest:
         self.benchmark_code = benchmark_code_dict[self.benchmark]
         self.bm_stk_wgt = self.idx_wgt_data.loc[
             self.idx_wgt_data['index_code'] == self.benchmark_code, ['code', 'weight']].copy()
-        self.bm_mkt = self.mkt_data.loc[self.mkt_data['code']==self.benchmark_code, :].copy()
+        self.bm_mkt = self.mkt_data.loc[self.mkt_data['code'] == self.benchmark_code, :].copy()
         # isST
         self.st_data = self.influx.getDataMultiprocess(self.mkt_db, self.st_measure, self.start, mkt_end)
         self.st_data.index.names = ['date']
@@ -140,10 +141,10 @@ class FactorTest:
         self.industry_dummies = DataProcess.get_industry_dummies(self.industry_data, 'industry')
         self.industry_dummies.index.names = ['date']
         # benchmark industry weight
-        self.bm_indu_weight = pd.merge(self.idx_wgt_data.reset_index(), self.industry_data.reset_index(),
+        self.bm_indu_weight = pd.merge(self.bm_stk_wgt.reset_index(), self.industry_data.reset_index(),
                                        on=['date', 'code'])
-        self.bm_indu_weight = self.bm_indu_weight.group(['date', 'industry'])['weight'].sum()
-        self.bm_indu_weight = self.bm_indu_weight.reset_index().set_index('date', inplace=True)
+        self.bm_indu_weight = self.bm_indu_weight.groupby(['date', 'industry'])['weight'].sum()
+        self.bm_indu_weight = self.bm_indu_weight.reset_index().set_index('date')
         print('-market related data loaded...')
         # size
         self.size_data = \
@@ -182,10 +183,10 @@ class FactorTest:
                                                     ['code', self.factor])
         factor_df.index.names = ['date']
         factor_df.reset_index(inplace=True)
-        if direction == -1:
+        if self.direction == -1:
             factor_df[self.factor] = factor_df[self.factor] * -1
         # 缺失的因子用行业中位数代
-        if if_fillna:
+        if self.if_fillna:
             factor_df = pd.merge(factor_df, self.code_range.reset_index(), how='right', on=['date', 'code'])
             factor_df[self.factor] = factor_df.groupby(['date', 'industry'])[self.factor].apply(
                 lambda x: x.fillna(x.median()))
@@ -287,17 +288,20 @@ class FactorTest:
 
     # 此处weight_field为行业内权重分配的field
     def group_factor(self):
-        mkt_data = pd.merge(self.mkt_data.reset_index(), self.code_range.reset_index(), on=['date', 'code'])
+        mkt_data = pd.merge(self.mkt_data.reset_index(), self.code_range, on=['date', 'code'])
         mkt_data = mkt_data.loc[mkt_data['status'] != '停牌', :]
-        idxs = mkt_data.index.unique()
+        idxs = mkt_data['date'].unique()
         next_date_dict = {}
         for date in idxs:
             next_date_dict.update(DataProcess.get_next_date(self.calendar, date, 1))
-        mkt_data['next_1_day'] = mkt_data.index
+        mkt_data['next_1_day'] = mkt_data['date']
         mkt_data['next_1_day'] = mkt_data['next_1_day'].map(next_date_dict)
-        mkt_data.reset_index(inplace=True)
         # 组合得到当天未停牌因子的code，中性后的因子值，行业
         merge_df = pd.merge(self.factor_data, mkt_data, on=['date', 'code'])
+        # 组合行业权重
+        merge_df = pd.merge(merge_df, self.bm_indu_weight.reset_index(), how='left', on=['date', 'industry'])
+        merge_df.rename(columns={'weight': 'industry_weight'}, inplace=True)
+        merge_df = merge_df.loc[:, ['date', 'code', self.factor, 'industry', 'industry_weight', 'next_1_day']]
         # 按等权测试
         dates = merge_df['date'].unique()
         split_dates = np.array_split(dates, self.n_jobs)
@@ -305,7 +309,8 @@ class FactorTest:
             result_list = Parallel()(delayed(FactorTest.JOB_group_equal_weight)
                                      (dates, self.groups, merge_df, self.factor) for dates in split_dates)
         grouped_weight = pd.concat(result_list)
-        grouped_weight = grouped_weight.loc[grouped_weight['weight_in_industry'] > 0, :].sort_index()
+        grouped_weight.index.names = ['date']
+        grouped_weight = grouped_weight.loc[grouped_weight['weight'] > 0, :].sort_index()
         str_start = grouped_weight.index[0].strftime('%Y%m%d')
         str_end = grouped_weight.index[-1].strftime('%Y%m%d')
         folder_dir = global_constant.ROOT_DIR + '/Backtest_Result/Factor_Group_Weight/{0}/'.format(self.factor)
@@ -313,89 +318,62 @@ class FactorTest:
             pass
         else:
             os.makedirs(folder_dir.rstrip('/'))
-        grouped_weight.to_csv(folder_dir + 'EquW{0}_{1}to{2}.csv'.format(str(self.groups), str_start, str_end),
+        grouped_weight.to_csv(folder_dir + 'EquWgt_{1}to{2}.csv'.format(str(self.groups), str_start, str_end),
                               encoding='gbk')
         return grouped_weight
 
     def group_backtest(self, grouped_weight):
         group = []
+        BE = BacktestEngine('FactorTest_{0}'.format(self.factor), self.start, self.end, self.adj_interval,
+                            self.benchmark, stock_capital=self.capital, logger_lvl=logging.DEBUG)
         for i in range(1, self.groups + 1):
             group.append('group_' + str(i))
-        with parallel_backend('multiprocessing', n_jobs=self.groups):
-            parallel_res = Parallel()(delayed(FactorTest.JOB_backtest)
-                                      (g, grouped_weight, self.benchmark, self.adj_interval, self.cash_reserve,
-                                       self.price_field, self.industry, self.mkt_data, self.capital,
-                                       self.stk_slippage, self.stk_fee, self.logger_lvl) for g in group)
-        tot_res = pd.concat(parallel_res, axis=1)
-        # 合并指数value
-        comparing_index = ['000300.SH', '000905.SH']
-        index_value = self.mkt_data.loc[self.mkt_data['code'].isin(comparing_index), ['code', 'close']]
-        index_value.set_index([index_value.index, 'code'], inplace=True)
-        index_value = index_value.unstack()['close']
-        index_value['ZZ800'] = 0.5 * index_value['000300.SH'] + 0.5 * index_value['000905.SH']
-        for col in index_value.columns:
-            index_value[col] = index_value[col] / index_value[col].iloc[0] * self.capital
-        tot_res = pd.merge(tot_res, index_value, left_index=True, right_index=True)
-        tot_res['accum_300_alpha'] = (tot_res['group_5_TotalValue'] - tot_res['000300.SH']) / self.capital
-        tot_res['accum_500_alpha'] = (tot_res['group_5_TotalValue'] - tot_res['000905.SH']) / self.capital
-        tot_res['accum_800_alpha'] = (tot_res['group_5_TotalValue'] - tot_res['ZZ800']) / self.capital
-        str_start = tot_res.index[0].strftime('%Y%m%d')
-        str_end = tot_res.index[-1].strftime('%Y%m%d')
-
+        start = grouped_weight.index.unique().strftime('%Y%m%d')[0]
+        end = grouped_weight.index.unique().strftime('%Y%m%d')[-1]
+        pvs = []
+        for g in group:
+            weight = grouped_weight.loc[
+                (grouped_weight['group'] == g) | (grouped_weight['group'] == 'same_group'),
+                ['code', 'weight']].copy()
+            portfolio_value = BE.run(weight, start, end)
+            portfolio_value = portfolio_value.loc[:, ['TotalValue', 'BenchmarkValue', 'AccumAlpha']]
+            portfolio_value.rename(columns={'TotalValue': 'TotalValue_{0}'.format(g),
+                                            'BenchmarkValue': 'BenchmarkValue_{0}'.format(g),
+                                            'AccumAlpha': 'AccumAlpha_{0}'.format(g)}, inplace=True)
+            pvs.append(portfolio_value)
+            # 重置 stk_portfolio
+            BE.stk_portfolio.reset_portfolio(self.capital)
+        tot_res = pd.concat(pvs, axis=1)
         folder_dir = global_constant.ROOT_DIR + '/Backtest_Result/Group_Value/{0}/'.format(self.factor)
         if os.path.exists(folder_dir):
             pass
         else:
             os.makedirs(folder_dir.rstrip('/'))
-        tot_res.to_csv(folder_dir + 'Value_{0}to{1}.csv'.format(str_start, str_end), encoding='gbk')
-        # -------------------------------------
-        self.summary_dict['AnnRet'] = \
-            DataProcess.calc_ann_return(tot_res[group[-1] + '_TotalValue'])
-        self.summary_dict['alpha_300'] = \
-            DataProcess.calc_alpha_ann_return(tot_res[group[-1] + '_TotalValue'], tot_res['000300.SH'])
-        self.summary_dict['alpha_500'] = \
-            DataProcess.calc_alpha_ann_return(tot_res[group[-1] + '_TotalValue'], tot_res['000905.SH'])
-        self.summary_dict['alpha_800'] = \
-            DataProcess.calc_alpha_ann_return(tot_res[group[-1] + '_TotalValue'], tot_res['ZZ800'])
-        self.summary_dict['MDD'] = \
-            DataProcess.calc_max_draw_down(tot_res[group[-1] + '_TotalValue'])
-        self.summary_dict['sharpe_ratio'] = \
-            DataProcess.calc_sharpe(tot_res[group[-1] + '_TotalValue'])
-        self.summary_dict['sharpe_alpha_300'] = \
-            DataProcess.calc_alpha_sharpe(tot_res[group[-1] + '_TotalValue'], tot_res['000300.SH'])
-        self.summary_dict['sharpe_alpha_500'] = \
-            DataProcess.calc_alpha_sharpe(tot_res[group[-1] + '_TotalValue'], tot_res['000905.SH'])
-        self.summary_dict['sharpe_alpha_800'] = \
-            DataProcess.calc_alpha_sharpe(tot_res[group[-1] + '_TotalValue'], tot_res['ZZ800'])
+        tot_res.to_csv(folder_dir + 'Value_{0}to{1}.csv'.format(self.start, self.end), encoding='gbk')
         print('-' * 30)
         # -------------------------------------
-        self.summary_dict['Start_Time'] = tot_res.index[0].strftime('%Y%m%d')
-        self.summary_dict['End_Time'] = tot_res.index[-1].strftime('%Y%m%d')
+        self.summary_dict['Start_Time'] = start
+        self.summary_dict['End_Time'] = end
+        self.summary_dict['AnnAlpha'] = DataProcess.calc_alpha_ann_return(
+            tot_res['TotalValue_{0}'.format(group[-1])], tot_res['BenchmarkValue_{0}'.format(group[-1])])
+        self.summary_dict['AlphaMDD'] = DataProcess.calc_alpha_max_draw_down(
+            tot_res['TotalValue_{0}'.format(group[-1])], tot_res['BenchmarkValue_{0}'.format(group[-1])])
         return self.summary_dict.copy()
 
-    def generate_report(self, summary_dict):
-        rep = {self.factor: summary_dict}
-        rep = pd.DataFrame(rep)
-        rep = rep.reindex(
-            index=['Start_Time', 'End_Time', 'IC_mean', 'IC_std', 'IR', 'ICIR', 'AnnRet', 'alpha_300', 'alpha_500',
-                   'alpha_800', 'MDD', 'sharpe_ratio', 'sharpe_alpha_300', 'sharpe_alpha_500', 'sharpe_alpha_800',
-                   'abs_Talp_over_2_pct', 'IC_over_0_pct', 'abs_IC_over_20pct_pct', 'Fret_over_0_pct',
-                   'Falp_over_0_pct', 'avg_abs_Tret', 'avg_abs_Talp', 'abs_Tret_over_2_pct']).T
-        str_start = rep['Start_Time'].iloc[0]
-        str_end = rep['End_Time'].iloc[0]
-        folder_dir = global_constant.ROOT_DIR + '/Backtest_Result/Factor_Report/{0}/'.format(self.factor)
-        if os.path.exists(folder_dir):
-            pass
-        else:
-            os.makedirs(folder_dir.rstrip('/'))
-        rep.to_csv(folder_dir + '{0}to{1}.csv'.format(str_start, str_end), encoding='gbk')
+    def generate_report(self):
+        fields = ['Start_Time', 'End_Time', 'IC_mean', 'IC_std', 'IR', 'ICIR', 'AnnAlpha', 'AlphaMDD',
+                  'IC_over_0_pct', 'abs_IC_over_20pct_pct', 'Falp_over_0_pct', 'avg_abs_Talp', 'abs_Talp_over_2_pct']
+        self.logger.info('Factor: %s' % self.factor)
+        for field in fields:
+            self.logger.info('{0}:   {1}'.format(field, self.summary_dict[field]))
+        self.logger.info('*' * 30)
 
     def run(
             # 初始化参数
             self, start, end, direction, if_fillna, benchmark, select_range, industry, size_field,
             # 回测参数
             adj_interval=5, groups=5, capital=5000000, cash_reserve=0.03, stk_slippage=0.001,
-            stk_fee=0.0001, price_field='vwap', logger_lvl=logging.ERROR):
+            stk_fee=0.0001, price_field='vwap', logger_lvl=logging.INFO):
         self.start = start
         self.end = end
         self.direction = direction
@@ -414,8 +392,6 @@ class FactorTest:
         self.logger_lvl = logger_lvl
         self.summary_dict = {}
         # ---------------------------------------------------------------
-        # init log
-        self.init_log()
         # load data
         self.df_prepare()
         # alpha 数据
@@ -427,15 +403,18 @@ class FactorTest:
         print('validity checking finish')
         print('-' * 30)
         # 分组
-        grouped_weight = self.group_factor(self.factor_data, self.mkt_data)
+        grouped_weight = self.group_factor()
         print('factor grouping finish')
         print('-' * 30)
         # 回测
-        summary_dict = self.group_backtest(grouped_weight)
+        self.group_backtest(grouped_weight)
         print('group backtest finish')
         print('-' * 30)
+        # init log
+        self.init_log()
         # 生成报告
-        self.generate_report(summary_dict)
+        print(self.summary_dict)
+        self.generate_report()
         print('report got')
 
 
@@ -445,9 +424,9 @@ if __name__ == '__main__':
 
     start = 20120101
     end = 20121231
-    measurements = ['Momentum']
-    factors = ['free_exp_wgt_rtn_m1']
-    directions = [-1]
+    measurements = ['EP']
+    factors = ['EP_TTM']
+    directions = [1]
     if_fillnas = [False]
     benchmark = 300
     select_range = 800
@@ -462,4 +441,4 @@ if __name__ == '__main__':
         if_fillna = if_fillnas[i]
         test = FactorTest(measurement, factor)
         test.run(start, end, direction, if_fillna, benchmark, select_range, industry, size_field)
-    print('Test finish! Time token: ', datetime.datetime.now()-dt_start)
+    print('Test finish! Time token: ', datetime.datetime.now() - dt_start)
