@@ -43,6 +43,7 @@ from CFROI import CFROI_series
 from GPOA import GPOA_series
 from ROE_growth import ROE_growth
 from RNOA_growth import RNOA_growth
+from net_profit_growth import net_profit_growth
 from Surprise import Surprise
 from Turn_StdTurn_BiasStdTurn import Turn_StdTurn_BiasStdTurn
 from Rtn_WgtRtn_ExpWgtRtn import Rtn_WgtRtn_ExpWgtRtn
@@ -222,6 +223,10 @@ class DailyUpdate:
             res = rnoag.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
             self.logger.info('-----------------RNOA growth finish-------------------')
+            npg = net_profit_growth()
+            res = npg.cal_factors(last_week, last_trade_day, n_jobs)
+            self.log_res(res)
+            self.logger.info('---------------net profit growth finish---------------')
             surp = Surprise()
             res = surp.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
