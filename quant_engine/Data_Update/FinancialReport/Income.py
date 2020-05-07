@@ -82,8 +82,8 @@ class IncomeUpdate(FactorBase):
         # 目前包含字段: 净利润(net_profit)，扣非净利润(net_profit_ddt)，营收(oper_rev)，总营收(tot_oper_rev)，
         #              营业利润(oper_profit)，摊薄eps(EPS_diluted)，经营利润(oper_income)
         query = "select ANN_DT, S_INFO_WINDCODE, REPORT_PERIOD, NET_PROFIT_EXCL_MIN_INT_INC, " \
-                "NET_PROFIT_AFTER_DED_NR_LP, OPER_REV, TOT_OPER_REV, OPER_PROFIT, S_FA_EPS_DILUTED, " \
-                "MINORITY_INT_INC, LESS_FIN_EXP, NET_INT_INC, STATEMENT_TYPE " \
+                "NET_PROFIT_AFTER_DED_NR_LP, OPER_REV, TOT_OPER_REV, TOT_OPER_COST, OPER_PROFIT, TOT_PROFIT, " \
+                "S_FA_EPS_DILUTED, MINORITY_INT_INC, LESS_FIN_EXP, NET_INT_INC, STATEMENT_TYPE " \
                 "from wind_filesync.AShareIncome " \
                 "where ANN_DT >= {0} and ANN_DT <= {1} " \
                 "and (STATEMENT_TYPE = '408001000' or STATEMENT_TYPE = '408005000' or STATEMENT_TYPE = '408004000') " \
@@ -94,8 +94,8 @@ class IncomeUpdate(FactorBase):
         income = \
             pd.DataFrame(self.rdf.curs.fetchall(),
                          columns=['date', 'code', 'report_period', 'net_profit', 'net_profit_ddt', 'oper_rev',
-                                  'tot_oper_rev', 'oper_profit', 'EPS_diluted', 'minority_interest_income',
-                                  'less_fin_exp', 'net_interest_income', 'type'])
+                                  'tot_oper_rev', 'tot_oper_cost', 'oper_profit', 'tot_profit', 'EPS_diluted',
+                                  'minority_interest_income', 'less_fin_exp', 'net_interest_income', 'type'])
         income[['minority_interest_income', 'less_fin_exp', 'net_interest_income']] = \
             income[['minority_interest_income', 'less_fin_exp', 'net_interest_income']].fillna(0)
         # 同一code，同一date，同一report_period，同时出现type1，2，3时，取type大的
@@ -106,7 +106,7 @@ class IncomeUpdate(FactorBase):
         # ***************************************************************************
         # 读取业绩快报
         query = "select ANN_DT, S_INFO_WINDCODE, REPORT_PERIOD, OPER_REV, OPER_PROFIT, NET_PROFIT_EXCL_MIN_INT_INC, " \
-                "EPS_DILUTED " \
+                "TOT_PROFIT, EPS_DILUTED " \
                 "from wind_filesync.AShareProfitExpress " \
                 "where ANN_DT >= {0} and ANN_DT <= {1} " \
                 "and (s_info_windcode like '0%' or s_info_windcode like '3%' or s_info_windcode like '6%') " \
@@ -115,7 +115,7 @@ class IncomeUpdate(FactorBase):
         self.rdf.curs.execute(query)
         express = pd.DataFrame(self.rdf.curs.fetchall(),
                                columns=['date', 'code', 'report_period', 'oper_rev', 'oper_profit', 'net_profit',
-                                        'EPS_diluted'])
+                                        'tot_profit', 'EPS_diluted'])
         express['date'] = pd.to_datetime(express['date'])
         express['report_period'] = pd.to_datetime(express['report_period'])
         express['type'] = '1'
@@ -148,9 +148,10 @@ class IncomeUpdate(FactorBase):
         #         = 扣非净利润（扣除少数股东损益） + 少数股东损益 + 财务费用 * (1-0.25) - 利息净收入 * (1-0.25)
         income['oper_income'] = income['net_profit_ddt'] + income['minority_interest_income'] + \
                                 income['less_fin_exp'] * (1 - 0.25) - income['net_interest_income'] * (1 - 0.25)
+        income['gross_margin'] = income['tot_oper_rev'] - income['tot_oper_cost']
         # 需要的field
-        fields = ['net_profit', 'net_profit_ddt', 'oper_rev', 'tot_oper_rev', 'oper_profit', 'EPS_diluted',
-                  'oper_income']
+        fields = ['net_profit', 'net_profit_ddt', 'oper_rev', 'tot_oper_rev', 'tot_oper_cost', 'oper_profit',
+                  'tot_profit', 'gross_margin', 'EPS_diluted', 'oper_income']
         # 处理数据
         calendar = self.rdf.get_trading_calendar()
         calendar = \
@@ -182,4 +183,4 @@ class IncomeUpdate(FactorBase):
 
 if __name__ == '__main__':
     IU = IncomeUpdate()
-    r = IU.cal_factors(20100101, 20200407, N_JOBS)
+    r = IU.cal_factors(20100101, 20200501, N_JOBS)

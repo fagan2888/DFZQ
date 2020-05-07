@@ -13,10 +13,11 @@ class QnTTMUpdate(FactorBase):
     def __init__(self):
         super().__init__()
         self.db = 'FinancialReport_Gus'
-        # 目前包含字段: 净利润(net_profit)，扣非净利润(net_profit_ddt)，营收(oper_rev)，总营收(tot_oper_rev)，
-        #              营业利润(oper_profit), 现金流净额(net_CF), 经营现金流净额(net_OCF)
-        self.fields = ['net_profit', 'net_profit_ddt', 'oper_rev', 'tot_oper_rev', 'oper_profit', 'net_CF', 'net_OCF',
-                       'oper_income']
+        # 目前包含字段: 净利润(net_profit)，扣非净利润(net_profit_ddt)，总利润(tot_profit), 营收(oper_rev)，
+        #              总营收(tot_oper_rev)，总营业成本(tot_oper_cost), 营业利润(oper_profit), 现金流净额(net_CF),
+        #              经营现金流净额(net_OCF)，经营利润(oper_income)，毛利(gross_margin)
+        self.fields = ['net_profit', 'net_profit_ddt', 'tot_profit', 'oper_rev', 'tot_oper_rev', 'tot_oper_cost',
+                       'oper_profit', 'net_CF', 'net_OCF', 'oper_income', 'gross_margin']
 
     @staticmethod
     def JOB_calQ(value_cur, value_last, report_period, n_last):
@@ -117,5 +118,5 @@ class QnTTMUpdate(FactorBase):
 
 if __name__ == '__main__':
     QU = QnTTMUpdate()
-    r = QU.cal_factors(20100101, 20200301, N_JOBS)
+    r = QU.cal_factors(20100101, 20200501, N_JOBS)
     print(r)
