@@ -79,6 +79,6 @@ if __name__ == '__main__':
     pd.set_option('mode.use_inf_as_na', True)
     start_dt = datetime.datetime.now()
     net_profitg = net_profit_growth()
-    r = net_profitg.cal_factors(20200101, 20200501, N_JOBS)
+    r = net_profitg.cal_factors(20100101, 20200501, N_JOBS)
     print(r)
     print('time token:', datetime.datetime.now()-start_dt)
