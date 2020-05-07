@@ -39,9 +39,14 @@ FACTOR_WEIGHT = \
             ['Analyst', 'EP_FY1', 1, True, 1]],
         'FIN_QUAL': [
             ['ROE', 'ROE', 1, False, 1],
-            ['RNOA', 'RNOA', 1, False, 1]],
+            ['RNOA', 'RNOA', 1, True, 1],
+            ['GPOA', 'GPOA', 1, True, 1],
+            ['CFROI', 'CFROI', 1, True, 1],
+            ['ROA', 'ROA', 1, True, 1]],
         'GROWTH': [
             ['ROE_growth', 'ROE_Q_growthY', 1, True, 1],
+            ['net_profit_growth', 'net_profit_Q_growthY', 1, True, 1],
+            ['oper_rev_growth', 'oper_rev_Q_growth_Y', 1, True, 1],
             ['Surprise', 'sur_net_profit_Q_WD', 1, True, 1],
             ['Surprise', 'sur_net_profit_Q_WOD', 1, True, 1],
             ['Surprise', 'sur_oper_rev_Q_WD', 1, True, 1],
