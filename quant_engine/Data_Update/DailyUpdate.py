@@ -40,6 +40,7 @@ from ROE import ROE_series
 from RNOA import RNOA_series
 from ROA import ROA_series
 from CFROI import CFROI_series
+from GPOA import GPOA_series
 from ROE_growth import ROE_growth
 from RNOA_growth import RNOA_growth
 from Surprise import Surprise
@@ -209,6 +210,10 @@ class DailyUpdate:
             res = cfroi.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
             self.logger.info('--------------------CFROI finish----------------------')
+            gpoa = GPOA_series()
+            res = gpoa.cal_factors(last_week, last_trade_day, n_jobs)
+            self.log_res(res)
+            self.logger.info('--------------------GPOA finish-----------------------')
             rg = ROE_growth()
             res = rg.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
