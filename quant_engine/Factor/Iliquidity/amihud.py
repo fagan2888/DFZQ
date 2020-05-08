@@ -1,4 +1,4 @@
-#  非流动性因子 ln_amihud_20 的计算
+#  非流动性因子 amihud_20 的计算
 
 from factor_base import FactorBase
 import pandas as pd
@@ -55,7 +55,7 @@ class Amihud(FactorBase):
             res = Parallel()(delayed(Amihud.JOB_factors)
                              (mkt_data, codes, start, self.period, self.db, self.measure)
                              for codes in split_codes)
-        print('ln_ma_amihud finish')
+        print('amihud finish')
         print('-' * 30)
         fail_list = []
         for r in res:
