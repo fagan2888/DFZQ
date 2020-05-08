@@ -29,6 +29,7 @@ class alpha_version_3(StrategyBase):
         self.target_sigma = STRATEGY_CONFIG['target_sigma']
         self.mv_max_exp = STRATEGY_CONFIG['mv_max_exp']
         self.mv_min_exp = STRATEGY_CONFIG['mv_min_exp']
+        self.weight_intercept = STRATEGY_CONFIG['weight_intercept']
         self.n_codes = STRATEGY_CONFIG['n_codes']
 
     def get_factors(self, measure, factor, direction, if_fillna, weight):
@@ -138,7 +139,7 @@ class alpha_version_3(StrategyBase):
 
     @staticmethod
     def JOB_opti_weight(base_weight, risk_cov, dummies_field, risks_field, dates, adj_interval,
-                        target_sigma, mv_max_exp, mv_min_exp):
+                        target_sigma, mv_max_exp, mv_min_exp, weight_intercept):
         dfs = []
         fail_dates = []
         for date in dates:
@@ -169,7 +170,7 @@ class alpha_version_3(StrategyBase):
                 pd.isnull(day_base_weight['sum_risks']).values |
                 pd.isnull(day_base_weight['specific_risk']).values,
                 -1 * day_base_weight['base_weight'].values,
-                1 + 0.5 * day_base_weight['base_weight'].values)
+                weight_intercept + 0.5 * day_base_weight['base_weight'].values)
             array_lowbound = -1 * day_base_weight['base_weight'].values
             # ----------------------track error-------------------------
             tot_risk_exp = array_risk_exp.T * solve_weight / 100
@@ -276,7 +277,7 @@ class alpha_version_3(StrategyBase):
             parallel_res = \
                 Parallel()(delayed(alpha_version_3.JOB_opti_weight)
                            (base_weight, self.risk_cov, self.indus, self.risks, dates, self.adj_interval,
-                            self.target_sigma, self.mv_max_exp, self.mv_min_exp)
+                            self.target_sigma, self.mv_max_exp, self.mv_min_exp, self.weight_intercept)
                            for dates in split_dates)
         parallel_dfs = []
         fail_dates = []
@@ -324,6 +325,6 @@ class alpha_version_3(StrategyBase):
 
 if __name__ == '__main__':
     print(datetime.datetime.now())
-    a = alpha_version_3('Alpha_version_3')
+    a = alpha_version_3('alpha0508')
     kk = a.run()
     print(datetime.datetime.now())

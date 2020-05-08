@@ -15,6 +15,7 @@ STRATEGY_CONFIG = \
         'mv_max_exp': 0.1,
         # 市值主动最小暴露
         'mv_min_exp': -0.1,
+        'weight_intercept': 2,
         'n_codes': 120
     }
 
@@ -46,13 +47,13 @@ FACTOR_WEIGHT = \
         'GROWTH': [
             ['ROE_growth', 'ROE_Q_growthY', 1, True, 1],
             ['net_profit_growth', 'net_profit_Q_growthY', 1, True, 1],
-            ['oper_rev_growth', 'oper_rev_Q_growth_Y', 1, True, 1],
+            ['oper_rev_growth', 'oper_rev_Q_growthY', 1, True, 1],
             ['Surprise', 'sur_net_profit_Q_WD', 1, True, 1],
             ['Surprise', 'sur_net_profit_Q_WOD', 1, True, 1],
             ['Surprise', 'sur_oper_rev_Q_WD', 1, True, 1],
             ['Surprise', 'sur_oper_rev_Q_WOD', 1, True, 1]],
         'ANALYST': [
-            ['Analyst', 'anlst_cov', 1, False, 1],
+            ['Analyst', 'sqrt_anlst_cov', 1, False, 1],
             ['Analyst', 'net_profit_divergence', -1, False, 1],
             ['Analyst', 'score', 1, True, 1],
             ['Analyst', 'PEG', -1, True, 1]]
