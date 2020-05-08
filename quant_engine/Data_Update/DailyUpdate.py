@@ -10,7 +10,8 @@ sys.path.extend([root_dir, root_dir + '\\Data_Resource', root_dir + '\\Engine', 
                  root_dir + '\\Factor\\Valuation', root_dir + '\\Factor\\Financial_Quality',
                  root_dir + '\\Factor\\Growth', root_dir + '\\Factor\\Turnover',
                  root_dir + '\\Factor\\Momentum', root_dir + '\\Factor\\Analyst',
-                 root_dir + '\\Factor\\Risk', root_dir + '\\Factor\\Iliquidity'])
+                 root_dir + '\\Factor\\Risk', root_dir + '\\Factor\\Iliquidity',
+                 root_dir + '\\Factor\\Reverse'])
 # -------------------------------
 from rdf_data import rdf_data
 import logging
@@ -50,6 +51,7 @@ from Turn_StdTurn_BiasStdTurn import Turn_StdTurn_BiasStdTurn
 from Rtn_WgtRtn_ExpWgtRtn import Rtn_WgtRtn_ExpWgtRtn
 from amihud import Amihud
 from ln_turnover_60 import LnTurnover
+from MaxRet import MaxRet
 from coverage_divergence import coverage_and_divergence
 from consensus_net_profit import consensus_net_profit
 from EP_FY1 import EP_FY1
@@ -254,6 +256,10 @@ class DailyUpdate:
             res = ln_turnover.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
             self.logger.info('-----------------LnTurnover finish--------------------')
+            maxret = MaxRet()
+            res = maxret.cal_factors(last_week, last_trade_day, n_jobs)
+            self.log_res(res)
+            self.logger.info('-------------------MaxRet finish----------------------')
             cov_div = coverage_and_divergence()
             res = cov_div.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
