@@ -49,6 +49,7 @@ from Surprise import Surprise
 from Turn_StdTurn_BiasStdTurn import Turn_StdTurn_BiasStdTurn
 from Rtn_WgtRtn_ExpWgtRtn import Rtn_WgtRtn_ExpWgtRtn
 from ln_amihud_20 import LnAmihud
+from ln_turnover_60 import LnTurnover
 from coverage_divergence import coverage_and_divergence
 from consensus_net_profit import consensus_net_profit
 from EP_FY1 import EP_FY1
@@ -249,6 +250,10 @@ class DailyUpdate:
             res = ln_amihud.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
             self.logger.info('------------------LnAmihud finish---------------------')
+            ln_turnover = LnTurnover()
+            res = ln_turnover.cal_factors(last_week, last_trade_day, n_jobs)
+            self.log_res(res)
+            self.logger.info('-----------------LnTurnover finish--------------------')
             cov_div = coverage_and_divergence()
             res = cov_div.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
