@@ -10,7 +10,7 @@ sys.path.extend([root_dir, root_dir + '\\Data_Resource', root_dir + '\\Engine', 
                  root_dir + '\\Factor\\Valuation', root_dir + '\\Factor\\Financial_Quality',
                  root_dir + '\\Factor\\Growth', root_dir + '\\Factor\\Turnover',
                  root_dir + '\\Factor\\Momentum', root_dir + '\\Factor\\Analyst',
-                 root_dir + '\\Factor\\Risk'])
+                 root_dir + '\\Factor\\Risk', root_dir + '\\Factor\\Iliquidity'])
 # -------------------------------
 from rdf_data import rdf_data
 import logging
@@ -48,6 +48,7 @@ from oper_rev_growth import oper_rev_growth
 from Surprise import Surprise
 from Turn_StdTurn_BiasStdTurn import Turn_StdTurn_BiasStdTurn
 from Rtn_WgtRtn_ExpWgtRtn import Rtn_WgtRtn_ExpWgtRtn
+from ln_amihud_20 import LnAmihud
 from coverage_divergence import coverage_and_divergence
 from consensus_net_profit import consensus_net_profit
 from EP_FY1 import EP_FY1
@@ -244,6 +245,10 @@ class DailyUpdate:
             res = rtn.cal_factors(last_week, last_trade_day, [1, 3, 6], n_jobs)
             self.log_res(res)
             self.logger.info('------------------Momentum finish---------------------')
+            ln_amihud = LnAmihud()
+            res = ln_amihud.cal_factors(last_week, last_trade_day, n_jobs)
+            self.log_res(res)
+            self.logger.info('------------------LnAmihud finish---------------------')
             cov_div = coverage_and_divergence()
             res = cov_div.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
