@@ -4,6 +4,7 @@ from rdf_data import rdf_data
 import dateutil.parser as dtparser
 from dateutil.relativedelta import relativedelta
 import datetime
+from global_constant import N_JOBS
 
 
 class FactorBase:
@@ -45,6 +46,7 @@ class FactorBase:
     def __init__(self):
         self.influx = influxdbData()
         self.rdf = rdf_data()
+        self.n_jobs = N_JOBS
 
     # 计算单季度指标所用函数(当季-上季)
     def cal_Q_data(self, data_input, report_period_input):
