@@ -24,7 +24,7 @@ class LnTurnover(FactorBase):
         for code in codes:
             code_to = turnover.loc[turnover['code'] == code, :].copy()
             code_to['turnover_{0}'.format(period)] = \
-                code_to['float_turnover'].rolling('{0}d'.format(period), min_periods=round(period/2)).mean()
+                code_to['float_turnover'].rolling(period, min_periods=round(period * 0.6)).mean()
             code_to['ln_turnover_{0}'.format(period)] = np.log(code_to['turnover_{0}'.format(period)].values)
             code_to = code_to.loc[str(start):, ['code', 'ln_turnover_{0}'.format(period)]].dropna()
             if code_to.empty:
