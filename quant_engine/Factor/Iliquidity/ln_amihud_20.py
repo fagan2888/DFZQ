@@ -64,5 +64,5 @@ class LnAmihud(FactorBase):
 
 if __name__ == '__main__':
     i = LnAmihud()
-    r = i.cal_factors(20200101, 20200210, N_JOBS)
+    r = i.cal_factors(20100101, 20200506, N_JOBS)
     print(r)
