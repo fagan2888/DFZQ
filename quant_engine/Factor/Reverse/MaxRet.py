@@ -1,4 +1,4 @@
-#  非流动性因子 amihud_20 的计算
+#  翻转投机因子 MaxRet 的计算
 
 from factor_base import FactorBase
 import pandas as pd
