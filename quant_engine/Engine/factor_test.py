@@ -423,10 +423,10 @@ if __name__ == '__main__':
     warnings.filterwarnings("ignore")
 
     start = 20120101
-    end = 20121231
-    measurements = ['EP']
-    factors = ['EP_TTM']
-    directions = [1]
+    end = 20181231
+    measurements = ['ln_ma_turnover']
+    factors = ['ln_turnover_60']
+    directions = [-1]
     if_fillnas = [False]
     benchmark = 300
     select_range = 800
