@@ -23,22 +23,24 @@ class CGO(FactorBase):
         save_res = []
         for code in codes:
             code_mkt = mkt_data.loc[mkt_data['code'] == code, :].copy()
-            hist_price = code_mkt['fq_vwap'].shift(1)
-            turnover = code_mkt['float_turnover'].shift(1)
             # 昨日买入，今日没有unturn数据
-            code_mkt['p_1'] = hist_price * turnover * 1
-            cols = ['p_1']
+            code_mkt['to_1'] = code_mkt['float_turnover'].shift(1)
+            code_mkt['price_1'] = code_mkt['fq_vwap'].shift(1) * code_mkt['to_1']
+            to_cols = ['to_1']
+            hp_cols = ['price_1']
             for p in range(2, period+1):
-                hist_price = code_mkt['fq_vwap'].shift(p)
                 turnover = code_mkt['float_turnover'].shift(p)
                 prod_unturn = \
                     code_mkt['unturn'].rolling(p-1, min_periods=p-1).apply(lambda x: np.product(x)).shift(1)
-                code_mkt['p_{0}'.format(p)] = hist_price * turnover * prod_unturn
-                cols.append('p_{0}'.format(p))
+                code_mkt['to_{0}'.format(p)] = turnover * prod_unturn
+                code_mkt['price_{0}'.format(p)] = code_mkt['fq_vwap'].shift(p) * code_mkt['to_{0}'.format(p)]
+                to_cols.append('to_{0}'.format(p))
+                hp_cols.append('price_{0}'.format(p))
             code_mkt = code_mkt.dropna()
-            code_mkt['position_price'] = code_mkt[cols].sum(axis=1)
+            code_mkt['multi'] = 1 / code_mkt[to_cols].sum(axis=1)
+            code_mkt['price'] = code_mkt[hp_cols].sum(axis=1) * code_mkt['multi']
             code_mkt['CGO_{0}'.format(period)] = \
-                (code_mkt['fq_vwap'] - code_mkt['position_price']) / code_mkt['fq_vwap']
+                (code_mkt['fq_vwap'] - code_mkt['price']) / code_mkt['price']
             code_mkt = code_mkt.loc[str(start):, ['code', 'CGO_{0}'.format(period)]]
             code_mkt = code_mkt.dropna()
             if code_mkt.empty:
@@ -83,5 +85,5 @@ class CGO(FactorBase):
 
 if __name__ == '__main__':
     i = CGO()
-    r = i.cal_factors(20100101, 20200508, N_JOBS)
+    r = i.cal_factors(20200101, 20200508, N_JOBS)
     print(r)
