@@ -38,7 +38,7 @@ class CGO(FactorBase):
             code_mkt = code_mkt.dropna()
             code_mkt['position_price'] = code_mkt[cols].sum(axis=1)
             code_mkt['CGO_{0}'.format(period)] = \
-                (code_mkt['fq_vwap'] - code_mkt['position_price']) / code_mkt['position_price']
+                (code_mkt['fq_vwap'] - code_mkt['position_price']) / code_mkt['fq_vwap']
             code_mkt = code_mkt.loc[str(start):, ['code', 'CGO_{0}'.format(period)]]
             code_mkt = code_mkt.dropna()
             if code_mkt.empty:
