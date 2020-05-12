@@ -176,7 +176,8 @@ class FactorTest:
         self.code_range = self.code_range.loc[pd.isnull(self.code_range['isST']), ['date', 'code']]
         # 组合 industry
         self.code_range = pd.merge(self.code_range, self.industry_data.reset_index(), how='inner', on=['date', 'code'])
-        self.code_range.set_index('date')
+        self.code_range.set_index('date', inplace=True)
+        self.code_range = self.code_range.loc[str(self.start):str(self.end), :]
 
     def get_factor_df(self):
         factor_df = self.influx.getDataMultiprocess(self.factor_db, self.factor_measure, self.start, self.end,
@@ -249,7 +250,7 @@ class FactorTest:
         split_dates = np.array_split(dates, self.n_jobs)
         if T_test:
             # T检验
-            with parallel_backend('multiprocessing', n_jobs=4):
+            with parallel_backend('multiprocessing', n_jobs=self.n_jobs):
                 parallel_res = Parallel()(delayed(FactorTest.JOB_T_test)
                                           (factor_alpha, self.factor, dates) for dates in split_dates)
             # 第一行F，第二行T
@@ -288,7 +289,7 @@ class FactorTest:
 
     # 此处weight_field为行业内权重分配的field
     def group_factor(self):
-        mkt_data = pd.merge(self.mkt_data.reset_index(), self.code_range, on=['date', 'code'])
+        mkt_data = pd.merge(self.mkt_data.reset_index(), self.code_range.reset_index(), on=['date', 'code'])
         mkt_data = mkt_data.loc[mkt_data['status'] != '停牌', :]
         idxs = mkt_data['date'].unique()
         next_date_dict = {}
@@ -424,10 +425,10 @@ if __name__ == '__main__':
 
     start = 20120101
     end = 20181231
-    measurements = ['ln_ma_turnover']
-    factors = ['ln_turnover_60']
+    measurements = ['CGO']
+    factors = ['CGO_60']
     directions = [-1]
-    if_fillnas = [False]
+    if_fillnas = [True]
     benchmark = 300
     select_range = 800
     adj_interval = 5
