@@ -15,8 +15,8 @@ STRATEGY_CONFIG = \
         'mv_max_exp': 0.1,
         # 市值主动最小暴露
         'mv_min_exp': -0.1,
-        'weight_intercept': 2,
-        'n_codes': 120
+        'weight_intercept': 1,
+        'n_codes': 100
     }
 
 # 大类因子权重
@@ -25,7 +25,9 @@ CATEGORY_WEIGHT = \
         'VALUE': 1,
         'FIN_QUAL': 1,
         'GROWTH': 1,
-        'ANALYST': 1
+        'ANALYST': 1,
+        'ILIQUIDITY': 1,
+        'REVERSE': 1
     }
 
 # 因子权重
@@ -56,5 +58,12 @@ FACTOR_WEIGHT = \
             ['Analyst', 'sqrt_anlst_cov', 1, False, 1],
             ['Analyst', 'net_profit_divergence', -1, False, 1],
             ['Analyst', 'score', 1, True, 1],
-            ['Analyst', 'PEG', -1, True, 1]]
+            ['Analyst', 'PEG', -1, True, 1]],
+        'ILIQUIDITY': [
+            ['Amihud', 'amihud_20', 1, True, 1],
+            ['ln_ma_turnover', 'ln_turnover_60', -1, True, 1]],
+        'REVERSE': [
+            ['CGO', 'CGO_60', -1, True, 1],
+            ['MaxRet', 'max_return_60', -1, True, 1],
+            ['PeriodRet', 'ret_20', -1, True, 1]]
     }
