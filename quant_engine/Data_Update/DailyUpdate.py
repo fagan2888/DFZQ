@@ -52,6 +52,8 @@ from Rtn_WgtRtn_ExpWgtRtn import Rtn_WgtRtn_ExpWgtRtn
 from amihud import Amihud
 from ln_turnover_60 import LnTurnover
 from MaxRet import MaxRet
+from PeriodRet import PeriodRet
+from CGO import CGO
 from coverage_divergence import coverage_and_divergence
 from consensus_net_profit import consensus_net_profit
 from EP_FY1 import EP_FY1
@@ -260,6 +262,14 @@ class DailyUpdate:
             res = maxret.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
             self.logger.info('-------------------MaxRet finish----------------------')
+            pr = PeriodRet()
+            res = pr.cal_factors(last_week, last_trade_day, n_jobs)
+            self.log_res(res)
+            self.logger.info('-----------------PeriodRet finish---------------------')
+            cgo = CGO()
+            res = cgo.cal_factors(last_week, last_trade_day, n_jobs)
+            self.log_res(res)
+            self.logger.info('--------------------CGO finish------------------------')
             cov_div = coverage_and_divergence()
             res = cov_div.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
