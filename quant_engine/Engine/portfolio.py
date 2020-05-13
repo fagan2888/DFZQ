@@ -1,7 +1,6 @@
 import logging
 import datetime
 import pandas as pd
-import numpy as np
 import global_constant
 import os.path
 
@@ -11,11 +10,10 @@ class stock_portfolio:
         self.capital = capital_input
         self.balance = capital_input
         self.slippage = slippage_input
-        self.transaction_fee_ratio = transaction_fee_input
+        self.trans_fee_ratio = transaction_fee_input
         self.tax_ratio = 0.001
         # 股票仓位模板{'600000.SH':{'price':2.22,'volume':300}}
         self.stk_positions = {}
-        self.transactions = np.array([])
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(level=logging.INFO)
         dir = global_constant.ROOT_DIR + 'Transaction_Log/{0}/'.format(save_name)
@@ -35,13 +33,12 @@ class stock_portfolio:
         self.capital = capital_input
         self.balance = capital_input
         self.stk_positions = {}
-        self.transactions = np.array([])
 
     # 函数可以接受非100倍数
     def buy_stks_by_volume(self, time, stock_code, price, volume):
         actual_price = price * (1 + self.slippage)
         amount = round(actual_price * volume, 2)
-        transaction_fee = round(self.transaction_fee_ratio * amount, 2)
+        transaction_fee = round(self.trans_fee_ratio * amount, 2)
         if stock_code in self.stk_positions:
             weighted_volume = self.stk_positions[stock_code]['volume'] + volume
             weighted_price = \
@@ -52,8 +49,6 @@ class stock_portfolio:
         else:
             self.stk_positions[stock_code] = {'volume': volume, 'price': actual_price}
         self.balance = self.balance - amount - transaction_fee
-        trade = np.array([time, 'BUY', stock_code, price, actual_price, volume, self.balance, transaction_fee])
-        self.transactions = np.append(self.transactions, trade)
 
     def buy_stks_by_amount(self, time, stock_code, price, goal_amount):
         goal_volume = round(goal_amount / price, -2)
@@ -74,7 +69,7 @@ class stock_portfolio:
                                     "adjust to volume in positions!" % stock_code)
                 volume = self.stk_positions[stock_code]['volume']
             amount = round(actual_price * volume, 2)
-            transaction_fee = round(self.transaction_fee_ratio * amount, 2)
+            transaction_fee = round(self.trans_fee_ratio * amount, 2)
             tax = round(self.tax_ratio * amount, 2)
             weighted_volume = self.stk_positions[stock_code]['volume'] - volume
             if weighted_volume == 0:
@@ -82,8 +77,6 @@ class stock_portfolio:
             else:
                 self.stk_positions[stock_code]['volume'] = weighted_volume
             self.balance = self.balance + amount - transaction_fee - tax
-            trade = np.array([time, 'SELL', stock_code, price, actual_price, volume, self.balance, transaction_fee])
-            self.transactions = np.append(self.transactions, trade)
         else:
             print("Code: %s Error: this stk not in portfolio!" % stock_code)
             raise NameError
@@ -97,7 +90,7 @@ class stock_portfolio:
             self.logger.info('Estimate Trade Volume: %i' % goal_volume)
             self.sell_stks_by_volume(time, stock_code, price, goal_volume)
 
-    def trade_stks_to_target_volume(self, time, stock_code, price, target_volume, price_limit='no_limit'):
+    def trade_stks_to_target_volume(self, time, stock_code, price, target_volume, price_limit):
         if stock_code in self.stk_positions:
             volume_held = self.stk_positions[stock_code]['volume']
         else:
@@ -195,8 +188,8 @@ if __name__ == '__main__':
     portfolio = stock_portfolio('test')
     dt1 = datetime.datetime(1990, 9, 4)
     dt2 = datetime.datetime(1990, 11, 26)
-    portfolio.trade_stks_to_target_volume(dt1, '000001.SZ', 5, 60)
+    portfolio.trade_stks_to_target_volume(dt1, '000001.SZ', 5, 60, 'no_limit')
     portfolio.buy_stks_by_volume(dt1, '000001.SZ', 6, 20)
-    portfolio.trade_stks_to_target_volume(dt2, '000001.SZ', 66, 50)
-    portfolio.trade_stks_to_target_volume(dt2, '000001.SZ', 66, 0)
+    portfolio.trade_stks_to_target_volume(dt2, '000001.SZ', 66, 50, 'no_limit')
+    portfolio.trade_stks_to_target_volume(dt2, '000001.SZ', 66, 0, 'no_limit')
     print('ok')

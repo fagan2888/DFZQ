@@ -228,17 +228,10 @@ class BacktestEngine:
                              ' -SuspendStk: %i \n -BenchmarkValue: %f \n -AccumAlpha: %f \n -Turnover: %f'
                              % (balance, stk_value, total_value, delist_amount, len(suspend_stks_in_pos),
                                 benchmark_value, accum_alpha, turnover))
+            self.logger.info('=======================================================================')
             # 记录 持仓
             positions_dict[trade_day] = copy.deepcopy(self.stk_portfolio.stk_positions)
             day_counter += 1
-        # 输出交易记录
-        transactions = pd.DataFrame(self.stk_portfolio.transactions.
-                                    reshape(int(self.stk_portfolio.transactions.shape[0]/8), 8),
-                                    columns=['Time', 'Direction', 'Code', 'RawPrice', 'ActualPrice', 'Volume',
-                                             'Balance', 'TransFee'])
-        transactions.set_index('Time', inplace=True)
-        filename = self.dir + 'Transactions_' + self.save_name + '.csv'
-        transactions.to_csv(filename, encoding='gbk')
         # 输出持仓记录
         positions_dfs = []
         for time in positions_dict:
@@ -268,9 +261,7 @@ class BacktestEngine:
 
 
 if __name__ == '__main__':
-    i = influxdbData()
-    weight = i.getDataMultiprocess('DailyMarket_Gus', 'index_weight', 20130101, 20140101)
-    weight = weight.loc[weight['index_code'] == '000300.SH', ['code', 'weight']]
+    weight = pd.read_pickle('C:\\Users\\Gu-PC\\Downloads\\strategy_ou.pkl')
     print('Weight_loaded')
-    QE = BacktestEngine('test_new_engine', 20130101, 20140101, 3, 300, stock_capital=100000000,)
-    QE.run(weight, 20130101, 20130401)
+    QE = BacktestEngine('test_ou', 20160101, 20200512, 1, 300, stock_capital=100000000,)
+    QE.run(weight, 20160101, 20200512)
