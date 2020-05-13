@@ -493,8 +493,10 @@ class div_pred_statistic:
         for idx, row in revising_df.iterrows():
             code = row['股票代码']
             status = row['状态']
+            if raw_df.loc[(raw_df['股票代码'] == code) & (raw_df['状态'] == status), :].empty:
+                continue
             if not raw_df.loc[(raw_df['股票代码'] == code) & (raw_df['状态'] == status), '是否预测'].iloc[0]:
-                pass
+                continue
             else:
                 if [code, status] in modified_code_list:
                     tmp_df = raw_df.loc[(raw_df['股票代码'] == code) & (raw_df['状态'] == status), :].copy()
