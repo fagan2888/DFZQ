@@ -154,6 +154,11 @@ class FactorTest:
         self.size_data.rename(columns={self.size_field: 'size'}, inplace=True)
         self.size_data.index.names = ['date']
         print('-size data loaded...')
+        # risk
+        self.risk_data = \
+            self.influx.getDataMultiprocess(self.factor_db, 'RiskExposure', self.start, mkt_end)
+        self.risk_data.index.names = ['date']
+        print('-risk data loaded...')
         # ========================================================================
         # ----------------------select codes in select range----------------------
         # 过滤 select range内 的票
@@ -199,8 +204,9 @@ class FactorTest:
         industry_dummies = self.industry_dummies.copy()
         size_data = self.size_data.copy()
         # 进行remove outlier, z score和中性化
-        factor_df = \
-            DataProcess.neutralize(factor_df, self.factor, industry_dummies, size_data, self.n_jobs)
+        factor_df = DataProcess.neutralize(factor_df, self.factor, industry_dummies, size_data, self.n_jobs)
+        # 对所有 风格 做中性
+        #factor_df = DataProcess.neutralize_v2(factor_df, self.factor, self.risk_data, self.n_jobs)
         print('-factor loaded...')
         return factor_df
 

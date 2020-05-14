@@ -122,6 +122,7 @@ class StrategyBase:
             factor_df[factor] = factor_df.groupby(['date', 'industry'])[factor].apply(lambda x: x.fillna(x.median()))
         else:
             factor_df = pd.merge(factor_df, self.code_range.reset_index(), how='inner', on=['date', 'code'])
+            factor_df = factor_df.dropna()
         factor_df.set_index('date', inplace=True)
         industry_dummies = self.industry_dummies.copy()
         size_data = self.size_data.copy()
