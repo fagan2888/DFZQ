@@ -40,9 +40,9 @@ class FactorTest:
             IC_date.append(date)
         return pd.Series(day_IC, index=IC_date)
 
-    # 等权所用的分组job
+    # 市值加权所用的分组job
     @staticmethod
-    def JOB_group_equal_weight(dates, groups, factor, factor_field):
+    def JOB_group_factor(dates, groups, factor, factor_field):
         labels = []
         for i in range(1, groups + 1):
             labels.append('group_' + str(i))
@@ -56,13 +56,15 @@ class FactorTest:
                 if day_industry_factor.shape[0] < 10:
                     day_industry_factor['group'] = 'same group'
                     day_industry_factor['weight'] = \
-                        day_industry_factor['industry_weight'] / day_industry_factor.shape[0]
+                        day_industry_factor['industry_weight'] / day_industry_factor['size'].sum() * \
+                        day_industry_factor['size']
                 else:
                     day_industry_factor['group'] = pd.qcut(day_industry_factor[factor_field], 5, labels=labels)
-                    group_counts = day_industry_factor['group'].value_counts().to_dict()
-                    day_industry_factor['weight'] = day_industry_factor['group'].map(group_counts)
+                    group_size = day_industry_factor.groupby('group')['size'].sum().to_dict()
+                    day_industry_factor['group_size'] = day_industry_factor['group'].map(group_size)
                     day_industry_factor['weight'] = \
-                        day_industry_factor['industry_weight'] / day_industry_factor['weight']
+                        day_industry_factor['industry_weight'] / day_industry_factor['group_size'] * \
+                        day_industry_factor['size']
                 res.append(day_industry_factor)
         res_df = pd.concat(res)
         res_df.set_index('next_1_day', inplace=True)
@@ -274,16 +276,17 @@ class FactorTest:
         IC_over_0_pct = IC[IC > 0].shape[0] / IC.shape[0]
         abs_IC_over_20pct_pct = abs(IC)[abs(IC) > 0.02].shape[0] / IC.shape[0]
         IR = IC.mean() / IC.std()
+        ICIR = IC.mean() / IC.std() * np.sqrt(250 / self.adj_interval)
         self.summary_dict['IC_mean'] = IC.mean()
         self.summary_dict['IC_std'] = IC.std()
         self.summary_dict['IC_over_0_pct'] = IC_over_0_pct
         self.summary_dict['abs_IC_over_20pct_pct'] = abs_IC_over_20pct_pct
         self.summary_dict['IR'] = IR
-        self.summary_dict['ICIR'] = IC.mean() / IR
+        self.summary_dict['ICIR'] = ICIR
         print('-' * 30)
         print('ICIR RESULT: \n   IC mean: %f \n   IC std: %f \n   IC_over_0_pct: %f \n   '
               'abs_IC_over_20pct_pct: %f \n   IR: %f \n   ICIR: %f \n' %
-              (IC.mean(), IC.std(), IC_over_0_pct, abs_IC_over_20pct_pct, IR, IC.mean() / IR))
+              (IC.mean(), IC.std(), IC_over_0_pct, abs_IC_over_20pct_pct, IR, ICIR))
         IC.name = 'IC'
         return IC
 
@@ -303,11 +306,13 @@ class FactorTest:
         merge_df = pd.merge(merge_df, self.bm_indu_weight.reset_index(), how='left', on=['date', 'industry'])
         merge_df.rename(columns={'weight': 'industry_weight'}, inplace=True)
         merge_df = merge_df.loc[:, ['date', 'code', self.factor, 'industry', 'industry_weight', 'next_1_day']]
+        # 组合市值
+        merge_df = pd.merge(merge_df, self.size_data.reset_index(), on=['date', 'code'])
         # 按等权测试
         dates = merge_df['date'].unique()
         split_dates = np.array_split(dates, self.n_jobs)
         with parallel_backend('multiprocessing', n_jobs=self.n_jobs):
-            result_list = Parallel()(delayed(FactorTest.JOB_group_equal_weight)
+            result_list = Parallel()(delayed(FactorTest.JOB_group_factor)
                                      (dates, self.groups, merge_df, self.factor) for dates in split_dates)
         grouped_weight = pd.concat(result_list)
         grouped_weight.index.names = ['date']
@@ -319,7 +324,7 @@ class FactorTest:
             pass
         else:
             os.makedirs(folder_dir.rstrip('/'))
-        grouped_weight.to_csv(folder_dir + 'EquWgt_{1}to{2}.csv'.format(str(self.groups), str_start, str_end),
+        grouped_weight.to_csv(folder_dir + 'GrpWgt_{1}to{2}.csv'.format(str(self.groups), str_start, str_end),
                               encoding='gbk')
         return grouped_weight
 
@@ -345,6 +350,7 @@ class FactorTest:
             # 重置 stk_portfolio
             BE.stk_portfolio.reset_portfolio(self.capital)
         tot_res = pd.concat(pvs, axis=1)
+        tot_res['long_short'] = tot_res['TotalValue_{0}'.format(group[-1])] - tot_res['TotalValue_{0}'.format(group[0])]
         folder_dir = global_constant.ROOT_DIR + '/Backtest_Result/Group_Value/{0}/'.format(self.factor)
         if os.path.exists(folder_dir):
             pass
