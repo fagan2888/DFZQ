@@ -111,7 +111,7 @@ class DataProcess:
         dates = factor_data['date'].unique()
         split_dates = np.array_split(dates, n_process)
         with parallel_backend('multiprocessing', n_jobs=n_process):
-            parallel_res = Parallel()(delayed(DataProcess.JOB_cross_section_remove_and_Z)
+            parallel_res = Parallel()(delayed(DataProcess.JOB_cross_section_Z_score)
                                       (factor_data, factor_field, dates) for dates in split_dates)
         factor = pd.concat(parallel_res)
         return factor
@@ -174,17 +174,41 @@ class DataProcess:
     # 对所有风格因子和行业做中性
     # 数据中不能有nan，否则答案全为nan
     # 返回的date在columns里
-    def neutralize_v2(factor_data, factor_field, risk_data, n_process):
+    def neutralize_v2(factor_data, factor_field, risk_data, style='size', n_process=5):
         risk_data.index.names = ['date']
         factor_data.index.names = ['date']
         factor = factor_data.reset_index().loc[:, ['date', 'code', factor_field]].copy()
+        # 只对 行业 和 市值 做中性化
+        if style == 'size':
+            risk_data = risk_data.loc[:, risk_data.columns.difference([
+                'Beta', 'Cubic size', 'Growth', 'Liquidity', 'Market', 'SOE', 'Trend',
+                'Uncertainty', 'Value', 'Volatility'])]
+        # 对 行业 和 所有风格 做中性化
+        else:
+            risk_data = risk_data.loc[:, risk_data.columns.difference(['Market'])]
         factor = pd.merge(factor, risk_data.reset_index(), on=['date', 'code'])
+        # 因子去极值
         dates = factor['date'].unique()
         split_dates = np.array_split(dates, n_process)
         with parallel_backend('multiprocessing', n_jobs=n_process):
             parallel_res = Parallel()(delayed(DataProcess.JOB_cross_section_remove_outlier)
                                       (factor, factor_field, dates) for dates in split_dates)
         factor = pd.concat(parallel_res)
+        # 对 风格因子 做标准化
+        dates = factor['date'].unique()
+        split_dates = np.array_split(dates, n_process)
+        if style == 'size':
+            with parallel_backend('multiprocessing', n_jobs=n_process):
+                parallel_res = Parallel()(delayed(DataProcess.JOB_cross_section_Z_score)
+                                          (factor, 'Size', dates) for dates in split_dates)
+            factor = pd.concat(parallel_res)
+        else:
+            for style in ['Beta', 'Cubic size', 'Growth', 'Liquidity', 'SOE', 'Size', 'Trend',
+                          'Uncertainty', 'Value', 'Volatility']:
+                with parallel_backend('multiprocessing', n_jobs=n_process):
+                    parallel_res = Parallel()(delayed(DataProcess.JOB_cross_section_Z_score)
+                                              (factor, style, dates) for dates in split_dates)
+                factor = pd.concat(parallel_res)
         dates = factor['date'].unique()
         split_dates = np.array_split(dates, n_process)
         with parallel_backend('multiprocessing', n_jobs=n_process):
