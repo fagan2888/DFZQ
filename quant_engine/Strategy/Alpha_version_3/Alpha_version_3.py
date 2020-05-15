@@ -98,7 +98,7 @@ class alpha_version_3(StrategyBase):
         next_bm_stk_wgt.index.names = ['date']
         return next_bm_stk_wgt
 
-    def get_base_weight(self, overall_factor, z_size, next_bm_stk_wgt):
+    def get_base_weight(self, overall_factor, next_bm_stk_wgt):
         trade_dates = next_bm_stk_wgt.reset_index()['date'].unique()
         base_weight = pd.merge(overall_factor.reset_index(), next_bm_stk_wgt.reset_index(),
                                how='outer', on=['date', 'code'])
@@ -113,9 +113,6 @@ class alpha_version_3(StrategyBase):
         base_weight['sum_dummies'] = base_weight[self.indus].sum(axis=1)
         base_weight[self.indus] = base_weight[self.indus].fillna(0)
         # --------------------------------------------------------------
-        base_weight = pd.merge(base_weight, z_size.reset_index(), how='left', on=['date', 'code'])
-        base_weight['filled_size'] = base_weight['size'].fillna(0)
-        # --------------------------------------------------------------
         self.risks = self.risk_exp.columns.difference(['code'])
         base_weight = pd.merge(base_weight, self.risk_exp.reset_index(), how='left', on=['date', 'code'])
         # 用于过滤没有风险因子的stk
@@ -125,6 +122,15 @@ class alpha_version_3(StrategyBase):
         base_weight = pd.merge(base_weight, self.spec_risk.reset_index(), how='left', on=['date', 'code'])
         base_weight['filled_spec_risk'] = base_weight['specific_risk'].fillna(0)
         # --------------------------------------------------------------
+        # 对所有 风险因子 重新标准化
+        dates = base_weight['date'].unique()
+        split_dates = np.array_split(dates, self.n_jobs)
+        for risk in ['Beta', 'Cubic size', 'Growth', 'Liquidity', 'SOE', 'Size', 'Trend', 'Uncertainty',
+                     'Value', 'Volatility']:
+            with parallel_backend('multiprocessing', n_jobs=self.n_jobs):
+                parallel_res = Parallel()(delayed(DataProcess.JOB_cross_section_Z_score)
+                                          (base_weight, risk, dates) for dates in split_dates)
+            base_weight = pd.concat(parallel_res)
         base_weight.set_index('date', inplace=True)
         return base_weight
 
@@ -148,7 +154,7 @@ class alpha_version_3(StrategyBase):
             array_codes = day_base_weight['code'].values
             array_overall = day_base_weight['filled_overall'].values
             array_base_weight = day_base_weight['base_weight'].values
-            array_z_size = day_base_weight['filled_size'].values
+            array_z_size = day_base_weight['Size'].fillna(0).values
             array_indu_dummies = day_base_weight[dummies_field].values
             array_risk_exp = day_base_weight[risks_field].values
             array_spec_risk = day_base_weight['filled_spec_risk'].values
@@ -161,11 +167,10 @@ class alpha_version_3(StrategyBase):
             array_risk_cov = 0.5 * (array_risk_cov + array_risk_cov.T)
             # ------------------------get bound-------------------------
             # 设置权重上下限
-            #   权重上限 可以到 1 + 1.5 * base_weight
+            #   权重上限 可以到 weight_intercept + 0.5 * base_weight
             #   没有overall 或 size 或 sum_dummies 或 sum_risks 或 specific_risk 因子值的 总权重为0
             array_upbound = np.where(
                 pd.isnull(day_base_weight['overall']).values |
-                pd.isnull(day_base_weight['size']).values |
                 pd.isnull(day_base_weight['sum_dummies']).values |
                 pd.isnull(day_base_weight['sum_risks']).values |
                 pd.isnull(day_base_weight['specific_risk']).values,
@@ -265,11 +270,12 @@ class alpha_version_3(StrategyBase):
         start_time = datetime.datetime.now()
         # -----------------------------get data------------------------------
         self.initialize_strategy()
-        range_z_size = self.get_z_size()
+        # 使用 risk 中的 Size，避免不同的 size 造成误差
+        # range_z_size = self.get_z_size()
         overall_factor = self.factors_combination()
         next_bm_stk_wgt = self.get_next_bm_stk_wgt()
         # get base weight
-        base_weight = self.get_base_weight(overall_factor, range_z_size, next_bm_stk_wgt)
+        base_weight = self.get_base_weight(overall_factor, next_bm_stk_wgt)
         # get target weight
         dates = base_weight.index.unique().strftime("%Y%m%d")
         split_dates = np.array_split(dates, self.n_jobs)
@@ -325,6 +331,6 @@ class alpha_version_3(StrategyBase):
 
 if __name__ == '__main__':
     print(datetime.datetime.now())
-    a = alpha_version_3('alpha0508')
+    a = alpha_version_3('alpha0515')
     kk = a.run()
     print(datetime.datetime.now())
