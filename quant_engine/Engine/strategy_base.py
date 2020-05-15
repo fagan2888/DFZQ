@@ -110,16 +110,19 @@ class StrategyBase:
         self.code_range = pd.merge(self.code_range, self.industry_data.reset_index(), how='inner', on=['date', 'code'])
         self.code_range.set_index('date', inplace=True)
 
-    def process_factor(self, measure, factor, direction, if_fillna=True):
+    def process_factor(self, measure, factor, direction, fillna):
         factor_df = self.influx.getDataMultiprocess(self.factor_db, measure, self.start, self.end, ['code', factor])
         factor_df.index.names = ['date']
         factor_df.reset_index(inplace=True)
         if direction == -1:
             factor_df[factor] = factor_df[factor] * -1
         # 缺失的因子用行业中位数代
-        if if_fillna:
+        if fillna == 'median':
             factor_df = pd.merge(factor_df, self.code_range.reset_index(), how='right', on=['date', 'code'])
             factor_df[factor] = factor_df.groupby(['date', 'industry'])[factor].apply(lambda x: x.fillna(x.median()))
+        elif fillna == 'zero':
+            factor_df = pd.merge(factor_df, self.code_range.reset_index(), how='right', on=['date', 'code'])
+            factor_df[factor] = factor_df[factor].fillna(0)
         else:
             factor_df = pd.merge(factor_df, self.code_range.reset_index(), how='inner', on=['date', 'code'])
             factor_df = factor_df.dropna()

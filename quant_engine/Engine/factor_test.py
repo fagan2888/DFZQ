@@ -194,10 +194,13 @@ class FactorTest:
         if self.direction == -1:
             factor_df[self.factor] = factor_df[self.factor] * -1
         # 缺失的因子用行业中位数代
-        if self.if_fillna:
+        if self.fillna == 'median':
             factor_df = pd.merge(factor_df, self.code_range.reset_index(), how='right', on=['date', 'code'])
             factor_df[self.factor] = factor_df.groupby(['date', 'industry'])[self.factor].apply(
                 lambda x: x.fillna(x.median()))
+        elif self.fillna == 'zero':
+            factor_df = pd.merge(factor_df, self.code_range.reset_index(), how='right', on=['date', 'code'])
+            factor_df[self.factor] = factor_df[self.factor].fillna(0)
         else:
             factor_df = pd.merge(factor_df, self.code_range.reset_index(), how='inner', on=['date', 'code'])
         factor_df.set_index('date', inplace=True)
@@ -383,14 +386,14 @@ class FactorTest:
 
     def run(
             # 初始化参数
-            self, start, end, direction, if_fillna, benchmark, select_range, industry, size_field,
+            self, start, end, direction, fillna, benchmark, select_range, industry, size_field,
             # 回测参数
             adj_interval=5, groups=5, capital=5000000, cash_reserve=0.03, stk_slippage=0.001,
             stk_fee=0.0001, price_field='vwap', logger_lvl=logging.INFO):
         self.start = start
         self.end = end
         self.direction = direction
-        self.if_fillna = if_fillna
+        self.fillna = fillna
         self.benchmark = benchmark
         self.select_range = select_range
         self.industry = industry
@@ -440,7 +443,7 @@ if __name__ == '__main__':
     measurements = ['CGO']
     factors = ['CGO_60']
     directions = [-1]
-    if_fillnas = [True]
+    fillnas = ['median']
     benchmark = 300
     select_range = 800
     adj_interval = 5
@@ -451,7 +454,7 @@ if __name__ == '__main__':
         factor = factors[i]
         measurement = measurements[i]
         direction = directions[i]
-        if_fillna = if_fillnas[i]
+        fillna = fillnas[i]
         test = FactorTest(measurement, factor)
-        test.run(start, end, direction, if_fillna, benchmark, select_range, industry, size_field)
+        test.run(start, end, direction, fillna, benchmark, select_range, industry, size_field)
     print('Test finish! Time token: ', datetime.datetime.now() - dt_start)
