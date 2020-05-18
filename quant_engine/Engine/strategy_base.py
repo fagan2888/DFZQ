@@ -66,11 +66,6 @@ class StrategyBase:
         self.industry_dummies = DataProcess.get_industry_dummies(self.industry_data, 'industry')
         self.industry_dummies.index.names = ['date']
         print('-market related data loaded...')
-        # size
-        self.size_data = \
-            self.influx.getDataMultiprocess(self.factor_db, 'Size', self.start, self.end, ['code', self.size_field])
-        self.size_data.rename(columns={self.size_field: 'size'}, inplace=True)
-        self.size_data.index.names = ['date']
         # risk_exposure
         self.risk_exp = self.influx.getDataMultiprocess(self.factor_db, self.risk_exp_measure, self.start, self.end)
         self.risk_exp.index.names = ['date']
@@ -116,10 +111,11 @@ class StrategyBase:
         factor_df.reset_index(inplace=True)
         if direction == -1:
             factor_df[factor] = factor_df[factor] * -1
-        # 缺失的因子用行业中位数代
+        # 缺失的因子用行业中位数填充
         if fillna == 'median':
             factor_df = pd.merge(factor_df, self.code_range.reset_index(), how='right', on=['date', 'code'])
             factor_df[factor] = factor_df.groupby(['date', 'industry'])[factor].apply(lambda x: x.fillna(x.median()))
+        # 缺失的因子用0填充
         elif fillna == 'zero':
             factor_df = pd.merge(factor_df, self.code_range.reset_index(), how='right', on=['date', 'code'])
             factor_df[factor] = factor_df[factor].fillna(0)
@@ -127,21 +123,17 @@ class StrategyBase:
             factor_df = pd.merge(factor_df, self.code_range.reset_index(), how='inner', on=['date', 'code'])
             factor_df = factor_df.dropna()
         factor_df.set_index('date', inplace=True)
-        industry_dummies = self.industry_dummies.copy()
-        size_data = self.size_data.copy()
-        # 进行remove outlier, z score和中性化
-        factor_df = \
-            DataProcess.neutralize(factor_df, factor, industry_dummies, size_data, self.n_jobs)
+        # 进行remove outlier, 中性化 和 标准化
+        factor_df = DataProcess.neutralize_v2(factor_df, factor, self.risk_exp.copy(), 'size', self.n_jobs)
         return factor_df
 
-    def initialize_strategy(self, start, end, benchmark, select_range, industry, size_field, adj_interval):
+    def initialize_strategy(self, start, end, benchmark, select_range, industry, adj_interval):
         self.n_jobs = global_constant.N_STRATEGY
         self.start = start
         self.end = end
         self.benchmark = benchmark
         self.select_range = select_range
         self.industry = industry
-        self.size_field = size_field
         self.adj_interval = adj_interval
         self.folder_dir = global_constant.ROOT_DIR + 'Strategy/{0}/'.format(self.strategy_name)
         if os.path.exists(self.folder_dir):
@@ -154,4 +146,4 @@ class StrategyBase:
 
 if __name__ == '__main__':
     sb = StrategyBase('test')
-    sb.initialize_strategy(20150101, 20160101, 300, 500, 'improved_lv1', 'ln_market_cap', 5)
+    sb.initialize_strategy(20150101, 20160101, 300, 500, 'improved_lv1', 5)

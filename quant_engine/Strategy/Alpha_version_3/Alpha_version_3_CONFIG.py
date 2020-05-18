@@ -3,20 +3,19 @@
 STRATEGY_CONFIG = \
     {
         'start': 20130101,
-        'end': 20200401,
+        'end': 20150401,
         'benchmark': 300,
-        'select_range': 800,
+        'select_range': None,
         'industry': 'improved_lv1',
-        'size_field': 'ln_market_cap',
         'capital': 100000000,
         'adj_interval': 5,
-        'target_sigma': 0.05,
+        'target_sigma': 0.04,
         # 市值主动最大暴露
         'mv_max_exp': 0.1,
         # 市值主动最小暴露
         'mv_min_exp': -0.1,
-        'weight_intercept': 1,
-        'n_codes': 100
+        'weight_intercept': 2,
+        'n_codes': 120
     }
 
 

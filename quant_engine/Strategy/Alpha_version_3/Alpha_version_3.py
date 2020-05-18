@@ -22,9 +22,8 @@ class alpha_version_3(StrategyBase):
         benchmark = STRATEGY_CONFIG['benchmark']
         select_range = STRATEGY_CONFIG['select_range']
         industry = STRATEGY_CONFIG['industry']
-        size_field = STRATEGY_CONFIG['size_field']
         adj_interval = STRATEGY_CONFIG['adj_interval']
-        super().initialize_strategy(start, end, benchmark, select_range, industry, size_field, adj_interval)
+        super().initialize_strategy(start, end, benchmark, select_range, industry, adj_interval)
         self.capital = STRATEGY_CONFIG['capital']
         self.target_sigma = STRATEGY_CONFIG['target_sigma']
         self.mv_max_exp = STRATEGY_CONFIG['mv_max_exp']
@@ -62,31 +61,6 @@ class alpha_version_3(StrategyBase):
         print('Factors combination finish...')
         return merged_df
 
-    def get_z_size(self):
-        if self.select_range == 300:
-            range_z_size = pd.merge(self.idx_wgt_data.loc[self.idx_wgt_data['index_code'] == '000300.SH'].reset_index(),
-                                    self.size_data.reset_index(), how='inner', on=['date', 'code'])
-            range_z_size = range_z_size.loc[:, ['date', 'code', 'size']]
-        elif self.select_range == 500:
-            range_z_size = pd.merge(self.idx_wgt_data.loc[self.idx_wgt_data['index_code'] == '000905.SH'].reset_index(),
-                                    self.size_data.reset_index(), how='inner', on=['date', 'code'])
-            range_z_size = range_z_size.loc[:, ['date', 'code', 'size']]
-        elif self.select_range == 800:
-            range_z_size = pd.merge(self.idx_wgt_data.loc[self.idx_wgt_data['index_code']
-                                    .isin(['000300.SH', '000905.SH'])].reset_index(),
-                                    self.size_data.reset_index(), how='inner', on=['date', 'code'])
-            range_z_size = range_z_size.loc[:, ['date', 'code', 'size']]
-        else:
-            range_z_size = self.size_data.reset_index()
-        dates = range_z_size['date'].unique()
-        split_dates = np.array_split(dates, self.n_jobs)
-        with parallel_backend('multiprocessing', n_jobs=self.n_jobs):
-            parallel_res = Parallel()(delayed(DataProcess.JOB_cross_section_Z_score)
-                                      (range_z_size, 'size', dates) for dates in split_dates)
-        range_z_size = pd.concat(parallel_res)
-        range_z_size.set_index('date', inplace=True)
-        return range_z_size
-
     def get_next_bm_stk_wgt(self):
         next_bm_stk_wgt = self.bm_stk_wgt.copy()
         next_bm_stk_wgt['former_date'] = next_bm_stk_wgt.index.strftime('%Y%m%d')
@@ -100,37 +74,28 @@ class alpha_version_3(StrategyBase):
 
     def get_base_weight(self, overall_factor, next_bm_stk_wgt):
         trade_dates = next_bm_stk_wgt.reset_index()['date'].unique()
-        base_weight = pd.merge(overall_factor.reset_index(), next_bm_stk_wgt.reset_index(),
-                               how='outer', on=['date', 'code'])
-        base_weight['filled_overall'] = base_weight['overall'].fillna(0)
+        overall_factor = overall_factor.reset_index()
         # 需考虑到因子出现在不在交易日的情况
-        base_weight = base_weight.loc[base_weight['date'].isin(trade_dates), :]
-        base_weight['base_weight'] = base_weight['weight'].fillna(0)
+        overall_factor = overall_factor.loc[overall_factor['date'].isin(trade_dates), :]
+        base_weight = pd.merge(overall_factor, next_bm_stk_wgt.reset_index(), how='outer', on=['date', 'code'])
         # --------------------------------------------------------------
         self.indus = self.industry_dummies.columns.difference(['code'])
         base_weight = pd.merge(base_weight, self.industry_dummies.reset_index(), how='left', on=['date', 'code'])
+        # --------------------------------------------------------------
+        self.risks = self.risk_exp.columns.difference(['code'])
+        base_weight = pd.merge(base_weight, self.risk_exp.reset_index(), how='outer', on=['date', 'code'])
+        # --------------------------------------------------------------
+        base_weight = pd.merge(base_weight, self.spec_risk.reset_index(), how='outer', on=['date', 'code'])
         # 用于过滤没有行业的stk
         base_weight['sum_dummies'] = base_weight[self.indus].sum(axis=1)
         base_weight[self.indus] = base_weight[self.indus].fillna(0)
-        # --------------------------------------------------------------
-        self.risks = self.risk_exp.columns.difference(['code'])
-        base_weight = pd.merge(base_weight, self.risk_exp.reset_index(), how='left', on=['date', 'code'])
         # 用于过滤没有风险因子的stk
         base_weight['sum_risks'] = base_weight[self.risks].sum(axis=1)
         base_weight[self.risks] = base_weight[self.risks].fillna(0)
-        # --------------------------------------------------------------
-        base_weight = pd.merge(base_weight, self.spec_risk.reset_index(), how='left', on=['date', 'code'])
         base_weight['filled_spec_risk'] = base_weight['specific_risk'].fillna(0)
+        base_weight['filled_overall'] = base_weight['overall'].fillna(0)
+        base_weight['base_weight'] = base_weight['weight'].fillna(0)
         # --------------------------------------------------------------
-        # 对所有 风险因子 重新标准化
-        dates = base_weight['date'].unique()
-        split_dates = np.array_split(dates, self.n_jobs)
-        for risk in ['Beta', 'Cubic size', 'Growth', 'Liquidity', 'SOE', 'Size', 'Trend', 'Uncertainty',
-                     'Value', 'Volatility']:
-            with parallel_backend('multiprocessing', n_jobs=self.n_jobs):
-                parallel_res = Parallel()(delayed(DataProcess.JOB_cross_section_Z_score)
-                                          (base_weight, risk, dates) for dates in split_dates)
-            base_weight = pd.concat(parallel_res)
         base_weight.set_index('date', inplace=True)
         return base_weight
 
@@ -331,6 +296,6 @@ class alpha_version_3(StrategyBase):
 
 if __name__ == '__main__':
     print(datetime.datetime.now())
-    a = alpha_version_3('alpha0515')
+    a = alpha_version_3('alpha0518')
     kk = a.run()
     print(datetime.datetime.now())
