@@ -197,20 +197,7 @@ class DataProcess:
         # 对 风格因子 做标准化
         dates = factor['date'].unique()
         split_dates = np.array_split(dates, n_process)
-        if style == 'size':
-            with parallel_backend('multiprocessing', n_jobs=n_process):
-                parallel_res = Parallel()(delayed(DataProcess.JOB_cross_section_Z_score)
-                                          (factor, 'Size', dates) for dates in split_dates)
-            factor = pd.concat(parallel_res)
-        else:
-            for style in ['Beta', 'Cubic size', 'Growth', 'Liquidity', 'SOE', 'Size', 'Trend',
-                          'Uncertainty', 'Value', 'Volatility']:
-                with parallel_backend('multiprocessing', n_jobs=n_process):
-                    parallel_res = Parallel()(delayed(DataProcess.JOB_cross_section_Z_score)
-                                              (factor, style, dates) for dates in split_dates)
-                factor = pd.concat(parallel_res)
-        dates = factor['date'].unique()
-        split_dates = np.array_split(dates, n_process)
+        # 如果 选股范围不为全市场 需要对风险矩阵重新标准化
         with parallel_backend('multiprocessing', n_jobs=n_process):
             parallel_res = Parallel()(delayed(DataProcess.JOB_neutralize)
                                       (factor, factor_field, dates) for dates in split_dates)
