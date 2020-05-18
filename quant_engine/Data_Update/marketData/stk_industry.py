@@ -95,7 +95,8 @@ class StkIndustry:
 
     def process_data(self, start, end, n_jobs):
         calendar = self.rdf.get_trading_calendar()
-        indu_types = ['citics_lv1', 'citics_lv2', 'citics_lv3', 'sw_lv1', 'sw_lv2']
+        # 中信3级行业数据库有问题，暂不更新
+        indu_types = ['citics_lv1', 'citics_lv2', 'sw_lv1', 'sw_lv2']
         with parallel_backend('multiprocessing', n_jobs=len(indu_types)):
             res = Parallel()(delayed(StkIndustry.JOB_get_indu)
                              (indu_type, start, end, calendar) for indu_type in indu_types)
