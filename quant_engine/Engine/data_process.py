@@ -274,19 +274,24 @@ class DataProcess:
 
     @staticmethod
     def JOB_neutralize(data, factor_field, dates):
-        res = []
+        indexs = []
+        codes = []
+        factors = []
         for date in dates:
-            day_code = data.loc[data['date'] == date, 'code']
-            day_factor = data.loc[data['date'] == date, factor_field]
-            day_idsty_size = data.loc[data['date'] == date, data.columns.difference(['date', 'code', factor_field])]
+            day_code = data.loc[data['date'] == date, 'code'].values
+            indexs.append([date] * day_code.shape[0])
+            codes.append(day_code)
+            day_factor = data.loc[data['date'] == date, factor_field].values
+            day_idsty_size = data.loc[data['date'] == date,
+                                      data.columns.difference(['date', 'code', factor_field])].values
             OLS_est = sm.OLS(day_factor, day_idsty_size).fit()
             day_neutral_factor = OLS_est.resid
-            day_neutral_factor.name = factor_field
-            # 得到正交化后的因子值
-            day_neutral_factor = pd.concat([day_code, day_neutral_factor], axis=1)
-            day_neutral_factor['date'] = date
-            res.append(day_neutral_factor)
-        res_data = pd.concat(res)
+            factors.append(day_neutral_factor)
+        indexs = np.concatenate(indexs)
+        codes = np.concatenate(codes)
+        factors = np.concatenate(factors)
+        res_data = pd.DataFrame({'code': codes, factor_field: factors}, index=indexs)
+        res_data.index.names = ['date']
         return res_data
 
 
