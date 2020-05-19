@@ -274,12 +274,12 @@ class DataProcess:
 
     @staticmethod
     def JOB_neutralize(data, factor_field, dates):
-        indexs = []
+        dts = []
         codes = []
         factors = []
         for date in dates:
             day_code = data.loc[data['date'] == date, 'code'].values
-            indexs.append([date] * day_code.shape[0])
+            dts.append([date] * day_code.shape[0])
             codes.append(day_code)
             day_factor = data.loc[data['date'] == date, factor_field].values
             day_idsty_size = data.loc[data['date'] == date,
@@ -287,11 +287,10 @@ class DataProcess:
             OLS_est = sm.OLS(day_factor, day_idsty_size).fit()
             day_neutral_factor = OLS_est.resid
             factors.append(day_neutral_factor)
-        indexs = np.concatenate(indexs)
+        dts = np.concatenate(dts)
         codes = np.concatenate(codes)
         factors = np.concatenate(factors)
-        res_data = pd.DataFrame({'code': codes, factor_field: factors}, index=indexs)
-        res_data.index.names = ['date']
+        res_data = pd.DataFrame({'date': dts, 'code': codes, factor_field: factors})
         return res_data
 
 
