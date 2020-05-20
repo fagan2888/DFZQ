@@ -131,7 +131,8 @@ class DataProcess:
         return factor
 
     @staticmethod
-    # 市值行业中性化: 因子先去极值标准化，ln市值标准化，行业变换哑变量，回归完取残差
+    # 市值数据是已在 code_range 内标准化的 ln_market_cap
+    # 市值行业中性化: 因子先去极值，行业变换哑变量，回归完取残差
     # 数据中不能有nan，否则答案全为nan
     # 返回的date在columns里
     def neutralize(factor_data, factor_field, industry_dummies, size_data, n_process=5):
@@ -149,12 +150,6 @@ class DataProcess:
         with parallel_backend('multiprocessing', n_jobs=n_process):
             parallel_res = Parallel()(delayed(DataProcess.JOB_cross_section_remove_outlier)
                                       (factor, factor_field, dates) for dates in split_dates)
-        factor = pd.concat(parallel_res)
-        dates = factor['date'].unique()
-        split_dates = np.array_split(dates, n_process)
-        with parallel_backend('multiprocessing', n_jobs=n_process):
-            parallel_res = Parallel()(delayed(DataProcess.JOB_cross_section_Z_score)
-                                      (factor, 'size', dates) for dates in split_dates)
         factor = pd.concat(parallel_res)
         dates = factor['date'].unique()
         split_dates = np.array_split(dates, n_process)

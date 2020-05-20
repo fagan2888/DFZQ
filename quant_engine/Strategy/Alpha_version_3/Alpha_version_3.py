@@ -31,9 +31,9 @@ class alpha_version_3(StrategyBase):
         self.weight_intercept = STRATEGY_CONFIG['weight_intercept']
         self.n_codes = STRATEGY_CONFIG['n_codes']
 
-    def get_factors(self, measure, factor, direction, if_fillna, style, weight):
+    def get_factors(self, measure, factor, direction, if_fillna, weight):
         print('-Factor: %s is processing...' % factor)
-        factor_df = self.process_factor(measure, factor, direction, if_fillna, style)
+        factor_df = self.process_factor(measure, factor, direction, if_fillna)
         factor_df[factor] = factor_df[factor] * weight
         factor_df.set_index(['date', 'code'], inplace=True)
         return factor_df
@@ -44,8 +44,8 @@ class alpha_version_3(StrategyBase):
             print('Category: %s is processing...' % category)
             parameters_list = FACTOR_WEIGHT[category]
             factors_in_category = []
-            for measure, factor, direction, if_fillna, style, weight in parameters_list:
-                factor_df = self.get_factors(measure, factor, direction, if_fillna, style, weight)
+            for measure, factor, direction, if_fillna, weight in parameters_list:
+                factor_df = self.get_factors(measure, factor, direction, if_fillna, weight)
                 factors_in_category.append(factor_df)
             category_df = pd.concat(factors_in_category, join='inner', axis=1)
             category_df[category] = category_df.sum(axis=1)
@@ -84,8 +84,9 @@ class alpha_version_3(StrategyBase):
         # --------------------------------------------------------------
         self.risks = self.risk_exp.columns.difference(['code'])
         base_weight = pd.merge(base_weight, self.risk_exp.reset_index(), how='outer', on=['date', 'code'])
-        # --------------------------------------------------------------
         base_weight = pd.merge(base_weight, self.spec_risk.reset_index(), how='outer', on=['date', 'code'])
+        # --------------------------------------------------------------
+        base_weight = pd.merge(base_weight, self.size_data.reset_index(), how='outer', on=['date', 'code'])
         # 用于过滤没有行业的stk
         base_weight['sum_dummies'] = base_weight[self.indus].sum(axis=1)
         base_weight[self.indus] = base_weight[self.indus].fillna(0)
@@ -93,8 +94,9 @@ class alpha_version_3(StrategyBase):
         base_weight['sum_risks'] = base_weight[self.risks].sum(axis=1)
         base_weight[self.risks] = base_weight[self.risks].fillna(0)
         base_weight['filled_spec_risk'] = base_weight['specific_risk'].fillna(0)
+        base_weight['filled_z_mv'] = base_weight['z_mv'].fillna(0)
         base_weight['filled_overall'] = base_weight['overall'].fillna(0)
-        base_weight['base_weight'] = base_weight['weight'].fillna(0)
+        base_weight['filled_weight'] = base_weight['weight'].fillna(0)
         # --------------------------------------------------------------
         base_weight.set_index('date', inplace=True)
         return base_weight
@@ -118,8 +120,8 @@ class alpha_version_3(StrategyBase):
             # -----------------------get array--------------------------
             array_codes = day_base_weight['code'].values
             array_overall = day_base_weight['filled_overall'].values
-            array_base_weight = day_base_weight['base_weight'].values
-            array_z_size = day_base_weight['Size'].fillna(0).values
+            array_base_weight = day_base_weight['filled_weight'].values
+            array_z_size = day_base_weight['filled_z_mv'].values
             array_indu_dummies = day_base_weight[dummies_field].values
             array_risk_exp = day_base_weight[risks_field].values
             array_spec_risk = day_base_weight['filled_spec_risk'].values
@@ -135,19 +137,18 @@ class alpha_version_3(StrategyBase):
             #   权重上限 可以到 weight_intercept + 0.5 * base_weight
             #   没有overall 或 size 或 sum_dummies 或 sum_risks 或 specific_risk 因子值的 总权重为0
             array_upbound = np.where(
-                pd.isnull(day_base_weight['overall']).values |
-                pd.isnull(day_base_weight['sum_dummies']).values |
-                pd.isnull(day_base_weight['sum_risks']).values |
-                pd.isnull(day_base_weight['specific_risk']).values,
-                -1 * day_base_weight['base_weight'].values,
-                weight_intercept + 0.5 * day_base_weight['base_weight'].values)
-            array_lowbound = -1 * day_base_weight['base_weight'].values
+                pd.isnull(day_base_weight['overall']).values | pd.isnull(day_base_weight['sum_dummies']).values |
+                pd.isnull(day_base_weight['sum_risks']).values | pd.isnull(day_base_weight['specific_risk']).values |
+                pd.isnull(day_base_weight['z_mv']).values,
+                -1 * day_base_weight['filled_weight'].values,
+                weight_intercept + 0.5 * day_base_weight['filled_weight'].values)
+            array_lowbound = -1 * day_base_weight['filled_weight'].values
             # ----------------------track error-------------------------
-            tot_risk_exp = array_risk_exp.T * solve_weight / 100
-            risk_variance = cp.quad_form(tot_risk_exp, array_risk_cov) + \
-                            cp.sum_squares(cp.multiply(array_spec_risk, solve_weight / 100))
             overall_exp = array_overall * solve_weight / 100
             obj = overall_exp
+            tot_risk_exp = array_risk_exp.T * solve_weight / 100
+            variance = cp.quad_form(tot_risk_exp, array_risk_cov) + \
+                       cp.sum_squares(cp.multiply(array_spec_risk, solve_weight / 100))
             sigma = target_sigma / np.sqrt(252 / adj_interval)
             # -----------------------set cons---------------------------
             cons = []
@@ -155,7 +156,7 @@ class alpha_version_3(StrategyBase):
             cons.append(solve_weight <= array_upbound)
             cons.append(solve_weight >= array_lowbound)
             #  跟踪误差设置
-            cons.append(risk_variance <= sigma ** 2)
+            cons.append(variance <= sigma ** 2)
             #  行业中性设置
             for i in range(len(dummies_field)):
                 cons.append(cp.sum(array_indu_dummies[:, i].T * solve_weight) == 0)

@@ -104,8 +104,21 @@ class StrategyBase:
         # 组合 industry
         self.code_range = pd.merge(self.code_range, self.industry_data.reset_index(), how='inner', on=['date', 'code'])
         self.code_range.set_index('date', inplace=True)
+        print('-code range loaded...')
+        self.size_data = self.influx.getDataMultiprocess(self.factor_db, 'Size', self.start, self.end,
+                                                         ['code', 'ln_market_cap'])
+        self.size_data.rename(columns={'ln_market_cap': 'z_mv'}, inplace=True)
+        self.size_data.index.names = ['date']
+        self.size_data = pd.merge(self.size_data.reset_index(), self.code_range.reset_index(), how='right',
+                                  on=['date', 'code'])
+        self.size_data['z_mv'] = \
+            self.size_data.groupby(['date', 'industry'])['z_mv'].apply(lambda x: x.fillna(x.median()))
+        self.size_data = self.size_data.loc[:, ['date', 'code', 'z_mv']]
+        self.size_data = DataProcess.standardize(self.size_data, 'z_mv', False, self.n_jobs)
+        self.size_data.set_index('date', inplace=True)
+        print('-size data loaded...')
 
-    def process_factor(self, measure, factor, direction, fillna, style):
+    def process_factor(self, measure, factor, direction, fillna):
         factor_df = self.influx.getDataMultiprocess(self.factor_db, measure, self.start, self.end, ['code', factor])
         factor_df.index.names = ['date']
         factor_df.reset_index(inplace=True)
@@ -124,7 +137,8 @@ class StrategyBase:
             factor_df = factor_df.dropna()
         factor_df.set_index('date', inplace=True)
         # 进行remove outlier, 中性化 和 标准化
-        factor_df = DataProcess.neutralize_v2(factor_df, factor, self.risk_exp.copy(), style, True, self.n_jobs)
+        size_data = self.size_data.rename(columns={'z_mv': 'size'})
+        factor_df = DataProcess.neutralize(factor_df, factor, self.industry_dummies, size_data, self.n_jobs)
         return factor_df
 
     def initialize_strategy(self, start, end, benchmark, select_range, industry, adj_interval):
