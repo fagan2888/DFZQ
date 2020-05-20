@@ -135,7 +135,7 @@ class StrategyBase:
         self.select_range = select_range
         self.industry = industry
         self.adj_interval = adj_interval
-        self.folder_dir = global_constant.ROOT_DIR + 'Strategy/{0}/'.format(self.strategy_name)
+        self.folder_dir = global_constant.ROOT_DIR + 'Backtest_Result/{0}/'.format(self.strategy_name)
         if os.path.exists(self.folder_dir):
             pass
         else:
