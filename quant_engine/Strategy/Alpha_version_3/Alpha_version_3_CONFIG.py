@@ -5,7 +5,7 @@ STRATEGY_CONFIG = \
         'start': 20130101,
         'end': 20150401,
         'benchmark': 300,
-        'select_range': None,
+        'select_range': 800,
         'industry': 'improved_lv1',
         'capital': 100000000,
         'adj_interval': 5,
@@ -14,8 +14,8 @@ STRATEGY_CONFIG = \
         'mv_max_exp': 0.1,
         # 市值主动最小暴露
         'mv_min_exp': -0.1,
-        'weight_intercept': 2,
-        'n_codes': 120
+        'weight_intercept': 0.5,
+        'n_codes': 150
     }
 
 
@@ -31,39 +31,39 @@ CATEGORY_WEIGHT = \
     }
 
 # 因子权重
-# list内分别为measure, factor, direction, if_fillna, weight
+# list内分别为measure, factor, direction, if_fillna, style, weight
 FACTOR_WEIGHT = \
     {
         'VALUE': [
-            ['BP', 'BP', 1, 'median', 1],
-            ['EP', 'EP_TTM', 1, 'median', 1],
-            ['SP', 'SP', 1, 'median', 1],
-            ['DP_LYR', 'DP_LYR', 1, 'zero', 1],
-            ['Analyst', 'EP_FY1', 1, 'median', 1]],
+            ['BP', 'BP', 1, 'median', ['Size'], 1],
+            ['EP', 'EP_TTM', 1, 'median', ['Size'], 1],
+            ['SP', 'SP', 1, 'median', ['Size'], 1],
+            ['DP_LYR', 'DP_LYR', 1, 'zero', ['Size'], 1],
+            ['Analyst', 'EP_FY1', 1, 'median', ['Size'], 1]],
         'FIN_QUAL': [
-            ['ROE', 'ROE', 1, 'median', 1],
-            ['RNOA', 'RNOA', 1, 'median', 1],
-            ['GPOA', 'GPOA', 1, 'median', 1],
-            ['CFROI', 'CFROI', 1, 'median', 1],
-            ['ROA', 'ROA', 1, 'median', 1]],
+            ['ROE', 'ROE', 1, 'median', ['Size'], 1],
+            ['RNOA', 'RNOA', 1, 'median', ['Size'], 1],
+            ['GPOA', 'GPOA', 1, 'median', ['Size'], 1],
+            ['CFROI', 'CFROI', 1, 'median', ['Size'], 1],
+            ['ROA', 'ROA', 1, 'median', ['Size'], 1]],
         'GROWTH': [
-            ['ROE_growth', 'ROE_Q_growthY', 1, 'median', 1],
-            ['net_profit_growth', 'net_profit_Q_growthY', 1, 'median', 1],
-            ['oper_rev_growth', 'oper_rev_Q_growthY', 1, 'median', 1],
-            ['Surprise', 'sur_net_profit_Q_WD', 1, 'median', 1],
-            ['Surprise', 'sur_net_profit_Q_WOD', 1, 'median', 1],
-            ['Surprise', 'sur_oper_rev_Q_WD', 1, 'median', 1],
-            ['Surprise', 'sur_oper_rev_Q_WOD', 1, 'median', 1]],
+            ['ROE_growth', 'ROE_Q_growthY', 1, 'median', ['Size'], 1],
+            ['net_profit_growth', 'net_profit_Q_growthY', 1, 'median', ['Size'], 1],
+            ['oper_rev_growth', 'oper_rev_Q_growthY', 1, 'median', ['Size'], 1],
+            ['Surprise', 'sur_net_profit_Q_WD', 1, 'median', ['Size'], 1],
+            ['Surprise', 'sur_net_profit_Q_WOD', 1, 'median', ['Size'], 1],
+            ['Surprise', 'sur_oper_rev_Q_WD', 1, 'median', ['Size'], 1],
+            ['Surprise', 'sur_oper_rev_Q_WOD', 1, 'median', ['Size'], 1]],
         'ANALYST': [
-            ['Analyst', 'sqrt_anlst_cov', 1, None, 1],
-            ['Analyst', 'net_profit_divergence', -1, None, 1],
-            ['Analyst', 'score', 1, 'median', 1],
-            ['Analyst', 'PEG', -1, 'median', 1]],
+            ['Analyst', 'sqrt_anlst_cov', 1, None, ['Size'], 1],
+            ['Analyst', 'net_profit_divergence', -1, None, ['Size'], 1],
+            ['Analyst', 'score', 1, 'median', ['Size'], 1],
+            ['Analyst', 'PEG', -1, 'median', ['Size'], 1]],
         'ILIQUIDITY': [
-            ['Amihud', 'amihud_20', 1, 'median', 1],
-            ['ln_ma_turnover', 'ln_turnover_60', -1, 'median', 1]],
+            ['Amihud', 'amihud_20', 1, 'median', ['Size'], 1],
+            ['ln_ma_turnover', 'ln_turnover_60', -1, 'median', ['Size'], 1]],
         'REVERSE': [
-            ['CGO', 'CGO_60', -1, 'median', 1],
-            ['MaxRet', 'max_return_60', -1, 'median', 1],
-            ['PeriodRet', 'ret_20', -1, 'median', 1]]
+            ['CGO', 'CGO_60', -1, 'median', ['Size'], 1],
+            ['MaxRet', 'max_return_60', -1, 'median', ['Size'], 1],
+            ['PeriodRet', 'ret_20', -1, 'median', ['Size'], 1]]
     }

@@ -31,21 +31,21 @@ class alpha_version_3(StrategyBase):
         self.weight_intercept = STRATEGY_CONFIG['weight_intercept']
         self.n_codes = STRATEGY_CONFIG['n_codes']
 
-    def get_factors(self, measure, factor, direction, if_fillna, weight):
+    def get_factors(self, measure, factor, direction, if_fillna, style, weight):
         print('-Factor: %s is processing...' % factor)
-        factor_df = self.process_factor(measure, factor, direction, if_fillna)
+        factor_df = self.process_factor(measure, factor, direction, if_fillna, style)
         factor_df[factor] = factor_df[factor] * weight
         factor_df.set_index(['date', 'code'], inplace=True)
         return factor_df
 
     def factors_combination(self):
         categories = []
-        for category in FACTOR_WEIGHT.keys():
+        for category in CATEGORY_WEIGHT.keys():
             print('Category: %s is processing...' % category)
             parameters_list = FACTOR_WEIGHT[category]
             factors_in_category = []
-            for measure, factor, direction, if_fillna, weight in parameters_list:
-                factor_df = self.get_factors(measure, factor, direction, if_fillna, weight)
+            for measure, factor, direction, if_fillna, style, weight in parameters_list:
+                factor_df = self.get_factors(measure, factor, direction, if_fillna, style, weight)
                 factors_in_category.append(factor_df)
             category_df = pd.concat(factors_in_category, join='inner', axis=1)
             category_df[category] = category_df.sum(axis=1)
@@ -146,7 +146,7 @@ class alpha_version_3(StrategyBase):
             tot_risk_exp = array_risk_exp.T * solve_weight / 100
             risk_variance = cp.quad_form(tot_risk_exp, array_risk_cov) + \
                             cp.sum_squares(cp.multiply(array_spec_risk, solve_weight / 100))
-            overall_exp = array_overall * solve_weight
+            overall_exp = array_overall * solve_weight / 100
             obj = overall_exp
             sigma = target_sigma / np.sqrt(252 / adj_interval)
             # -----------------------set cons---------------------------
@@ -257,6 +257,7 @@ class alpha_version_3(StrategyBase):
             fail_dates.extend(res[1])
         target_weight = pd.concat(parallel_dfs)
         target_weight.to_csv(self.folder_dir + 'RAW_TARGET_WEIGHT.csv', encoding='gbk')
+        print('raw weight is ready...')
         target_weight = target_weight.sort_index()
         # ------------------------limit n_codes-----------------------------
         stk_count = target_weight.groupby('date')['code'].count()
@@ -276,6 +277,7 @@ class alpha_version_3(StrategyBase):
         target_weight = self.shift_target_weight(target_weight)
         # ------------------------------------------------------------------
         target_weight.to_csv(self.folder_dir + 'TARGET_WEIGHT.csv', encoding='gbk')
+        print('target_weight is ready...')
         # --------------------------backtest--------------------------------
         bt_start = target_weight.index[0].strftime('%Y%m%d')
         bt_end = (target_weight.index[-1] - datetime.timedelta(days=1)).strftime('%Y%m%d')
@@ -296,6 +298,6 @@ class alpha_version_3(StrategyBase):
 
 if __name__ == '__main__':
     print(datetime.datetime.now())
-    a = alpha_version_3('alpha0518')
+    a = alpha_version_3('All_CATE_para0.5_0520')
     kk = a.run()
     print(datetime.datetime.now())
