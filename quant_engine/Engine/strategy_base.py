@@ -105,7 +105,7 @@ class StrategyBase:
         self.code_range = pd.merge(self.code_range, self.industry_data.reset_index(), how='inner', on=['date', 'code'])
         self.code_range.set_index('date', inplace=True)
 
-    def process_factor(self, measure, factor, direction, fillna):
+    def process_factor(self, measure, factor, direction, fillna, style):
         factor_df = self.influx.getDataMultiprocess(self.factor_db, measure, self.start, self.end, ['code', factor])
         factor_df.index.names = ['date']
         factor_df.reset_index(inplace=True)
@@ -124,7 +124,7 @@ class StrategyBase:
             factor_df = factor_df.dropna()
         factor_df.set_index('date', inplace=True)
         # 进行remove outlier, 中性化 和 标准化
-        factor_df = DataProcess.neutralize_v2(factor_df, factor, self.risk_exp.copy(), 'size', self.n_jobs)
+        factor_df = DataProcess.neutralize_v2(factor_df, factor, self.risk_exp.copy(), style, True, self.n_jobs)
         return factor_df
 
     def initialize_strategy(self, start, end, benchmark, select_range, industry, adj_interval):
