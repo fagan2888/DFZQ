@@ -122,8 +122,11 @@ class influxdbData:
         with parallel_backend('multiprocessing', n_jobs=-1):
             result_list = Parallel()(delayed(influxdbData.JOB_getData)(database, measure, start_date, end_date, fields)
                                      for start_date, end_date, measure in parameter_list)
-        df = pd.concat(result_list)
-        df = df.tz_convert(None)
+        if not result_list:
+            df = pd.DataFrame()
+        else:
+            df = pd.concat(result_list)
+            df = df.tz_convert(None)
         return df
 
 
