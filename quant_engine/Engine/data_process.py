@@ -174,18 +174,18 @@ class DataProcess:
     # 对所有风格因子和行业做中性
     # 数据中不能有nan，否则答案全为nan
     # 返回的date在columns里
-    def neutralize_v2(factor_data, factor_field, risk_data, style='size', n_process=5):
+    def neutralize_v2(factor_data, factor_field, risk_data, style, industry=True, n_process=5):
         risk_data.index.names = ['date']
         factor_data.index.names = ['date']
         factor = factor_data.reset_index().loc[:, ['date', 'code', factor_field]].copy()
-        # 只对 行业 和 市值 做中性化
-        if style == 'size':
-            risk_data = risk_data.loc[:, risk_data.columns.difference([
-                'Beta', 'Cubic size', 'Growth', 'Liquidity', 'Market', 'SOE', 'Trend',
-                'Uncertainty', 'Value', 'Volatility'])]
-        # 对 行业 和 所有风格 做中性化
+        all_styles = ['Beta', 'Cubic size', 'Growth', 'Liquidity', 'Market', 'SOE', 'Trend', 'Uncertainty',
+                      'Value', 'Volatility']
+        if industry:
+            neutralize_cols = list(risk_data.columns.difference(all_styles)) + style
         else:
-            risk_data = risk_data.loc[:, risk_data.columns.difference(['Market'])]
+            neutralize_cols = ['code'] + style
+        risk_data = risk_data.loc[:, neutralize_cols]
+        # 对 行业 和 所有风格 做中性化
         factor = pd.merge(factor, risk_data.reset_index(), on=['date', 'code'])
         # 因子去极值
         dates = factor['date'].unique()
