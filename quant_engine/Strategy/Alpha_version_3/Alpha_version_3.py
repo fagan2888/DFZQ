@@ -303,6 +303,6 @@ class alpha_version_3(StrategyBase):
 
 if __name__ == '__main__':
     print(datetime.datetime.now())
-    a = alpha_version_3('VALUE_para1_0521')
+    a = alpha_version_3('ALL_CATE_para1_0521')
     kk = a.run()
     print(datetime.datetime.now())

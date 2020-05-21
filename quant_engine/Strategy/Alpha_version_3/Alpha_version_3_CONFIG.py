@@ -38,6 +38,7 @@ FACTOR_WEIGHT = \
             ['BP', 'BP', 1, 'median', 1],
             ['EP', 'EP_TTM', 1, 'median', 1],
             ['SP', 'SP', 1, 'median', 1],
+            ['OCFP', 'OCFP', 1, 'median', 1],
             ['DP_LYR', 'DP_LYR', 1, 'zero', 1],
             ['Analyst', 'EP_FY1', 1, 'median', 1]],
         'FIN_QUAL': [
@@ -47,7 +48,6 @@ FACTOR_WEIGHT = \
             ['CFROI', 'CFROI', 1, 'median', 1],
             ['ROA', 'ROA', 1, 'median', 1]],
         'GROWTH': [
-            ['ROE_growth', 'ROE_Q_growthY', 1, 'median', 1],
             ['net_profit_growth', 'net_profit_Q_growthY', 1, 'median', 1],
             ['oper_rev_growth', 'oper_rev_Q_growthY', 1, 'median', 1],
             ['Surprise', 'sur_net_profit_Q_WD', 1, 'median', 1],
@@ -55,8 +55,8 @@ FACTOR_WEIGHT = \
             ['Surprise', 'sur_oper_rev_Q_WD', 1, 'median', 1],
             ['Surprise', 'sur_oper_rev_Q_WOD', 1, 'median', 1]],
         'ANALYST': [
-            ['Analyst', 'sqrt_anlst_cov', 1, None, 1],
-            ['Analyst', 'net_profit_divergence', -1, None, 1],
+            ['Analyst', 'sqrt_anlst_cov', 1, 'zero', 1],
+            ['Analyst', 'net_profit_divergence', -1, 'median', 1],
             ['Analyst', 'score', 1, 'median', 1],
             ['Analyst', 'PEG', -1, 'median', 1]],
         'ILIQUIDITY': [
