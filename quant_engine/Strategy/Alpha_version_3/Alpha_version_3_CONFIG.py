@@ -67,4 +67,3 @@ FACTOR_WEIGHT = \
             ['MaxRet', 'max_return_60', -1, 'median', 1],
             ['PeriodRet', 'ret_20', -1, 'median', 1]]
     }
-shit
