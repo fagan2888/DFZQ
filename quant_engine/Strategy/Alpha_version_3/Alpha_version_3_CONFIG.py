@@ -60,8 +60,8 @@ FACTOR_WEIGHT = \
             ['Analyst', 'score', 1, 'median', 1],
             ['Analyst', 'PEG', -1, 'median', 1]],
         'ILIQUIDITY': [
-            ['Amihud', 'amihud_20', 1, 'median', 1],
-            ['ln_ma_turnover', 'ln_turnover_60', -1, 'median', 1]],
+            ['Amihud', 'amihud_20', 1, 'zero', 1],
+            ['ln_ma_turnover', 'ln_turnover_60', -1, 'zero', 1]],
         'REVERSE': [
             ['CGO', 'CGO_60', -1, 'median', 1],
             ['MaxRet', 'max_return_60', -1, 'median', 1],
