@@ -57,7 +57,10 @@ class alpha_version_3(StrategyBase):
             categories.append(category_df)
         merged_df = pd.concat(categories, join='inner', axis=1)
         merged_df['overall'] = merged_df.sum(axis=1)
-        merged_df = merged_df.reset_index().loc[:, ['date', 'code', 'overall']].set_index('date')
+        merged_df = merged_df.reset_index().loc[:, ['date', 'code', 'overall']]
+        merged_df = pd.merge(merged_df, self.code_range.reset_index(), how='right', on=['date', 'code'])
+        merged_df.set_index('date', inplace=True)
+        merged_df = merged_df.loc[:, ['code', 'overall', 'status', 'isST']]
         print('Factors combination finish...')
         return merged_df
 
@@ -83,10 +86,10 @@ class alpha_version_3(StrategyBase):
         base_weight = pd.merge(base_weight, self.industry_dummies.reset_index(), how='left', on=['date', 'code'])
         # --------------------------------------------------------------
         self.risks = self.risk_exp.columns.difference(['code'])
-        base_weight = pd.merge(base_weight, self.risk_exp.reset_index(), how='outer', on=['date', 'code'])
-        base_weight = pd.merge(base_weight, self.spec_risk.reset_index(), how='outer', on=['date', 'code'])
+        base_weight = pd.merge(base_weight, self.risk_exp.reset_index(), how='left', on=['date', 'code'])
+        base_weight = pd.merge(base_weight, self.spec_risk.reset_index(), how='left', on=['date', 'code'])
+        base_weight = pd.merge(base_weight, self.size_data.reset_index(), how='left', on=['date', 'code'])
         # --------------------------------------------------------------
-        base_weight = pd.merge(base_weight, self.size_data.reset_index(), how='outer', on=['date', 'code'])
         # 用于过滤没有行业的stk
         base_weight['sum_dummies'] = base_weight[self.indus].sum(axis=1)
         base_weight[self.indus] = base_weight[self.indus].fillna(0)
@@ -96,7 +99,7 @@ class alpha_version_3(StrategyBase):
         base_weight['filled_spec_risk'] = base_weight['specific_risk'].fillna(0)
         base_weight['filled_z_mv'] = base_weight['z_mv'].fillna(0)
         base_weight['filled_overall'] = base_weight['overall'].fillna(0)
-        base_weight['filled_weight'] = base_weight['weight'].fillna(0)
+        base_weight['weight'] = base_weight['weight'].fillna(0)
         # --------------------------------------------------------------
         base_weight.set_index('date', inplace=True)
         return base_weight
@@ -120,7 +123,7 @@ class alpha_version_3(StrategyBase):
             # -----------------------get array--------------------------
             array_codes = day_base_weight['code'].values
             array_overall = day_base_weight['filled_overall'].values
-            array_base_weight = day_base_weight['filled_weight'].values
+            array_base_weight = day_base_weight['weight'].values
             array_z_size = day_base_weight['filled_z_mv'].values
             array_indu_dummies = day_base_weight[dummies_field].values
             array_risk_exp = day_base_weight[risks_field].values
@@ -137,12 +140,12 @@ class alpha_version_3(StrategyBase):
             #   权重上限 可以到 weight_intercept + 0.5 * base_weight
             #   没有overall 或 size 或 sum_dummies 或 sum_risks 或 specific_risk 因子值的 总权重为0
             array_upbound = np.where(
+                (day_base_weight['status'] == '停牌').values | pd.notnull(day_base_weight['isST']).values |
                 pd.isnull(day_base_weight['overall']).values | pd.isnull(day_base_weight['sum_dummies']).values |
                 pd.isnull(day_base_weight['sum_risks']).values | pd.isnull(day_base_weight['specific_risk']).values |
                 pd.isnull(day_base_weight['z_mv']).values,
-                -1 * day_base_weight['filled_weight'].values,
-                weight_intercept + 0.5 * day_base_weight['filled_weight'].values)
-            array_lowbound = -1 * day_base_weight['filled_weight'].values
+                -1 * day_base_weight['weight'].values, weight_intercept + 0.5 * day_base_weight['weight'].values)
+            array_lowbound = -1 * day_base_weight['weight'].values
             # ----------------------track error-------------------------
             overall_exp = array_overall * solve_weight / 100
             obj = overall_exp
@@ -177,7 +180,7 @@ class alpha_version_3(StrategyBase):
                 fail_dates.append(date)
                 continue
             day_base_weight['weight'] = np.round(array_base_weight + opti_weight, 2)
-            day_base_weight = day_base_weight.loc[day_base_weight['weight'] > 0, ['code', 'weight']]
+            day_base_weight = day_base_weight.loc[day_base_weight['weight'] > 0.01, ['code', 'weight']]
             print('%s OPTI finish \n -n_codes: %i  n_selections: %i' %
                   (date, array_codes.shape[0], day_base_weight.shape[0]))
             dfs.append(day_base_weight)
@@ -300,6 +303,6 @@ class alpha_version_3(StrategyBase):
 
 if __name__ == '__main__':
     print(datetime.datetime.now())
-    a = alpha_version_3('All_CATE_para0.5_0520')
+    a = alpha_version_3('VALUE_para1_0521')
     kk = a.run()
     print(datetime.datetime.now())

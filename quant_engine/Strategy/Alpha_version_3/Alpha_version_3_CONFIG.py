@@ -3,7 +3,7 @@
 STRATEGY_CONFIG = \
     {
         'start': 20130101,
-        'end': 20150401,
+        'end': 20200401,
         'benchmark': 300,
         'select_range': 800,
         'industry': 'improved_lv1',
@@ -14,7 +14,7 @@ STRATEGY_CONFIG = \
         'mv_max_exp': 0.1,
         # 市值主动最小暴露
         'mv_min_exp': -0.1,
-        'weight_intercept': 0.5,
+        'weight_intercept': 1,
         'n_codes': 150
     }
 

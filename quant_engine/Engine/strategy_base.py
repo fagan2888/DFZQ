@@ -94,15 +94,12 @@ class StrategyBase:
             self.code_range = self.mkt_data.loc[:, ['code']].copy()
         self.code_range.reset_index(inplace=True)
         # 过滤 停牌 的票
-        suspend_stk = self.mkt_data.loc[self.mkt_data['status'] != '停牌', ['code']].copy()
-        suspend_stk.reset_index(inplace=True)
-        self.code_range = pd.merge(self.code_range, suspend_stk, how='inner', on=['date', 'code'])
+        suspend_stk = self.mkt_data.loc[:, ['code', 'status']].copy()
+        self.code_range = pd.merge(self.code_range, suspend_stk.reset_index(), how='left', on=['date', 'code'])
         # 过滤 st 的票
-        st = self.st_data.copy().reset_index()
-        self.code_range = pd.merge(self.code_range, st, how='left', on=['date', 'code'])
-        self.code_range = self.code_range.loc[pd.isnull(self.code_range['isST']), ['date', 'code']]
+        self.code_range = pd.merge(self.code_range, self.st_data.reset_index(), how='left', on=['date', 'code'])
         # 组合 industry
-        self.code_range = pd.merge(self.code_range, self.industry_data.reset_index(), how='inner', on=['date', 'code'])
+        self.code_range = pd.merge(self.code_range, self.industry_data.reset_index(), how='left', on=['date', 'code'])
         self.code_range.set_index('date', inplace=True)
         print('-code range loaded...')
         self.size_data = self.influx.getDataMultiprocess(self.factor_db, 'Size', self.start, self.end,
@@ -134,7 +131,7 @@ class StrategyBase:
             factor_df[factor] = factor_df[factor].fillna(0)
         else:
             factor_df = pd.merge(factor_df, self.code_range.reset_index(), how='inner', on=['date', 'code'])
-            factor_df = factor_df.dropna()
+            factor_df = factor_df.dropna(subset=[factor])
         factor_df.set_index('date', inplace=True)
         # 进行remove outlier, 中性化 和 标准化
         size_data = self.size_data.rename(columns={'z_mv': 'size'})
