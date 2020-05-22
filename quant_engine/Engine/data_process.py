@@ -72,10 +72,11 @@ class DataProcess:
         index_low = np.argmax(np.maximum.accumulate(accum_alpha) - accum_alpha)
         value_low = accum_alpha[index_low]
         if index_low == 0:
-            return 0
+            return [0, None]
         else:
             value_high = np.max(accum_alpha[:index_low])
-            return value_high - value_low
+            index_high = np.argmax(accum_alpha[:index_low])
+            return [value_high - value_low, [index_high, index_low]]
 
     @staticmethod
     def calc_sharpe(series):
