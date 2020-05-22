@@ -252,8 +252,10 @@ class BacktestEngine:
         self.res_logger.info('PERFORMANCE:')
         self.res_logger.info('-ANN_Alpha: %f' % DataProcess.calc_alpha_ann_return(
             portfolio_value['TotalValue'], portfolio_value['BenchmarkValue']))
-        self.res_logger.info('-Alpha_MDD: %f' % DataProcess.calc_alpha_max_draw_down(
-            portfolio_value['TotalValue'], portfolio_value['BenchmarkValue']))
+        MDD, MDD_period = \
+            DataProcess.calc_alpha_max_draw_down(portfolio_value['TotalValue'], portfolio_value['BenchmarkValue'])
+        self.res_logger.info('-Alpha_MDD: %f' % MDD)
+        self.res_logger.info('-Alpha_MDD period: %s - %s' % (MDD_period[0], MDD_period[1]))
         self.res_logger.info('-Alpha_sharpe: %f' % DataProcess.calc_alpha_sharpe(
             portfolio_value['TotalValue'], portfolio_value['BenchmarkValue']))
         print('Backtest finish! Time used: ', datetime.datetime.now() - backtest_starttime)
