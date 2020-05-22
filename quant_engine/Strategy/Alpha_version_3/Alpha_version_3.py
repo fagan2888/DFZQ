@@ -297,8 +297,10 @@ class alpha_version_3(StrategyBase):
         self.logger.info('PERFORMANCE:')
         self.logger.info('-ANN_Alpha: %f' % DataProcess.calc_alpha_ann_return(
             portfolio_value['TotalValue'], portfolio_value['BenchmarkValue']))
-        self.logger.info('-Alpha_MDD: %f' % DataProcess.calc_alpha_max_draw_down(
-            portfolio_value['TotalValue'], portfolio_value['BenchmarkValue']))
+        MDD, MDD_period = \
+            DataProcess.calc_alpha_max_draw_down(portfolio_value['TotalValue'], portfolio_value['BenchmarkValue'])
+        self.logger.info('-Alpha_MDD: %f' % MDD)
+        self.logger.info('-Alpha_MDD period: %s - %s' % (MDD_period[0], MDD_period[1]))
         self.logger.info('-Alpha_sharpe: %f' % DataProcess.calc_alpha_sharpe(
             portfolio_value['TotalValue'], portfolio_value['BenchmarkValue']))
         print('Time used:', datetime.datetime.now() - start_time)
