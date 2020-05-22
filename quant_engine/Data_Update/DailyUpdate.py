@@ -11,7 +11,7 @@ sys.path.extend([root_dir, root_dir + '\\Data_Resource', root_dir + '\\Engine', 
                  root_dir + '\\Factor\\Growth', root_dir + '\\Factor\\Turnover',
                  root_dir + '\\Factor\\Momentum', root_dir + '\\Factor\\Analyst',
                  root_dir + '\\Factor\\Risk', root_dir + '\\Factor\\Iliquidity',
-                 root_dir + '\\Factor\\Reverse'])
+                 root_dir + '\\Factor\\Reverse', root_dir + '\\Factor\\Banks'])
 # -------------------------------
 from rdf_data import rdf_data
 import logging
@@ -62,6 +62,8 @@ from PEG import PEG
 from risk_exposure import RiskFactorsExposure
 from risk_cov import RiskCov
 from specific_risk import SpecificRisk
+from Banks import Banks
+from NPL_leverage import NPL_leverage
 
 
 class DailyUpdate:
@@ -290,6 +292,14 @@ class DailyUpdate:
             res = peg.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
             self.logger.info('---------------------PEG finish-----------------------')
+            bank = Banks()
+            res = bank.cal_factors(last_week, last_trade_day, n_jobs)
+            self.log_res(res)
+            self.logger.info('--------------------Banks finish----------------------')
+            npll = NPL_leverage()
+            res = npll.cal_factors(last_week, last_trade_day, n_jobs)
+            self.log_res(res)
+            self.logger.info('-----------------NPL leverage finish------------------')
 
             self.logger.info('//////////////////////////////////////////////////////')
             self.logger.info('EndTime: %s' % datetime.datetime.now().strftime('%Y%m%d-%H:%M:%S'))
