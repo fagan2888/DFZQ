@@ -24,6 +24,8 @@ class alpha_version_3(StrategyBase):
         industry = STRATEGY_CONFIG['industry']
         adj_interval = STRATEGY_CONFIG['adj_interval']
         super().initialize_strategy(start, end, benchmark, select_range, industry, adj_interval)
+        self.logger.info('Strategy start time: %s' % datetime.datetime.now().strftime('%Y/%m/%d - %H:%M:%S'))
+        self.logger.info('*' * 50)
         self.capital = STRATEGY_CONFIG['capital']
         self.target_sigma = STRATEGY_CONFIG['target_sigma']
         self.mv_max_exp = STRATEGY_CONFIG['mv_max_exp']
@@ -32,16 +34,17 @@ class alpha_version_3(StrategyBase):
         self.n_codes = STRATEGY_CONFIG['n_codes']
 
     def get_factors(self, measure, factor, direction, if_fillna, weight):
-        print('-Factor: %s is processing...' % factor)
+        self.logger.info('  -Factor: %s is processing...' % factor)
         factor_df = self.process_factor(measure, factor, direction, if_fillna)
         factor_df[factor] = factor_df[factor] * weight
         factor_df.set_index(['date', 'code'], inplace=True)
         return factor_df
 
     def factors_combination(self):
+        self.logger.info('STRATEGY PARAMETERS: ')
         categories = []
         for category in CATEGORY_WEIGHT.keys():
-            print('Category: %s is processing...' % category)
+            self.logger.info('-%s' % category)
             parameters_list = FACTOR_WEIGHT[category]
             factors_in_category = []
             for measure, factor, direction, if_fillna, weight in parameters_list:
@@ -289,7 +292,7 @@ class alpha_version_3(StrategyBase):
         QE = BacktestEngine(self.strategy_name, bt_start, bt_end, self.adj_interval, self.benchmark,
                             stock_capital=self.capital)
         portfolio_value = QE.run(target_weight, bt_start, bt_end)
-        self.logger.info('Backtest finish time: %s' % datetime.datetime.now().strftime('%Y/%m/%d - %H:%M:%S'))
+        self.logger.info('Strategy finish time: %s' % datetime.datetime.now().strftime('%Y/%m/%d - %H:%M:%S'))
         self.logger.info('*' * 50)
         self.logger.info('PERFORMANCE:')
         self.logger.info('-ANN_Alpha: %f' % DataProcess.calc_alpha_ann_return(
@@ -303,6 +306,6 @@ class alpha_version_3(StrategyBase):
 
 if __name__ == '__main__':
     print(datetime.datetime.now())
-    a = alpha_version_3('ALL_CATE_para1_0521')
+    a = alpha_version_3('FINQUAL_para1_0522')
     kk = a.run()
     print(datetime.datetime.now())

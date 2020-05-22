@@ -15,7 +15,7 @@ STRATEGY_CONFIG = \
         # 市值主动最小暴露
         'mv_min_exp': -0.1,
         'weight_intercept': 1,
-        'n_codes': 150
+        'n_codes': 120
     }
 
 
@@ -61,7 +61,7 @@ FACTOR_WEIGHT = \
             ['Analyst', 'PEG', -1, 'median', 1]],
         'ILIQUIDITY': [
             ['Amihud', 'amihud_20', 1, 'zero', 1],
-            ['ln_ma_turnover', 'ln_turnover_60', -1, 'zero', 1]],
+            ['ln_ma_turnover', 'ln_turnover_60', -1, 'median', 1]],
         'REVERSE': [
             ['CGO', 'CGO_60', -1, 'median', 1],
             ['MaxRet', 'max_return_60', -1, 'median', 1],

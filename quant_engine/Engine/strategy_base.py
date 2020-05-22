@@ -31,9 +31,11 @@ class StrategyBase:
         file_name = 'Strategy_Report.log'
         handler = logging.FileHandler(self.folder_dir + file_name)
         handler.setLevel(logging.INFO)
+        console = logging.StreamHandler()
         formatter = logging.Formatter('%(asctime)s - %(levelname)s: %(message)s')
         handler.setFormatter(formatter)
         self.logger.addHandler(handler)
+        self.logger.addHandler(console)
 
     # 获得行情信息以及选股的范围
     # 行情信息为全市场，以免吸收合并出现没有行情的情况
