@@ -105,7 +105,7 @@ class DP(FactorBase):
 if __name__ == '__main__':
     print(datetime.datetime.now())
     dp = DP()
-    r = dp.cal_factors(20190101, 20200205, N_JOBS)
+    r = dp.cal_factors(20100101, 20200520, N_JOBS)
     print('task finish')
     print(r)
     print(datetime.datetime.now())
