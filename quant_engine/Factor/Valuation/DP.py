@@ -16,31 +16,25 @@ class DP(FactorBase):
         super().__init__()
 
     @staticmethod
-    def JOB_factors(codes, df, start, end):
+    def JOB_factors(df, codes, calendar, start, end):
         influx = influxdbData()
         save_res = []
         for code in codes:
-            code_df = df.loc[df['code'] == code, :].copy().sort_values('date')
-            code_df['mv'] = code_df['mv'].fillna(method='ffill')
-            code_df['shares'] = code_df['shares'].fillna(method='ffill')
-            code_df['cur_year'] = code_df['date'].apply(lambda x: x.year)
+            code_df = df.loc[df['code'] == code, :].copy()
+            dp_dict = dict(zip(code_df['DP_year'].values, code_df['DP_LYR'].values))
+            blank_df = pd.DataFrame({'code': [code] * calendar.shape[0], 'date': calendar})
+            code_df = pd.merge(code_df, blank_df, on=['date', 'code'], how='outer')
+            code_df = code_df.set_index('date').sort_index()
+            code_df['cur_month'] = code_df.index.strftime('%m').astype('int')
+            code_df['withhold_year'] = code_df.index.strftime('%Y').astype('int') - 2
+            # 大部分分红都在8月前，8月起 withhold_year 向前推1年
+            code_df['withhold_year'] = np.where(code_df['cur_month'].values <= 7, code_df['withhold_year'].values,
+                                                code_df['withhold_year'].values + 1)
             code_df['DP_year'] = code_df['DP_year'].fillna(method='ffill')
-            code_df['DP_year'] = \
-                code_df.apply(
-                    lambda row: row['DP_year'] if row['cur_year'] - row['DP_year'] < 2 else row['cur_year'] - 1, axis=1)
-            code_df = code_df.dropna(subset=['mv'])
-            if code_df.empty:
-                continue
-            yearly_dvd = code_df.copy().dropna(subset=['dvd_per_share'])
-            yearly_dvd['dvd_amount'] = yearly_dvd['dvd_per_share'] * yearly_dvd['shares']
-            yearly_dvd = pd.DataFrame(yearly_dvd.groupby('report_year')['dvd_amount'].sum()).reset_index()
-            yearly_dvd.rename(columns={'report_year': 'DP_year'}, inplace=True)
-            code_df = pd.merge(code_df, yearly_dvd, on='DP_year', how='left')
-            code_df['dvd_amount'] = code_df['dvd_amount'].fillna(0)
-            code_df['DP_LYR'] = code_df['dvd_amount'] / code_df['mv']
-            code_df.set_index('date', inplace=True)
+            code_df['DP_year'] = code_df[['DP_year', 'withhold_year']].max(axis=1)
+            code_df['DP_LYR'] = code_df['DP_year'].map(dp_dict)
+            code_df['DP_LYR'] = code_df['DP_LYR'].fillna(0)
             code_df = code_df.loc[str(start):str(end), ['code', 'DP_LYR']]
-            code_df = code_df.where(pd.notnull(code_df), None)
             print('code: %s' % code)
             r = influx.saveData(code_df, 'DailyFactors_Gus', 'DP_LYR')
             if r == 'No error occurred...':
@@ -52,7 +46,7 @@ class DP(FactorBase):
     def cal_factors(self, start, end, n_jobs):
         # 获取分红信息
         # 日期使用分红确认的公告日
-        query = "select S_INFO_WINDCODE, CASH_DVD_PER_SH_PRE_TAX, S_DIV_PRELANDATE, REPORT_PERIOD " \
+        query = "select S_INFO_WINDCODE, CASH_DVD_PER_SH_PRE_TAX, DVD_ANN_DT, REPORT_PERIOD " \
                 "from wind_filesync.AShareDividend " \
                 "where S_DIV_PROGRESS = 3 " \
                 "and S_DIV_PRELANDATE >= {0} and S_DIV_PRELANDATE <= {1}" \
@@ -83,14 +77,24 @@ class DP(FactorBase):
             .format((dtparser.parse(str(start)) - relativedelta(years=2)).strftime('%Y%m%d'), str(end))
         self.rdf.curs.execute(query)
         mv = pd.DataFrame(self.rdf.curs.fetchall(), columns=['date', 'code', 'mv', 'shares'])
+        mv['mv'] = mv.groupby('code')['mv'].fillna(method='ffill')
+        mv['shares'] = mv.groupby('code')['shares'].fillna(method='ffill')
         mv['date'] = pd.to_datetime(mv['date'])
-        merge = pd.merge(dvd, mv, on=['date', 'code'], how='outer')
+        merge = pd.merge(dvd, mv, on=['date', 'code'], how='inner')
+        # 由于 date 是实施公告日，所以不用担心 shares 改变的问题
+        merge['DP_ratio'] = merge['dvd_per_share'] * merge['shares'] / merge['mv']
+        stat = merge.groupby(['code', 'report_year'])['DP_ratio'].sum()
+        stat = pd.DataFrame(stat).reset_index()
+        stat.rename(columns={'DP_ratio': 'DP_LYR', 'report_year': 'DP_year'}, inplace=True)
+        merge = pd.merge(merge, stat, on=['code', 'DP_year'], how='left')
+        merge = merge.loc[:, ['date', 'code', 'DP_year', 'DP_LYR']]
+        calendar = self.rdf.get_trading_calendar()
+        calendar = calendar[(calendar >= str(start)) & (calendar <= str(end))].values
         codes = merge['code'].unique()
-        #codes = ['002581.SZ', '002525.SZ', '600349.SH', '000991.SZ', '002257.SZ']
         split_codes = np.array_split(codes, n_jobs)
         with parallel_backend('multiprocessing', n_jobs=n_jobs):
             res = Parallel()(delayed(DP.JOB_factors)
-                             (codes, merge, start, end) for codes in split_codes)
+                             (merge, codes, calendar, start, end) for codes in split_codes)
         print('DP finish')
         print('-' * 30)
         fail_list = []
@@ -101,7 +105,7 @@ class DP(FactorBase):
 if __name__ == '__main__':
     print(datetime.datetime.now())
     dp = DP()
-    r = dp.cal_factors(20200101, 20200205, N_JOBS)
+    r = dp.cal_factors(20190101, 20200205, N_JOBS)
     print('task finish')
     print(r)
     print(datetime.datetime.now())
