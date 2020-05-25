@@ -96,7 +96,7 @@ class Banks(FactorBase):
         bank['report_period'] = pd.to_datetime(bank['report_period'])
         # ***************************************************************************
         # 需要的field
-        fields = ['NPL', 'CA_ratio']
+        fields = ['NPL', 'CA_ratio', 'net_interest_margin']
         # 处理数据
         calendar = self.rdf.get_trading_calendar()
         calendar = \
@@ -128,4 +128,4 @@ class Banks(FactorBase):
 
 if __name__ == '__main__':
     npl = Banks()
-    r = npl.cal_factors(20100101, 20200520, N_JOBS)
+    r = npl.cal_factors(20100101, 20200521, N_JOBS)
