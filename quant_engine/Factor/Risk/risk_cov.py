@@ -51,18 +51,12 @@ class RiskCov:
         calendar = pd.DatetimeIndex(calendar).strftime('%Y%m%d')
         factor_dict = pd.read_excel(ROOT_DIR + '/Data_Resource/风险因子说明.xlsx', header=None)
         factor_dict = dict(zip(factor_dict[0].values, factor_dict[1].values))
-        split_dates = np.array_split(calendar, self.n_jobs)
-        with parallel_backend('multiprocessing', n_jobs=self.n_jobs):
-            res = Parallel()(delayed(RiskCov.JOB_factors)(dates, factor_dict, self.db, self.measure)
-                             for dates in split_dates)
+        save_res = RiskCov.JOB_factors(calendar, factor_dict, self.db, self.measure)
         print('RiskCov finish')
         print('-' * 30)
-        fail_list = []
-        for r in res:
-            fail_list.extend(r)
-        return fail_list
+        return save_res
 
 
 if __name__ == '__main__':
     rfe = RiskCov()
-    rfe.cal_factors(20100101, 20200415)
+    rfe.cal_factors(20200518, 20200522)

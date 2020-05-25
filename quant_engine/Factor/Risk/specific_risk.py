@@ -52,18 +52,12 @@ class SpecificRisk:
         calendar = self.rdf.get_trading_calendar()
         calendar = calendar[(calendar >= str(start)) & (calendar <= str(end))]
         calendar = pd.DatetimeIndex(calendar).strftime('%Y%m%d')
-        split_dates = np.array_split(calendar, self.n_jobs)
-        with parallel_backend('multiprocessing', n_jobs=self.n_jobs):
-            res = Parallel()(delayed(SpecificRisk.JOB_factors)(dates, self.db, self.measure)
-                             for dates in split_dates)
+        save_res = SpecificRisk.JOB_factors(calendar, self.db, self.measure)
         print('SpecificRisk finish')
         print('-' * 30)
-        fail_list = []
-        for r in res:
-            fail_list.extend(r)
-        return fail_list
+        return save_res
 
 
 if __name__ == '__main__':
     rfe = SpecificRisk()
-    rfe.cal_factors(20100101, 20100408)
+    rfe.cal_factors(20200518, 20200522)
