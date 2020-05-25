@@ -215,12 +215,8 @@ class DataProcess:
         res = []
         for date in dates:
             day_data = data.loc[data['date'] == date, :].copy()
-            # 滤去周末出财报造成周末有因子的情况
-            if day_data.shape[0] < 100:
-                pass
-            else:
-                day_data.loc[:, field] = DataProcess.Z_standardize(day_data[field])
-                res.append(day_data)
+            day_data.loc[:, field] = DataProcess.Z_standardize(day_data[field])
+            res.append(day_data)
         dates_data = pd.concat(res)
         return dates_data
 
@@ -229,12 +225,8 @@ class DataProcess:
         res = []
         for date in dates:
             day_data = data.loc[data['date'] == date, :].copy()
-            # 滤去周末出财报造成周末有因子的情况
-            if day_data.shape[0] < 100:
-                pass
-            else:
-                day_data.loc[:, field] = DataProcess.rank_standardize(day_data[field])
-                res.append(day_data)
+            day_data.loc[:, field] = DataProcess.rank_standardize(day_data[field])
+            res.append(day_data)
         dates_data = pd.concat(res)
         return dates_data
 
