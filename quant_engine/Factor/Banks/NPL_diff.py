@@ -12,35 +12,6 @@ class NPL_diff(FactorBase):
         super().__init__()
         self.db = 'DailyFactors_Gus'
 
-    @staticmethod
-    def JOB_factors(df, codes, factor, db, measure):
-        influx = influxdbData()
-        save_res = []
-        for code in codes:
-            code_df = df.loc[df['code'] == code, :].copy()
-            code_df['{0}_growthQ'.format(factor)] = \
-                code_df.apply(lambda row: FactorBase.cal_growth(
-                    row['{0}_last1Q'.format(factor)], row['{0}'.format(factor)]), axis=1)
-            code_df['{0}_growthY'.format(factor)] = \
-                code_df.apply(lambda row: FactorBase.cal_growth(
-                    row['{0}_last4Q'.format(factor)], row['{0}'.format(factor)]), axis=1)
-            code_df = code_df.loc[:, ['code', '{0}_growthQ'.format(factor), '{0}_growthY'.format(factor)]]
-            code_df = code_df.replace(np.inf, np.nan)
-            code_df = \
-                code_df.loc[
-                    pd.notnull(code_df['{0}_growthQ'.format(factor)]) |
-                    pd.notnull(code_df['{0}_growthY'.format(factor)]), :]
-            if code_df.empty:
-                continue
-            code_df = code_df.where(pd.notnull(code_df), None)
-            print('code: %s' % code)
-            r = influx.saveData(code_df, db, measure)
-            if r == 'No error occurred...':
-                pass
-            else:
-                save_res.append('%s_growth Error: %s' % (factor, r))
-        return save_res
-
     def cal_factors(self, start, end, n_jobs):
         fail_list = []
         for npl_field in ['NPL', 'NPL_leverage']:
@@ -68,6 +39,6 @@ if __name__ == '__main__':
     pd.set_option('mode.use_inf_as_na', True)
     start_dt = datetime.datetime.now()
     diff = NPL_diff()
-    r = diff.cal_factors(20100101, 20200501, N_JOBS)
+    r = diff.cal_factors(20100101, 20200522, N_JOBS)
     print(r)
     print('time token:', datetime.datetime.now()-start_dt)
