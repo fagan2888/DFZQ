@@ -64,6 +64,8 @@ from risk_cov import RiskCov
 from specific_risk import SpecificRisk
 from Banks import Banks
 from NPL_leverage import NPL_leverage
+from NPL_diff import NPL_diff
+from provision_cov_growth import provision_cov_growth
 
 
 class DailyUpdate:
@@ -300,6 +302,14 @@ class DailyUpdate:
             res = npll.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
             self.logger.info('-----------------NPL leverage finish------------------')
+            npldiff = NPL_diff()
+            res = npldiff.cal_factors(last_week, last_trade_day, n_jobs)
+            self.log_res(res)
+            self.logger.info('-------------------NPL diff finish--------------------')
+            pcg = provision_cov_growth()
+            res = pcg.cal_factors(last_week, last_trade_day, n_jobs)
+            self.log_res(res)
+            self.logger.info('-----------------provision cov finish-----------------')
 
             self.logger.info('//////////////////////////////////////////////////////')
             self.logger.info('EndTime: %s' % datetime.datetime.now().strftime('%Y%m%d-%H:%M:%S'))
