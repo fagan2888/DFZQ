@@ -38,6 +38,7 @@ from DP import DP
 from NCFP import NCFP
 from OCFP import OCFP
 from ROE import ROE_series
+from ROE2 import ROE2
 from RNOA import RNOA_series
 from ROA import ROA_series
 from CFROI import CFROI_series
@@ -210,6 +211,10 @@ class DailyUpdate:
             res = roe.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
             self.logger.info('---------------------ROE finish-----------------------')
+            roe2 = ROE2()
+            res = roe2.cal_factors(last_week, last_trade_day, n_jobs)
+            self.log_res(res)
+            self.logger.info('--------------------ROE2 finish-----------------------')
             rnoa = RNOA_series()
             res = rnoa.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
