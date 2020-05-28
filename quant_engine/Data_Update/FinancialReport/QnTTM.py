@@ -2,7 +2,6 @@ from factor_base import FactorBase
 import pandas as pd
 import numpy as np
 import dateutil.parser as dtparser
-from dateutil.relativedelta import relativedelta
 from joblib import Parallel, delayed, parallel_backend
 from influxdb_data import influxdbData
 from global_constant import N_JOBS
@@ -32,15 +31,6 @@ class QnTTMUpdate(FactorBase):
         return Q
 
     @staticmethod
-    def JOB_calTTM(value_cur, value_last1Q, value_last2Q, value_last3Q, report_period, n_last):
-        rp = QnTTMUpdate.get_former_report_period(dtparser.parse(report_period), n_last).strftime('%Y%m%d')
-        if rp[-4:] == '1231':
-            TTM = value_cur
-        else:
-            TTM = value_cur + value_last1Q + value_last2Q + value_last3Q
-        return TTM
-
-    @staticmethod
     def JOB_factors(df, field, codes):
         influx = influxdbData()
         save_res = []
@@ -61,9 +51,8 @@ class QnTTMUpdate(FactorBase):
                 drop_dupl_df[res_col] = drop_dupl_df.apply(lambda row: QnTTMUpdate.JOB_calQ(
                     row[curr_col], row[prev_col], row['report_period'], n), axis=1)
             # 计算TTM
-            drop_dupl_df[field + '_TTM'] = drop_dupl_df.apply(lambda row: QnTTMUpdate.JOB_calTTM(
-                row[field + '_Q'], row[field + '_Q_last1Q'], row[field + '_Q_last2Q'], row[field + '_Q_last3Q'],
-                row['report_period'], 0), axis=1)
+            drop_dupl_df[field + '_TTM'] = drop_dupl_df[field + '_Q'] + drop_dupl_df[field + '_Q_last1Q'] + \
+                                           drop_dupl_df[field + '_Q_last2Q'] + drop_dupl_df[field + '_Q_last3Q']
             TTM_cols = [field + '_TTM']
             for n in range(1, 9):
                 curr_col = field + '_Q_last{0}Q'.format(str(n))
@@ -72,9 +61,8 @@ class QnTTMUpdate(FactorBase):
                 prev3_col = field + '_Q_last{0}Q'.format(str(n+3))
                 res_col = field + '_TTM_last{0}Q'.format(str(n))
                 TTM_cols.append(res_col)
-                drop_dupl_df[res_col] = drop_dupl_df.apply(lambda row: QnTTMUpdate.JOB_calTTM(
-                    row[curr_col], row[prev1_col], row[prev2_col], row[prev3_col],
-                    row['report_period'], n), axis=1)
+                drop_dupl_df[res_col] = drop_dupl_df[curr_col] + drop_dupl_df[prev1_col] + \
+                                        drop_dupl_df[prev2_col] + drop_dupl_df[prev3_col]
             Q_TTM_cols = Q_cols + TTM_cols
             drop_dupl_df = drop_dupl_df[Q_TTM_cols]
             code_df = pd.merge(code_df.loc[:, ['code', 'report_period']], drop_dupl_df,
@@ -118,5 +106,5 @@ class QnTTMUpdate(FactorBase):
 
 if __name__ == '__main__':
     QU = QnTTMUpdate()
-    r = QU.cal_factors(20100101, 20200501, N_JOBS)
+    r = QU.cal_factors(20200101, 20200501, N_JOBS)
     print(r)
