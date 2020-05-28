@@ -538,6 +538,7 @@ class div_pred_statistic:
 
     def get_summary_date_dict(self, df):
         date_dict = {}
+        date_dict['置空点数'] = df.loc[pd.isnull(df['派息日']), '分红点数'].sum()
         df = df.dropna(subset=['派息日']).sort_values(by='派息日')
         df.set_index("派息日", inplace=True)
         for date in self.date_needed:
