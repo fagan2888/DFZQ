@@ -541,7 +541,11 @@ class div_pred_statistic:
         df = df.dropna(subset=['派息日']).sort_values(by='派息日')
         df.set_index("派息日", inplace=True)
         for date in self.date_needed:
-            date_dict[date] = df.loc[self.dt + datetime.timedelta(days=1):date, '分红点数'].sum()
+            tmp_df = df.loc[self.dt + datetime.timedelta(days=1):date, :].copy()
+            date_dict['{0}_已实施'.format(date.strftime('%Y/%m/%d'))] = \
+                tmp_df.loc[tmp_df['是否预测'] == False, '分红点数'].sum()
+            date_dict['{0}_预测'.format(date.strftime('%Y/%m/%d'))] = \
+                tmp_df.loc[tmp_df['是否预测'] == True, '分红点数'].sum()
         return date_dict
 
     def run_daily(self, exe_date=None):
@@ -586,7 +590,7 @@ class div_pred_statistic:
 
         summary_df = pd.DataFrame(summary_dict)
         summary_df = summary_df.loc[:, ['IH', 'IF', 'IC']]
-        summary_df.index = summary_df.index.strftime('%Y-%m-%d')
+        summary_df = summary_df.sort_index()
         summary_filename = 'bonusSummary' + self.last_trading_date.strftime('%Y%m%d') + '.xls'
         summary_df.to_excel(local_prefix + 'summary/' + summary_filename)
         print('dividend is done!')
