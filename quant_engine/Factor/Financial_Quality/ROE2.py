@@ -121,6 +121,8 @@ class ROE2(FactorBase):
                 continue
             code_df = pd.concat(dfs, axis=1)
             code_df = code_df.reset_index().set_index('date')
+            code_df = code_df.replace(np.inf, np.nan)
+            code_df = code_df.replace(-np.inf, np.nan)
             code_df = code_df.where(pd.notnull(code_df), None)
             print('code: %s' % code)
             r = influx.saveData(code_df, db, measure)
@@ -172,6 +174,8 @@ class ROE2(FactorBase):
                 continue
             code_df = pd.concat(dfs, axis=1)
             code_df = code_df.reset_index().set_index('date')
+            code_df = code_df.replace(np.inf, np.nan)
+            code_df = code_df.replace(-np.inf, np.nan)
             code_df = code_df.where(pd.notnull(code_df), None)
             print('code: %s' % code)
             r = influx.saveData(code_df, db, measure)
