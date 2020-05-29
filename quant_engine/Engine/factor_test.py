@@ -440,10 +440,10 @@ if __name__ == '__main__':
 
     start = 20120101
     end = 20181231
-    measurements = ['CGO']
-    factors = ['CGO_60']
-    directions = [-1]
-    fillnas = ['median']
+    measurements = ['DP_LYR']
+    factors = ['DP_LYR']
+    directions = [1]
+    fillnas = ['zero']
     benchmark = 300
     select_range = 800
     adj_interval = 5
