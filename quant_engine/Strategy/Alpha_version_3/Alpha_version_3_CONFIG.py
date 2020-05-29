@@ -31,7 +31,7 @@ CATEGORY_WEIGHT = \
     }
 
 # 因子权重
-# list内分别为measure, factor, direction, if_fillna, style, weight
+# list内分别为measure, factor, direction, fillna, weight
 FACTOR_WEIGHT = \
     {
         'VALUE': [
