@@ -115,6 +115,8 @@ class ROE2(FactorBase):
                 code_df['ROE_Q_last{0}Q'.format(i)] = code_df['net_profit_Q_last{0}Q'.format(i)] / \
                     (code_df['later_equity'] + code_df['former_equity']) * 2
                 code_df.set_index(['date', 'code'], inplace=True)
+                code_df = code_df.replace(np.inf, np.nan)
+                code_df = code_df.replace(-np.inf, np.nan)
                 code_df = code_df.loc[:, ['ROE_Q_last{0}Q'.format(i)]].dropna()
                 dfs.append(code_df)
             if not dfs:
@@ -168,6 +170,8 @@ class ROE2(FactorBase):
                 code_df['ROE_last{0}Q'.format(i)] = code_df['net_profit_TTM_last{0}Q'.format(i)] / \
                     (code_df['later_equity'] + code_df['former_equity']) * 2
                 code_df.set_index(['date', 'code'], inplace=True)
+                code_df = code_df.replace(np.inf, np.nan)
+                code_df = code_df.replace(-np.inf, np.nan)
                 code_df = code_df.loc[:, ['ROE_last{0}Q'.format(i)]].dropna()
                 dfs.append(code_df)
             if not dfs:
