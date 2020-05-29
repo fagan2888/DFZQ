@@ -19,10 +19,6 @@ from global_constant import N_JOBS
 from EPandEPcut import EPandEPcut
 from BP import BP
 from SP import SP
-from ROE import ROE_series
-from RNOA import RNOA_series
-from ROE_growth import ROE_growth
-from RNOA_growth import RNOA_growth
 from Surprise import Surprise
 from RNOA2 import RNOA2
 from GPOA2 import  GPOA2
