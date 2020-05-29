@@ -37,14 +37,11 @@ from SP import SP
 from DP import DP
 from NCFP import NCFP
 from OCFP import OCFP
-from ROE import ROE_series
 from ROE2 import ROE2
+from ROA2 import ROA2
 from RNOA import RNOA_series
-from ROA import ROA_series
 from CFROI import CFROI_series
 from GPOA import GPOA_series
-from ROE_growth import ROE_growth
-from RNOA_growth import RNOA_growth
 from net_profit_growth import net_profit_growth
 from oper_rev_growth import oper_rev_growth
 from Surprise import Surprise
@@ -207,10 +204,6 @@ class DailyUpdate:
             res = dp.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
             self.logger.info('--------------------DP_LYR finish---------------------')
-            roe = ROE_series()
-            res = roe.cal_factors(last_week, last_trade_day, n_jobs)
-            self.log_res(res)
-            self.logger.info('---------------------ROE finish-----------------------')
             roe2 = ROE2()
             res = roe2.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
@@ -219,10 +212,10 @@ class DailyUpdate:
             res = rnoa.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
             self.logger.info('--------------------RNOA finish-----------------------')
-            roa = ROA_series()
+            roa = ROA2()
             res = roa.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
-            self.logger.info('---------------------ROA finish-----------------------')
+            self.logger.info('--------------------ROA2 finish-----------------------')
             cfroi = CFROI_series()
             res = cfroi.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
@@ -231,14 +224,6 @@ class DailyUpdate:
             res = gpoa.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
             self.logger.info('--------------------GPOA finish-----------------------')
-            rg = ROE_growth()
-            res = rg.cal_factors(last_week, last_trade_day, n_jobs)
-            self.log_res(res)
-            self.logger.info('-----------------ROE growth finish--------------------')
-            rnoag = RNOA_growth()
-            res = rnoag.cal_factors(last_week, last_trade_day, n_jobs)
-            self.log_res(res)
-            self.logger.info('-----------------RNOA growth finish-------------------')
             npg = net_profit_growth()
             res = npg.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
