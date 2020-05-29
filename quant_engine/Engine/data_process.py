@@ -43,40 +43,38 @@ class DataProcess:
     # 结果分析工具
     @staticmethod
     def calc_ann_return(series):
-        return (series.iloc[-1] / series.iloc[0]) ** (250 / series.shape[0]) - 1
+        return (series.iloc[-1] / series.iloc[0]) ** (252 / series.shape[0]) - 1
 
     @staticmethod
     def calc_alpha_ann_return(series1, series2):
-        ret1 = (series1.iloc[-1] / series1.iloc[0]) ** (250 / series1.shape[0]) - 1
-        ret2 = (series2.iloc[-1] / series2.iloc[0]) ** (250 / series2.shape[0]) - 1
-        return ret1 - ret2
+        accum_alpha = DataProcess.calc_accum_alpha(series1, series2)
+        return (accum_alpha.iloc[-1] / accum_alpha.iloc[0]) ** (252 / accum_alpha.shape[0]) - 1
 
     @staticmethod
     def calc_accum_alpha(series1, series2):
-        return (series1 - series2) / series2
+        ret_s1 = series1.pct_change()
+        ret_s2 = series2.pct_change()
+        ret_alpha = (ret_s1 - ret_s2).fillna(0)
+        accum_alpha = (ret_alpha + 1).cumprod()
+        return accum_alpha
 
     @staticmethod
     def calc_max_draw_down(series):
         warnings.filterwarnings("ignore")
         index_low = np.argmax(np.maximum.accumulate(series) - series)
         if index_low == 0:
-            return 0
+            return [0, None]
         else:
+            value_high = np.max(series[:index_low])
             index_high = np.argmax(series[:index_low])
-            return (series[index_high] - series[index_low]) / series[index_high]
+            MDD = (value_high - series[index_low]) / value_high
+            return [MDD, [index_high, index_low]]
 
     @staticmethod
     def calc_alpha_max_draw_down(series1, series2):
         warnings.filterwarnings("ignore")
-        accum_alpha = (series1 - series2) / series2
-        index_low = np.argmax(np.maximum.accumulate(accum_alpha) - accum_alpha)
-        value_low = accum_alpha[index_low]
-        if index_low == 0:
-            return [0, None]
-        else:
-            value_high = np.max(accum_alpha[:index_low])
-            index_high = np.argmax(accum_alpha[:index_low])
-            return [value_high - value_low, [index_high, index_low]]
+        accum_alpha = DataProcess.calc_accum_alpha(series1, series2)
+        return DataProcess.calc_max_draw_down(accum_alpha)
 
     @staticmethod
     def calc_sharpe(series):
