@@ -32,8 +32,7 @@ class RNOA2(FactorBase):
             code_df[['NOA', 'NOA_last1Q']] = \
                 code_df[['NOA', 'NOA_last1Q']].fillna(method='ffill', axis=1)
             code_df = code_df.drop_duplicates(['date'], 'last')
-            code_df['RNOA_Q'] = \
-                code_df['net_profit_Q'] / (code_df['NOA'] + code_df['NOA_last1Q']) * 2
+            code_df['RNOA_Q'] = code_df['oper_income_Q'] / (code_df['NOA'] + code_df['NOA_last1Q']) * 2
             code_df.set_index('date', inplace=True)
             code_df = code_df.loc[:, ['code', 'RNOA_Q', 'report_period']]
             code_df = code_df.replace(np.inf, np.nan)
@@ -56,8 +55,8 @@ class RNOA2(FactorBase):
         for code in codes:
             code_df = df.loc[df['code'] == code, :].copy()
             code_df['later_NOA'] = code_df['NOA'].fillna(method='ffill')
-            conditions = [code_df['profit_last4Q_rp'].values == code_df['NOA_last4Q_rp'].values,
-                          code_df['profit_last4Q_rp'].values == code_df['NOA_last3Q_rp'].values]
+            conditions = [code_df['income_last4Q_rp'].values == code_df['NOA_last4Q_rp'].values,
+                          code_df['income_last4Q_rp'].values == code_df['NOA_last3Q_rp'].values]
             choices = [code_df['NOA_last4Q'].values,
                        code_df['NOA_last3Q'].values]
             code_df['former_NOA'] = np.select(conditions, choices, default=np.nan)
@@ -65,7 +64,7 @@ class RNOA2(FactorBase):
                 code_df[['later_NOA', 'former_NOA']].fillna(method='ffill', axis=1)
             code_df[['later_NOA', 'former_NOA']] = \
                 code_df[['later_NOA', 'former_NOA']].fillna(method='bfill', axis=1)
-            code_df['RNOA'] = code_df['net_profit_TTM'] / (code_df['later_NOA'] + code_df['former_NOA']) * 2
+            code_df['RNOA'] = code_df['oper_income_TTM'] / (code_df['later_NOA'] + code_df['former_NOA']) * 2
             code_df.set_index('date', inplace=True)
             code_df = code_df.loc[:, ['code', 'RNOA', 'report_period']]
             code_df = code_df.replace(np.inf, np.nan)
@@ -89,21 +88,21 @@ class RNOA2(FactorBase):
             dfs = []
             for i in range(1, 12):
                 code_df = df.loc[df['code'] == code,
-                                 ['date', 'code', 'net_profit_Q_last{0}Q'.format(i), 'profit_last{0}Q_rp'.format(i),
-                                  'profit_last{0}Q_rp'.format(i+1), 'NOA_last{0}Q'.format(i-1),
+                                 ['date', 'code', 'oper_income_Q_last{0}Q'.format(i), 'income_last{0}Q_rp'.format(i),
+                                  'income_last{0}Q_rp'.format(i+1), 'NOA_last{0}Q'.format(i-1),
                                   'NOA_last{0}Q'.format(i), 'NOA_last{0}Q'.format(i+1),
                                   'NOA_last{0}Q_rp'.format(i-1), 'NOA_last{0}Q_rp'.format(i),
                                   'NOA_last{0}Q_rp'.format(i+1)]].copy()
-                conditions = [code_df['profit_last{0}Q_rp'.format(i)].values ==
+                conditions = [code_df['income_last{0}Q_rp'.format(i)].values ==
                               code_df['NOA_last{0}Q_rp'.format(i)].values,
-                              code_df['profit_last{0}Q_rp'.format(i)].values ==
+                              code_df['income_last{0}Q_rp'.format(i)].values ==
                               code_df['NOA_last{0}Q_rp'.format(i-1)].values]
                 choices = [code_df['NOA_last{0}Q'.format(i)].values,
                            code_df['NOA_last{0}Q'.format(i-1)].values]
                 code_df['later_NOA'] = np.select(conditions, choices, default=np.nan)
-                conditions = [code_df['profit_last{0}Q_rp'.format(i+1)].values ==
+                conditions = [code_df['income_last{0}Q_rp'.format(i+1)].values ==
                               code_df['NOA_last{0}Q_rp'.format(i+1)].values,
-                              code_df['profit_last{0}Q_rp'.format(i+1)].values ==
+                              code_df['income_last{0}Q_rp'.format(i+1)].values ==
                               code_df['NOA_last{0}Q_rp'.format(i)].values]
                 choices = [code_df['NOA_last{0}Q'.format(i+1)].values,
                            code_df['NOA_last{0}Q'.format(i)].values]
@@ -112,7 +111,7 @@ class RNOA2(FactorBase):
                     code_df[['later_NOA', 'former_NOA']].fillna(method='ffill', axis=1)
                 code_df[['later_NOA', 'former_NOA']] = \
                     code_df[['later_NOA', 'former_NOA']].fillna(method='bfill', axis=1)
-                code_df['RNOA_Q_last{0}Q'.format(i)] = code_df['net_profit_Q_last{0}Q'.format(i)] / \
+                code_df['RNOA_Q_last{0}Q'.format(i)] = code_df['oper_income_Q_last{0}Q'.format(i)] / \
                     (code_df['later_NOA'] + code_df['former_NOA']) * 2
                 code_df.set_index(['date', 'code'], inplace=True)
                 code_df = code_df.replace(np.inf, np.nan)
@@ -143,22 +142,22 @@ class RNOA2(FactorBase):
             for i in range(1, 9):
                 code_df = df.loc[df['code'] == code,
                                  ['date', 'code',
-                                  'net_profit_TTM_last{0}Q'.format(i),
-                                  'profit_last{0}Q_rp'.format(i), 'profit_last{0}Q_rp'.format(i+4),
+                                  'oper_income_TTM_last{0}Q'.format(i),
+                                  'income_last{0}Q_rp'.format(i), 'income_last{0}Q_rp'.format(i+4),
                                   'NOA_last{0}Q'.format(i-1), 'NOA_last{0}Q'.format(i),
                                   'NOA_last{0}Q'.format(i+3), 'NOA_last{0}Q'.format(i+4),
                                   'NOA_last{0}Q_rp'.format(i-1), 'NOA_last{0}Q_rp'.format(i),
                                   'NOA_last{0}Q_rp'.format(i+3), 'NOA_last{0}Q_rp'.format(i+4)]].copy()
-                conditions = [code_df['profit_last{0}Q_rp'.format(i)].values ==
+                conditions = [code_df['income_last{0}Q_rp'.format(i)].values ==
                               code_df['NOA_last{0}Q_rp'.format(i)].values,
-                              code_df['profit_last{0}Q_rp'.format(i)].values ==
+                              code_df['income_last{0}Q_rp'.format(i)].values ==
                               code_df['NOA_last{0}Q_rp'.format(i-1)].values]
                 choices = [code_df['NOA_last{0}Q'.format(i)].values,
                            code_df['NOA_last{0}Q'.format(i-1)].values]
                 code_df['later_NOA'] = np.select(conditions, choices, default=np.nan)
-                conditions = [code_df['profit_last{0}Q_rp'.format(i+4)].values ==
+                conditions = [code_df['income_last{0}Q_rp'.format(i+4)].values ==
                               code_df['NOA_last{0}Q_rp'.format(i+4)].values,
-                              code_df['profit_last{0}Q_rp'.format(i+4)].values ==
+                              code_df['income_last{0}Q_rp'.format(i+4)].values ==
                               code_df['NOA_last{0}Q_rp'.format(i+3)].values]
                 choices = [code_df['NOA_last{0}Q'.format(i+4)].values,
                            code_df['NOA_last{0}Q'.format(i+3)].values]
@@ -167,7 +166,7 @@ class RNOA2(FactorBase):
                     code_df[['later_NOA', 'former_NOA']].fillna(method='ffill', axis=1)
                 code_df[['later_NOA', 'former_NOA']] = \
                     code_df[['later_NOA', 'former_NOA']].fillna(method='bfill', axis=1)
-                code_df['RNOA_last{0}Q'.format(i)] = code_df['net_profit_TTM_last{0}Q'.format(i)] / \
+                code_df['RNOA_last{0}Q'.format(i)] = code_df['oper_income_TTM_last{0}Q'.format(i)] / \
                     (code_df['later_NOA'] + code_df['former_NOA']) * 2
                 code_df.set_index(['date', 'code'], inplace=True)
                 code_df = code_df.replace(np.inf, np.nan)
@@ -191,15 +190,15 @@ class RNOA2(FactorBase):
 
     def cal_RNOA_Q(self):
         save_measure = 'RNOA2_Q'
-        # get profit
-        raw_profit = self.influx.getDataMultiprocess('FinancialReport_Gus', 'net_profit_Q', self.start, self.end)
-        raw_profit.index.names = ['date']
-        raw_profit.reset_index(inplace=True)
+        # get income
+        raw_income = self.influx.getDataMultiprocess('FinancialReport_Gus', 'oper_income_Q', self.start, self.end)
+        raw_income.index.names = ['date']
+        raw_income.reset_index(inplace=True)
         # --------------------------------------------------------------------------------------
         # 计算 cur RNOA_Q
-        profit_df = raw_profit.loc[:, ['date', 'code', 'net_profit_Q', 'report_period']].copy()
+        income_df = raw_income.loc[:, ['date', 'code', 'oper_income_Q', 'report_period']].copy()
         NOA_df = self.NOA.loc[:, ['date', 'code', 'NOA', 'NOA_last1Q', 'report_period']].copy()
-        RNOA_df = pd.merge(profit_df, NOA_df, how='outer', on=['date', 'code', 'report_period'])
+        RNOA_df = pd.merge(income_df, NOA_df, how='outer', on=['date', 'code', 'report_period'])
         RNOA_df = RNOA_df.sort_values(['date', 'code', 'report_period'])
         codes = RNOA_df['code'].unique()
         split_codes = np.array_split(codes, self.n_jobs)
@@ -212,16 +211,16 @@ class RNOA2(FactorBase):
             self.fail_list.extend(r)
         # --------------------------------------------------------------------------------------
         # 计算 history RNOA_Q
-        profit_df = raw_profit.copy()
+        income_df = raw_income.copy()
         for i in range(1, 13):
             cur_rps = []
             former_rps = []
-            for rp in profit_df['report_period'].unique():
+            for rp in income_df['report_period'].unique():
                 cur_rps.append(rp)
                 former_rps.append(RNOA2.get_lastQ_RP(rp, i))
             rp_dict = dict(zip(cur_rps, former_rps))
-            profit_df['profit_last{0}Q_rp'.format(i)] = profit_df['report_period'].map(rp_dict)
-        profit_df.drop('report_period', axis=1, inplace=True)
+            income_df['income_last{0}Q_rp'.format(i)] = income_df['report_period'].map(rp_dict)
+        income_df.drop('report_period', axis=1, inplace=True)
         NOA_df = self.NOA.copy()
         NOA_df.rename(columns={'NOA': 'NOA_last0Q'}, inplace=True)
         for i in range(0, 13):
@@ -233,7 +232,7 @@ class RNOA2(FactorBase):
             rp_dict = dict(zip(cur_rps, former_rps))
             NOA_df['NOA_last{0}Q_rp'.format(i)] = NOA_df['report_period'].map(rp_dict)
         NOA_df.drop('report_period', axis=1, inplace=True)
-        RNOA_df = pd.merge(profit_df, NOA_df, how='outer', on=['date', 'code'])
+        RNOA_df = pd.merge(income_df, NOA_df, how='outer', on=['date', 'code'])
         RNOA_df = RNOA_df.sort_values(['date', 'code'])
         codes = RNOA_df['code'].unique()
         split_codes = np.array_split(codes, self.n_jobs)
@@ -248,20 +247,20 @@ class RNOA2(FactorBase):
 
     def cal_RNOA_TTM(self):
         save_measure = 'RNOA2'
-        # get profit
-        raw_profit = self.influx.getDataMultiprocess('FinancialReport_Gus', 'net_profit_TTM', self.start, self.end)
-        raw_profit.index.names = ['date']
-        raw_profit.reset_index(inplace=True)
+        # get income
+        raw_income = self.influx.getDataMultiprocess('FinancialReport_Gus', 'oper_income_TTM', self.start, self.end)
+        raw_income.index.names = ['date']
+        raw_income.reset_index(inplace=True)
         # --------------------------------------------------------------------------------------
         # 计算 cur RNOA
-        profit_df = raw_profit.loc[:, ['date', 'code', 'net_profit_TTM', 'report_period']].copy()
+        income_df = raw_income.loc[:, ['date', 'code', 'oper_income_TTM', 'report_period']].copy()
         cur_rps = []
         former_rps = []
-        for rp in profit_df['report_period'].unique():
+        for rp in income_df['report_period'].unique():
             cur_rps.append(rp)
             former_rps.append(RNOA2.get_lastQ_RP(rp, 4))
         rp_dict = dict(zip(cur_rps, former_rps))
-        profit_df['profit_last4Q_rp'] = profit_df['report_period'].map(rp_dict)
+        income_df['income_last4Q_rp'] = income_df['report_period'].map(rp_dict)
         NOA_df = self.NOA.loc[:, ['date', 'code', 'NOA', 'NOA_last3Q', 'NOA_last4Q', 'report_period']].copy()
         for i in [3, 4]:
             cur_rps = []
@@ -272,7 +271,7 @@ class RNOA2(FactorBase):
             rp_dict = dict(zip(cur_rps, former_rps))
             NOA_df['NOA_last{0}Q_rp'.format(i)] = NOA_df['report_period'].map(rp_dict)
         NOA_df.drop('report_period', axis=1, inplace=True)
-        RNOA_df = pd.merge(profit_df, NOA_df, how='outer', on=['date', 'code'])
+        RNOA_df = pd.merge(income_df, NOA_df, how='outer', on=['date', 'code'])
         RNOA_df = RNOA_df.sort_values(['date', 'code', 'report_period'])
         codes = RNOA_df['code'].unique()
         split_codes = np.array_split(codes, self.n_jobs)
@@ -285,16 +284,16 @@ class RNOA2(FactorBase):
             self.fail_list.extend(r)
         # --------------------------------------------------------------------------------------
         # 计算 history RNOA
-        profit_df = raw_profit.copy()
+        income_df = raw_income.copy()
         for i in range(1, 13):
             cur_rps = []
             former_rps = []
-            for rp in profit_df['report_period'].unique():
+            for rp in income_df['report_period'].unique():
                 cur_rps.append(rp)
                 former_rps.append(RNOA2.get_lastQ_RP(rp, i))
             rp_dict = dict(zip(cur_rps, former_rps))
-            profit_df['profit_last{0}Q_rp'.format(i)] = profit_df['report_period'].map(rp_dict)
-        profit_df.drop('report_period', axis=1, inplace=True)
+            income_df['income_last{0}Q_rp'.format(i)] = income_df['report_period'].map(rp_dict)
+        income_df.drop('report_period', axis=1, inplace=True)
         NOA_df = self.NOA.copy()
         NOA_df.rename(columns={'NOA': 'NOA_last0Q'}, inplace=True)
         for i in range(0, 13):
@@ -306,7 +305,7 @@ class RNOA2(FactorBase):
             rp_dict = dict(zip(cur_rps, former_rps))
             NOA_df['NOA_last{0}Q_rp'.format(i)] = NOA_df['report_period'].map(rp_dict)
         NOA_df.drop('report_period', axis=1, inplace=True)
-        RNOA_df = pd.merge(profit_df, NOA_df, how='outer', on=['date', 'code'])
+        RNOA_df = pd.merge(income_df, NOA_df, how='outer', on=['date', 'code'])
         RNOA_df = RNOA_df.sort_values(['date', 'code'])
         codes = RNOA_df['code'].unique()
         split_codes = np.array_split(codes, self.n_jobs)
