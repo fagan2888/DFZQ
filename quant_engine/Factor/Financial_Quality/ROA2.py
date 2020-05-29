@@ -340,7 +340,7 @@ class ROA2(FactorBase):
 
 if __name__ == '__main__':
     ROA = ROA2()
-    r = ROA.cal_factors(20100101, 20200525, N_JOBS)
+    r = ROA.cal_factors(20090101, 20200525, N_JOBS)
     print('task finish')
     print(r)
     print(datetime.datetime.now())
