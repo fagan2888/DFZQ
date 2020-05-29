@@ -211,11 +211,9 @@ class BacktestEngine:
                 (day_mkt_with_weight['status'] == '停牌'), :].index.values
             # 记录 benchmark value
             # 记录 portfolio value
-            # 记录 accum_alpha
             # 记录双边换手率 turnover
             benchmark_value = benchmark_start_value / benchmark_networth * self.benchmark_quote[trade_day]
             balance, stk_value, total_value = self.stk_portfolio.get_portfolio_value(day_mkt_with_weight['close'])
-            accum_alpha = total_value / portfolio_start_value - benchmark_value / benchmark_start_value
             if stk_value == 0:
                 turnover = 0
             else:
@@ -223,11 +221,11 @@ class BacktestEngine:
             portfolio_value_dict[trade_day] = \
                 {'Balance': balance, 'StockValue': stk_value, 'TotalValue': total_value,
                  'DelistAmount': delist_amount, 'SuspendStk': len(suspend_stks_in_pos),
-                 'BenchmarkValue': benchmark_value, 'AccumAlpha': accum_alpha, 'Turnover': turnover}
-            self.logger.info(' \n -Balance: %f \n -StockValue: %f \n -TotalValue %f \n -DelistAmount: %f \n'
-                             ' -SuspendStk: %i \n -BenchmarkValue: %f \n -AccumAlpha: %f \n -Turnover: %f'
+                 'BenchmarkValue': benchmark_value, 'Turnover': turnover}
+            self.logger.info(' -Balance: %f \n -StockValue: %f \n -TotalValue %f \n -DelistAmount: %f \n'
+                             ' -SuspendStk: %i \n -BenchmarkValue: %f \n -Turnover: %f'
                              % (balance, stk_value, total_value, delist_amount, len(suspend_stks_in_pos),
-                                benchmark_value, accum_alpha, turnover))
+                                benchmark_value, turnover))
             self.logger.info('=======================================================================')
             # 记录 持仓
             positions_dict[trade_day] = copy.deepcopy(self.stk_portfolio.stk_positions)
@@ -245,6 +243,8 @@ class BacktestEngine:
         positions.to_csv(filename, encoding='gbk')
         # 输出净值
         portfolio_value = pd.DataFrame(portfolio_value_dict).T
+        portfolio_value['AccumAlpha'] = \
+            DataProcess.calc_accum_alpha(portfolio_value['TotalValue'], portfolio_value['BenchmarkValue']) - 1
         filename = self.dir + 'Value_{0}.csv'.format(self.save_name)
         portfolio_value.to_csv(filename, encoding='gbk')
         self.res_logger.info('Backtest finish time: %s' % datetime.datetime.now().strftime('%Y/%m/%d - %H:%M:%S'))
@@ -252,8 +252,8 @@ class BacktestEngine:
         self.res_logger.info('PERFORMANCE:')
         self.res_logger.info('-ANN_Alpha: %f' % DataProcess.calc_alpha_ann_return(
             portfolio_value['TotalValue'], portfolio_value['BenchmarkValue']))
-        MDD, MDD_period = \
-            DataProcess.calc_alpha_max_draw_down(portfolio_value['TotalValue'], portfolio_value['BenchmarkValue'])
+        MDD, MDD_period = DataProcess.calc_alpha_max_draw_down(
+            portfolio_value['TotalValue'], portfolio_value['BenchmarkValue'])
         self.res_logger.info('-Alpha_MDD: %f' % MDD)
         self.res_logger.info('-Alpha_MDD period: %s - %s' % (MDD_period[0], MDD_period[1]))
         self.res_logger.info('-Alpha_sharpe: %f' % DataProcess.calc_alpha_sharpe(
