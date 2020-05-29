@@ -9,7 +9,9 @@ sys.path.extend([root_dir, root_dir + '\\Data_Resource', root_dir + '\\Engine', 
                  root_dir + '\\Data_Update\\FinancialReport', root_dir + '\\Factor\\Size',
                  root_dir + '\\Factor\\Valuation', root_dir + '\\Factor\\Financial_Quality',
                  root_dir + '\\Factor\\Growth', root_dir + '\\Factor\\Turnover',
-                 root_dir + '\\Factor\\Momentum', root_dir + '\\Factor\\Analyst'])
+                 root_dir + '\\Factor\\Momentum', root_dir + '\\Factor\\Analyst',
+                 root_dir + '\\Factor\\Risk', root_dir + '\\Factor\\Iliquidity',
+                 root_dir + '\\Factor\\Reverse', root_dir + '\\Factor\\Banks'])
 # -------------------------------
 from rdf_data import rdf_data
 import logging
@@ -22,6 +24,9 @@ from RNOA import RNOA_series
 from ROE_growth import ROE_growth
 from RNOA_growth import RNOA_growth
 from Surprise import Surprise
+from RNOA2 import RNOA2
+from GPOA2 import  GPOA2
+from CFROI2 import CFROI2
 
 
 class FactorsRerun:
@@ -43,6 +48,7 @@ class FactorsRerun:
 
     def run(self, start, end, n_jobs):
         self.logger.info('FACTORS RERUN: \n Time period: %i ~ %i' % (start, end))
+        '''
         ep = EPandEPcut()
         res = ep.cal_factors(start, end, n_jobs)
         self.log_res(res)
@@ -75,7 +81,20 @@ class FactorsRerun:
         res = surp.cal_factors(start, end, n_jobs)
         self.log_res(res)
         self.logger.info('------------------Surprise finish---------------------')
+        '''
+        rnoa = RNOA2()
+        res = rnoa.cal_factors(start, end, n_jobs)
+        self.log_res(res)
+        self.logger.info('-------------------RNOA2 finish-----------------------')
+        gpoa = GPOA2()
+        res = gpoa.cal_factors(start, end, n_jobs)
+        self.log_res(res)
+        self.logger.info('-------------------GPOA2 finish-----------------------')
+        cfroi = CFROI2()
+        res = cfroi.cal_factors(start, end, n_jobs)
+        self.log_res(res)
+        self.logger.info('-------------------CFROI2 finish----------------------')
 
 if __name__ == '__main__':
     du = FactorsRerun()
-    du.run(20100101, 20200407, N_JOBS)
+    du.run(20090101, 20200528, N_JOBS)
