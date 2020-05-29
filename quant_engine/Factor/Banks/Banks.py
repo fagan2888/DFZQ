@@ -75,7 +75,8 @@ class Banks(FactorBase):
         # type要用408001000，408005000，408004000(合并报表，合并更正前，合并调整后)，同时有408001000和408005000用408005000
         # 有408004000时，根据ann_dt酌情使用
         query = "select ANN_DT, S_INFO_WINDCODE, REPORT_PERIOD, NPL_RATIO, NET_INTEREST_MARGIN, CAPI_ADE_RATIO ," \
-                "CAPI_ADE_RATIO_2013， NPL_PROVISION_COVERAGE, TOTAL_INTEREST_INCOME, STATEMENT_TYPE " \
+                "CAPI_ADE_RATIO_2013, CORE_CAPI_ADE_RATIO, TIER1CAPI_ADE_RATIO, NPL_PROVISION_COVERAGE, " \
+                "TOTAL_INTEREST_INCOME, STATEMENT_TYPE " \
                 "from wind_filesync.AShareBankIndicator " \
                 "where ANN_DT >= {0} and ANN_DT <= {1} " \
                 "and (STATEMENT_TYPE = '408001000' or STATEMENT_TYPE = '408005000' or STATEMENT_TYPE = '408004000')" \
@@ -86,18 +87,19 @@ class Banks(FactorBase):
         bank = \
             pd.DataFrame(self.rdf.curs.fetchall(),
                          columns=['date', 'code', 'report_period', 'NPL', 'net_interest_margin', 'CA1', 'CA2',
-                                  'provision_cov', 'interest_income', 'type'])
+                                  'core_CA1', 'core_CA2', 'provision_cov', 'interest_income', 'type'])
         bank['CA_ratio'] = np.where(pd.notnull(bank['CA2']).values, bank['CA2'].values, bank['CA1'].values)
+        bank['core_CA_ratio'] = np.where(pd.notnull(bank['core_CA2']).values, bank['core_CA2'].values,
+                                         bank['core_CA1'].values)
         # 同一code，同一date，同一report_period，同时出现type1，2，3时，取type大的
         #bank = bank.fillna(0)
-        bank['type'] = \
-            bank['type'].apply(lambda x: '2' if x == '408001000' else ('3' if x == '408005000' else '4'))
+        bank['type'] = bank['type'].apply(lambda x: '2' if x == '408001000' else ('3' if x == '408005000' else '4'))
         bank = bank.sort_values(by=['code', 'date', 'report_period', 'type'])
         bank['date'] = pd.to_datetime(bank['date'])
         bank['report_period'] = pd.to_datetime(bank['report_period'])
         # ***************************************************************************
         # 需要的field
-        fields = ['NPL', 'CA_ratio', 'net_interest_margin', 'provision_cov', 'interest_income']
+        fields = ['NPL', 'CA_ratio', 'core_CA_ratio', 'net_interest_margin', 'provision_cov', 'interest_income']
         # 处理数据
         calendar = self.rdf.get_trading_calendar()
         calendar = \
@@ -129,4 +131,4 @@ class Banks(FactorBase):
 
 if __name__ == '__main__':
     npl = Banks()
-    r = npl.cal_factors(20100101, 20200522, N_JOBS)
+    r = npl.cal_factors(20090101, 20200528, N_JOBS)
