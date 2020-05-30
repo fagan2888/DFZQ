@@ -39,9 +39,9 @@ from NCFP import NCFP
 from OCFP import OCFP
 from ROE2 import ROE2
 from ROA2 import ROA2
-from RNOA import RNOA_series
-from CFROI import CFROI_series
-from GPOA import GPOA_series
+from RNOA2 import RNOA2
+from CFROI2 import CFROI2
+from GPOA2 import GPOA2
 from net_profit_growth import net_profit_growth
 from oper_rev_growth import oper_rev_growth
 from Surprise import Surprise
@@ -208,7 +208,7 @@ class DailyUpdate:
             res = roe2.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
             self.logger.info('--------------------ROE2 finish-----------------------')
-            rnoa = RNOA_series()
+            rnoa = RNOA2
             res = rnoa.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
             self.logger.info('--------------------RNOA finish-----------------------')
@@ -216,11 +216,11 @@ class DailyUpdate:
             res = roa.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
             self.logger.info('--------------------ROA2 finish-----------------------')
-            cfroi = CFROI_series()
+            cfroi = CFROI2()
             res = cfroi.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
             self.logger.info('--------------------CFROI finish----------------------')
-            gpoa = GPOA_series()
+            gpoa = GPOA2()
             res = gpoa.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
             self.logger.info('--------------------GPOA finish-----------------------')
