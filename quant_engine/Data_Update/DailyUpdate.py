@@ -208,7 +208,7 @@ class DailyUpdate:
             res = roe2.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
             self.logger.info('--------------------ROE2 finish-----------------------')
-            rnoa = RNOA2
+            rnoa = RNOA2()
             res = rnoa.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
             self.logger.info('--------------------RNOA finish-----------------------')
