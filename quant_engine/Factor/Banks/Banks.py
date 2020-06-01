@@ -92,15 +92,19 @@ class Banks(FactorBase):
         bank['core_CA_ratio'] = np.where(pd.notnull(bank['core_CA2']).values, bank['core_CA2'].values,
                                          bank['core_CA1'].values)
         # 同一code，同一date，同一report_period，同时出现type1，2，3时，取type大的
-        #bank = bank.fillna(0)
         bank['type'] = bank['type'].apply(lambda x: '2' if x == '408001000' else ('3' if x == '408005000' else '4'))
         bank = bank.sort_values(by=['code', 'date', 'report_period', 'type'])
         bank['date'] = pd.to_datetime(bank['date'])
         bank['report_period'] = pd.to_datetime(bank['report_period'])
+        bank['tot_loan'] = bank.groupby(['code', 'report_period'])['tot_loan'].fillna(method='ffill')
+        bank['NPL'] = bank.groupby(['code', 'report_period'])['NPL'].fillna(method='ffill')
+        bank['provision_cov'] = bank.groupby(['code', 'report_period'])['provision_cov'].fillna(method='ffill')
+        bank['bad_loan'] = bank['tot_loan'] * bank['NPL'] / 100
+        bank['provision_amount'] = bank['bad_loan'] * bank['provision_cov'] / 100
         # ***************************************************************************
         # 需要的field
         fields = ['NPL', 'CA_ratio', 'core_CA_ratio', 'net_interest_margin', 'provision_cov', 'interest_income',
-                  'tot_loan']
+                  'tot_loan', 'bad_loan', 'provision_amount']
         # 处理数据
         calendar = self.rdf.get_trading_calendar()
         calendar = \
@@ -126,7 +130,6 @@ class Banks(FactorBase):
             print('-' * 30)
             for r in res:
                 fail_list.extend(r)
-        # 业绩快报值包含净利润信息，所以此处不需读取业绩预告
         return fail_list
 
 
