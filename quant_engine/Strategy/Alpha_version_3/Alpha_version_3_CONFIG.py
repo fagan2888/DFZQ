@@ -42,11 +42,11 @@ FACTOR_WEIGHT = \
             ['DP_LYR', 'DP_LYR', 1, 'zero', 1],
             ['Analyst', 'EP_FY1', 1, 'median', 1]],
         'FIN_QUAL': [
-            ['ROE', 'ROE', 1, 'median', 1],
-            ['RNOA', 'RNOA', 1, 'median', 1],
-            ['GPOA', 'GPOA', 1, 'median', 1],
-            ['CFROI', 'CFROI', 1, 'median', 1],
-            ['ROA', 'ROA', 1, 'median', 1]],
+            ['ROE2', 'ROE', 1, 'median', 1],
+            ['RNOA2', 'RNOA', 1, 'median', 1],
+            ['GPOA2', 'GPOA', 1, 'median', 1],
+            ['CFROI2', 'CFROI', 1, 'median', 1],
+            ['ROA2', 'ROA', 1, 'median', 1]],
         'GROWTH': [
             ['net_profit_growth', 'net_profit_Q_growthY', 1, 'median', 1],
             ['oper_rev_growth', 'oper_rev_Q_growthY', 1, 'median', 1],
