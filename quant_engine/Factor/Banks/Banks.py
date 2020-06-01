@@ -11,7 +11,7 @@ from global_constant import N_JOBS
 class Banks(FactorBase):
     def __init__(self):
         super().__init__()
-        self.db = 'DailyFactors_Gus'
+        self.db = 'FinancialReport_Gus'
 
     @staticmethod
     def JOB_factors(df, field, codes, calendar, start, save_db):
