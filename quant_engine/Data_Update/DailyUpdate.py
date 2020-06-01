@@ -30,6 +30,8 @@ from BalanceSheet import BalanceSheetUpdate
 from Income import IncomeUpdate
 from CashFlow import CashFlowUpdate
 from QnTTM import QnTTMUpdate
+from Banks import Banks
+from loan_classification import LoanClassification
 from market_cap import market_cap
 from EPandEPcut import EPandEPcut
 from BP import BP
@@ -60,7 +62,6 @@ from PEG import PEG
 from risk_exposure import RiskFactorsExposure
 from risk_cov import RiskCov
 from specific_risk import SpecificRisk
-from Banks import Banks
 from NPL_leverage import NPL_leverage
 from NPL_diff import NPL_diff
 from provision_cov_growth import provision_cov_growth
@@ -159,6 +160,14 @@ class DailyUpdate:
             res = QnTTM.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
             self.logger.info('---------------------QnTTM finish---------------------')
+            bank = Banks()
+            res = bank.cal_factors(last_week, last_trade_day, n_jobs)
+            self.log_res(res)
+            self.logger.info('--------------------Banks finish----------------------')
+            loan = LoanClassification()
+            res = loan.cal_factors(last_week, last_trade_day, n_jobs)
+            self.log_res(res)
+            self.logger.info('---------------------Loan finish----------------------')
 
             # ---------------------------------------------
             self.logger.info('******************************************************')
@@ -284,10 +293,6 @@ class DailyUpdate:
             res = peg.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
             self.logger.info('---------------------PEG finish-----------------------')
-            bank = Banks()
-            res = bank.cal_factors(last_week, last_trade_day, n_jobs)
-            self.log_res(res)
-            self.logger.info('--------------------Banks finish----------------------')
             npll = NPL_leverage()
             res = npll.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
