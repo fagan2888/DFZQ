@@ -47,8 +47,6 @@ from GPOA2 import GPOA2
 from net_profit_growth import net_profit_growth
 from oper_rev_growth import oper_rev_growth
 from Surprise import Surprise
-from Turn_StdTurn_BiasStdTurn import Turn_StdTurn_BiasStdTurn
-from Rtn_WgtRtn_ExpWgtRtn import Rtn_WgtRtn_ExpWgtRtn
 from amihud import Amihud
 from ln_turnover_60 import LnTurnover
 from MaxRet import MaxRet
