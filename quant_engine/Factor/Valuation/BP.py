@@ -26,7 +26,7 @@ class BP(FactorBase):
         BP.set_index('date', inplace=True)
         BP['BP'] = BP['net_equity'] / BP['market_cap'] / 10000
         BP = BP.loc[:, ['code', 'BP', 'report_period']]
-        BP = BP.dropna(subset='BP')
+        BP = BP.dropna(subset=['BP'])
         codes = BP['code'].unique()
         split_codes = np.array_split(codes, n_jobs)
         with parallel_backend('multiprocessing', n_jobs=n_jobs):

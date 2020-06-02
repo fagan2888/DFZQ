@@ -32,7 +32,7 @@ class SP(FactorBase):
         # market_cap 的单位为万元
         SP_Q['SP_Q'] = SP_Q['oper_rev_Q'] / SP_Q['market_cap'] / 10000
         SP_Q = SP_Q.loc[:, ['code', 'SP_Q', 'report_period']]
-        SP_Q = SP_Q.dropna(subset='SP_Q')
+        SP_Q = SP_Q.dropna(subset=['SP_Q'])
         codes = SP_Q['code'].unique()
         split_codes = np.array_split(codes, n_jobs)
         with parallel_backend('multiprocessing', n_jobs=n_jobs):
@@ -49,7 +49,7 @@ class SP(FactorBase):
         # market_cap 的单位为万元
         SP['SP'] = SP['oper_rev_TTM'] / SP['market_cap'] / 10000
         SP = SP.loc[:, ['code', 'SP', 'report_period']]
-        SP = SP.dropna(subset='SP')
+        SP = SP.dropna(subset=['SP'])
         codes = SP['code'].unique()
         split_codes = np.array_split(codes, n_jobs)
         with parallel_backend('multiprocessing', n_jobs=n_jobs):
