@@ -15,7 +15,7 @@ class provision_cov_growth(FactorBase):
     def cal_factors(self, start, end, n_jobs):
         fail_list = []
         pc_growth = self.influx.getDataMultiprocess(
-            'DailyFactors_Gus', 'provision_cov', start, end,
+            'FinancialReport_Gus', 'provision_cov', start, end,
             ['code', 'report_period', 'provision_cov', 'provision_cov_last1Q'])
         pc_growth['provision_cov_growthQ'] = pc_growth['provision_cov'] / pc_growth['provision_cov_last1Q'] - 1
         pc_growth = pc_growth.loc[pd.notnull(pc_growth['provision_cov_growthQ']),
