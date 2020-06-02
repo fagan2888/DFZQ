@@ -46,7 +46,7 @@ class PEG(FactorBase):
 
     def cal_factors(self, start, end, n_jobs):
         # 获取净利润数据
-        con_net_profit = self.influx.getDataMultiprocess('DailyFactors_Gus', 'Analyst', start, end,
+        con_net_profit = self.influx.getDataMultiprocess('DailyFactors_Gus', 'AnalystNetProfit', start, end,
                                                          ['code', 'net_profit_FY1', 'net_profit_FY2'])
         con_net_profit.index.names = ['date']
         con_net_profit.reset_index(inplace=True)
