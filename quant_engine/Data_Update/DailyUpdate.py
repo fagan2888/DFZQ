@@ -65,6 +65,7 @@ from specific_risk import SpecificRisk
 from NPL_leverage import NPL_leverage
 from NPL_diff import NPL_diff
 from provision_cov_growth import provision_cov_growth
+from interest_income_growth import InterestIncome_growth
 
 
 class DailyUpdate:
@@ -245,14 +246,6 @@ class DailyUpdate:
             res = surp.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
             self.logger.info('------------------Surprise finish---------------------')
-            turn = Turn_StdTurn_BiasStdTurn()
-            res = turn.cal_factors(last_week, last_trade_day, n_jobs)
-            self.log_res(res)
-            self.logger.info('------------------Turnover finish---------------------')
-            rtn = Rtn_WgtRtn_ExpWgtRtn()
-            res = rtn.cal_factors(last_week, last_trade_day, [1, 3, 6], n_jobs)
-            self.log_res(res)
-            self.logger.info('------------------Momentum finish---------------------')
             amihud = Amihud()
             res = amihud.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
@@ -304,7 +297,11 @@ class DailyUpdate:
             pcg = provision_cov_growth()
             res = pcg.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
-            self.logger.info('-----------------provision cov finish-----------------')
+            self.logger.info('-------------provision cov growth finish--------------')
+            iig = InterestIncome_growth()
+            res = iig.cal_factors(last_week, last_trade_day, n_jobs)
+            self.log_res(res)
+            self.logger.info('------------interest income growth finish-------------')
 
             self.logger.info('//////////////////////////////////////////////////////')
             self.logger.info('EndTime: %s' % datetime.datetime.now().strftime('%Y%m%d-%H:%M:%S'))
