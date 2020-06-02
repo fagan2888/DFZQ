@@ -19,12 +19,17 @@ class InterestIncome_growth(FactorBase):
         save_res = []
         for code in codes:
             code_df = df.loc[df['code'] == code, :].copy()
+            code_df['{0}_growthQ'.format(factor)] = \
+                code_df.apply(lambda row: FactorBase.cal_growth(
+                    row['{0}_last1Q'.format(factor)], row['{0}'.format(factor)]), axis=1)
             code_df['{0}_growthY'.format(factor)] = \
                 code_df.apply(lambda row: FactorBase.cal_growth(
                     row['{0}_last4Q'.format(factor)], row['{0}'.format(factor)]), axis=1)
-            code_df = code_df.loc[:, ['code', '{0}_growthY'.format(factor), 'report_period']]
+            code_df = \
+                code_df.loc[:, ['code', '{0}_growthQ'.format(factor), '{0}_growthY'.format(factor), 'report_period']]
             code_df = code_df.replace(np.inf, np.nan)
-            code_df = code_df.loc[pd.notnull(code_df['{0}_growthY'.format(factor)]), :]
+            code_df = code_df.loc[pd.notnull(code_df['{0}_growthQ'.format(factor)]) |
+                                  pd.notnull(code_df['{0}_growthY'.format(factor)]), :]
             if code_df.empty:
                 continue
             code_df = code_df.where(pd.notnull(code_df), None)
@@ -40,8 +45,8 @@ class InterestIncome_growth(FactorBase):
         pd.set_option('mode.use_inf_as_na', True)
         fail_list = []
         interest_inc = self.influx.getDataMultiprocess(
-            'DailyFactors_Gus', 'interest_income', start, end,
-            ['code', 'report_period', 'interest_income', 'interest_income_last4Q'])
+            'FinancialReport_Gus', 'interest_income', start, end,
+            ['code', 'report_period', 'interest_income', 'interest_income_last1Q', 'interest_income_last4Q'])
         codes = interest_inc['code'].unique()
         split_codes = np.array_split(codes, n_jobs)
         with parallel_backend('multiprocessing', n_jobs=n_jobs):
@@ -57,6 +62,6 @@ class InterestIncome_growth(FactorBase):
 if __name__ == '__main__':
     start_dt = datetime.datetime.now()
     growth = InterestIncome_growth()
-    r = growth.cal_factors(20100101, 20200522, N_JOBS)
+    r = growth.cal_factors(20150101, 20160522, N_JOBS)
     print(r)
     print('time token:', datetime.datetime.now()-start_dt)

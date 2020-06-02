@@ -14,12 +14,11 @@ class consensus_net_profit(FactorBase):
     def __init__(self):
         super().__init__()
         self.db = 'DailyFactors_Gus'
-        self.measure = 'Analyst'
+        self.measure = 'AnalystNetProfit'
         self.gogoal = GoGoal_data()
 
     def cal_factors(self, start, end, n_jobs):
         self.n_jobs = n_jobs
-
         # 获取一致预期数据
         query = "SELECT [CON_DATE], [STOCK_CODE], [RPT_DATE], [C4], [C82]" \
                 "FROM [{0}].[dbo].[CON_FORECAST_STK] " \
@@ -88,7 +87,7 @@ class consensus_net_profit(FactorBase):
 if __name__ == '__main__':
     time_start = datetime.datetime.now()
     af = consensus_net_profit()
-    f = af.cal_factors(20100101, 20200402, N_JOBS)
+    f = af.cal_factors(20150101, 20160402, N_JOBS)
     print(f)
     time_end = datetime.datetime.now()
     print('Time token:', time_end - time_start)

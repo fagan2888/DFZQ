@@ -14,9 +14,9 @@ class EPandEPcut(FactorBase):
 
     def cal_factors(self, start, end, n_jobs):
         net_profit_TTM = self.influx.getDataMultiprocess('FinancialReport_Gus', 'net_profit_TTM', start, end,
-                                                         ['code', 'net_profit_TTM'])
+                                                         ['code', 'net_profit_TTM', 'report_period'])
         net_profit_ddt_TTM = self.influx.getDataMultiprocess('FinancialReport_Gus', 'net_profit_ddt_TTM', start, end,
-                                                             ['code', 'net_profit_ddt_TTM'])
+                                                             ['code', 'net_profit_ddt_TTM', 'report_period'])
         market_cap = self.influx.getDataMultiprocess('DailyFactors_Gus', 'Size', start, end,
                                                      ['code', 'market_cap'])
         net_profit_TTM.index.names = ['date']
@@ -29,7 +29,7 @@ class EPandEPcut(FactorBase):
         EP = pd.merge(net_profit_TTM, market_cap, on=['date', 'code'])
         EP.set_index('date', inplace=True)
         EP['EP_TTM'] = EP['net_profit_TTM'] / EP['market_cap'] / 10000
-        EP = EP.loc[:, ['code', 'EP_TTM']]
+        EP = EP.loc[:, ['code', 'EP_TTM', 'report_period']]
         codes = EP['code'].unique()
         split_codes = np.array_split(codes, n_jobs)
         with parallel_backend('multiprocessing', n_jobs=n_jobs):
@@ -44,7 +44,7 @@ class EPandEPcut(FactorBase):
         EPcut = pd.merge(net_profit_ddt_TTM, market_cap, on=['date', 'code'])
         EPcut.set_index('date', inplace=True)
         EPcut['EPcut_TTM'] = EPcut['net_profit_ddt_TTM'] / EPcut['market_cap'] / 10000
-        EPcut = EPcut.loc[:, ['code', 'EPcut_TTM']]
+        EPcut = EPcut.loc[:, ['code', 'EPcut_TTM', 'report_period']]
         codes = EPcut['code'].unique()
         split_codes = np.array_split(codes, n_jobs)
         with parallel_backend('multiprocessing', n_jobs=n_jobs):

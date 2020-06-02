@@ -15,7 +15,7 @@ class OCFP(FactorBase):
 
     def cal_factors(self, start, end, n_jobs):
         net_OCF = self.influx.getDataMultiprocess('FinancialReport_Gus', 'net_OCF_TTM', start, end,
-                                                 ['code', 'net_OCF_TTM'])
+                                                 ['code', 'net_OCF_TTM', 'report_period'])
         market_cap = self.influx.getDataMultiprocess('DailyFactors_Gus', 'Size', start, end,
                                                      ['code', 'market_cap'])
         net_OCF.index.names = ['date']
@@ -26,7 +26,7 @@ class OCFP(FactorBase):
         OCFP = pd.merge(net_OCF, market_cap, on=['date', 'code'])
         OCFP.set_index('date', inplace=True)
         OCFP['OCFP'] = OCFP['net_OCF_TTM'] / OCFP['market_cap'] / 10000
-        OCFP = OCFP.loc[:, ['code', 'OCFP']]
+        OCFP = OCFP.loc[:, ['code', 'OCFP', 'report_period']]
         codes = OCFP['code'].unique()
         split_codes = np.array_split(codes, n_jobs)
         with parallel_backend('multiprocessing', n_jobs=n_jobs):

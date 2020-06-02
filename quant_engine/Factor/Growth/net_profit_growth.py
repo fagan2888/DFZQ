@@ -11,7 +11,6 @@ class net_profit_growth(FactorBase):
     def __init__(self):
         super().__init__()
         self.db = 'DailyFactors_Gus'
-        self.measure = 'net_profit_growth'
 
     @staticmethod
     def JOB_factors(codes, df, factor, db, measure):
@@ -25,7 +24,8 @@ class net_profit_growth(FactorBase):
             code_df['{0}_growthY'.format(factor)] = \
                 code_df.apply(lambda row: FactorBase.cal_growth(
                     row['{0}_last4Q'.format(factor)], row['{0}'.format(factor)]), axis=1)
-            code_df = code_df.loc[:, ['code', '{0}_growthQ'.format(factor), '{0}_growthY'.format(factor)]]
+            code_df = \
+                code_df.loc[:, ['code', 'report_period', '{0}_growthQ'.format(factor), '{0}_growthY'.format(factor)]]
             code_df = code_df.replace(np.inf, np.nan)
             code_df = \
                 code_df.loc[
@@ -48,12 +48,13 @@ class net_profit_growth(FactorBase):
         # 计算 net_profit_Q 的 growth
         net_profit = self.influx.getDataMultiprocess(
             'FinancialReport_Gus', 'net_profit_Q', start, end,
-            ['code', 'net_profit_Q', 'net_profit_Q_last1Q', 'net_profit_Q_last4Q'])
+            ['code', 'net_profit_Q', 'net_profit_Q_last1Q', 'net_profit_Q_last4Q', 'report_period'])
         codes = net_profit['code'].unique()
         split_codes = np.array_split(codes, n_jobs)
         with parallel_backend('multiprocessing', n_jobs=n_jobs):
             res = Parallel()(delayed(net_profit_growth.JOB_factors)
-                             (codes, net_profit, 'net_profit_Q', self.db, self.measure) for codes in split_codes)
+                             (codes, net_profit, 'net_profit_Q', self.db, 'net_profit_Q_growth')
+                             for codes in split_codes)
         print('net_profit_Q_growth finish')
         print('-' * 30)
         for r in res:
@@ -61,12 +62,13 @@ class net_profit_growth(FactorBase):
         # 计算 net_profit 的 growth
         net_profit = self.influx.getDataMultiprocess(
             'FinancialReport_Gus', 'net_profit_TTM', start, end,
-            ['code', 'net_profit_TTM', 'net_profit_TTM_last1Q', 'net_profit_TTM_last4Q'])
+            ['code', 'net_profit_TTM', 'net_profit_TTM_last1Q', 'net_profit_TTM_last4Q', 'report_period'])
         codes = net_profit['code'].unique()
         split_codes = np.array_split(codes, n_jobs)
         with parallel_backend('multiprocessing', n_jobs=n_jobs):
             res = Parallel()(delayed(net_profit_growth.JOB_factors)
-                             (codes, net_profit, 'net_profit_TTM', self.db, self.measure) for codes in split_codes)
+                             (codes, net_profit, 'net_profit_TTM', self.db, 'net_profit_TTM_growth')
+                             for codes in split_codes)
         print('net_profit_TTM_growth finish')
         print('-' * 30)
         for r in res:

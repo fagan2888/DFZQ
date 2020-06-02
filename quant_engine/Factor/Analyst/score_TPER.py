@@ -14,7 +14,6 @@ class score_TPER(FactorBase):
     def __init__(self):
         super().__init__()
         self.db = 'DailyFactors_Gus'
-        self.measure = 'Analyst'
         self.gogoal = GoGoal_data()
 
     def cal_factors(self, start, end, n_jobs):
@@ -47,7 +46,7 @@ class score_TPER(FactorBase):
         split_codes = np.array_split(codes, n_jobs)
         with parallel_backend('multiprocessing', n_jobs=n_jobs):
             res = Parallel()(delayed(influxdbData.JOB_saveData)
-                             (score, 'code', codes, self.db, self.measure) for codes in split_codes)
+                             (score, 'code', codes, self.db, 'Score') for codes in split_codes)
         print('score finish')
         print('-' * 30)
         for r in res:
@@ -69,7 +68,7 @@ class score_TPER(FactorBase):
         split_codes = np.array_split(codes, n_jobs)
         with parallel_backend('multiprocessing', n_jobs=n_jobs):
             res = Parallel()(delayed(influxdbData.JOB_saveData)
-                             (merge_df, 'code', codes, self.db, self.measure) for codes in split_codes)
+                             (merge_df, 'code', codes, self.db, 'TPER') for codes in split_codes)
         print('TPER finish')
         print('-' * 30)
         for r in res:

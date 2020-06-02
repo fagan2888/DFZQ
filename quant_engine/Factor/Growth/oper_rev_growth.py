@@ -11,7 +11,6 @@ class oper_rev_growth(FactorBase):
     def __init__(self):
         super().__init__()
         self.db = 'DailyFactors_Gus'
-        self.measure = 'oper_rev_growth'
 
     @staticmethod
     def JOB_factors(codes, df, factor, db, measure):
@@ -25,7 +24,8 @@ class oper_rev_growth(FactorBase):
             code_df['{0}_growthY'.format(factor)] = \
                 code_df.apply(lambda row: FactorBase.cal_growth(
                     row['{0}_last4Q'.format(factor)], row['{0}'.format(factor)]), axis=1)
-            code_df = code_df.loc[:, ['code', '{0}_growthQ'.format(factor), '{0}_growthY'.format(factor)]]
+            code_df = \
+                code_df.loc[:, ['code', '{0}_growthQ'.format(factor), '{0}_growthY'.format(factor), 'report_period']]
             code_df = code_df.replace(np.inf, np.nan)
             code_df = \
                 code_df.loc[
@@ -48,12 +48,13 @@ class oper_rev_growth(FactorBase):
         # 计算 oper_rev_Q 的 growth
         oper_rev = self.influx.getDataMultiprocess(
             'FinancialReport_Gus', 'oper_rev_Q', start, end,
-            ['code', 'oper_rev_Q', 'oper_rev_Q_last1Q', 'oper_rev_Q_last4Q'])
+            ['code', 'oper_rev_Q', 'oper_rev_Q_last1Q', 'oper_rev_Q_last4Q', 'report_period'])
         codes = oper_rev['code'].unique()
         split_codes = np.array_split(codes, n_jobs)
         with parallel_backend('multiprocessing', n_jobs=n_jobs):
             res = Parallel()(delayed(oper_rev_growth.JOB_factors)
-                             (codes, oper_rev, 'oper_rev_Q', self.db, self.measure) for codes in split_codes)
+                             (codes, oper_rev, 'oper_rev_Q', self.db, 'oper_rev_Q_growth')
+                             for codes in split_codes)
         print('oper_rev_Q_growth finish')
         print('-' * 30)
         for r in res:
@@ -61,12 +62,13 @@ class oper_rev_growth(FactorBase):
         # 计算 oper_rev 的 growth
         oper_rev = self.influx.getDataMultiprocess(
             'FinancialReport_Gus', 'oper_rev_TTM', start, end,
-            ['code', 'oper_rev_TTM', 'oper_rev_TTM_last1Q', 'oper_rev_TTM_last4Q'])
+            ['code', 'oper_rev_TTM', 'oper_rev_TTM_last1Q', 'oper_rev_TTM_last4Q', 'report_period'])
         codes = oper_rev['code'].unique()
         split_codes = np.array_split(codes, n_jobs)
         with parallel_backend('multiprocessing', n_jobs=n_jobs):
             res = Parallel()(delayed(oper_rev_growth.JOB_factors)
-                             (codes, oper_rev, 'oper_rev_TTM', self.db, self.measure) for codes in split_codes)
+                             (codes, oper_rev, 'oper_rev_TTM', self.db, 'oper_rev_TTM_growth')
+                             for codes in split_codes)
         print('oper_rev_TTM_growth finish')
         print('-' * 30)
         for r in res:

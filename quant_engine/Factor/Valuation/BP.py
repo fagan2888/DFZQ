@@ -14,7 +14,7 @@ class BP(FactorBase):
 
     def cal_factors(self, start, end, n_jobs):
         net_equity = self.influx.getDataMultiprocess('FinancialReport_Gus', 'net_equity', start, end,
-                                                     ['code', 'net_equity'])
+                                                     ['code', 'net_equity', 'report_period'])
         market_cap = self.influx.getDataMultiprocess('DailyFactors_Gus', 'Size', start, end,
                                                      ['code', 'market_cap'])
         net_equity.index.names = ['date']
@@ -25,7 +25,7 @@ class BP(FactorBase):
         BP = pd.merge(net_equity, market_cap, on=['date', 'code'])
         BP.set_index('date', inplace=True)
         BP['BP'] = BP['net_equity'] / BP['market_cap'] / 10000
-        BP = BP.loc[:, ['code', 'BP']]
+        BP = BP.loc[:, ['code', 'BP', 'report_period']]
         codes = BP['code'].unique()
         split_codes = np.array_split(codes, n_jobs)
         with parallel_backend('multiprocessing', n_jobs=n_jobs):
@@ -41,7 +41,7 @@ class BP(FactorBase):
 if __name__ == '__main__':
     print(datetime.datetime.now())
     bp = BP()
-    r = bp.cal_factors(20100101, 20200315, N_JOBS)
+    r = bp.cal_factors(20150101, 20160315, N_JOBS)
     print('task finish')
     print(r)
     print(datetime.datetime.now())

@@ -11,12 +11,12 @@ class EP_FY1(FactorBase):
     def __init__(self):
         super().__init__()
         self.db = 'DailyFactors_Gus'
-        self.measure = 'Analyst'
+        self.measure = 'EP_FY1'
 
     def cal_factors(self, start, end, n_jobs):
         # 获取一致预期净利润
-        net_profit_FY1 = self.influx.getDataMultiprocess('DailyFactors_Gus', 'Analyst', start, end,
-                                                         ['code', 'net_profit_FY1'])
+        net_profit_FY1 = self.influx.getDataMultiprocess('DailyFactors_Gus', 'AnalystNetProfit', start, end,
+                                                         ['code', 'net_profit_FY1', 'report_period'])
         net_profit_FY1.index.names = ['date']
         net_profit_FY1.reset_index(inplace=True)
         market_cap = self.influx.getDataMultiprocess('DailyFactors_Gus', 'Size', start, end, ['code', 'market_cap'])
@@ -26,7 +26,7 @@ class EP_FY1(FactorBase):
         # 市值单位为 万元
         merge_df['EP_FY1'] = merge_df['net_profit_FY1'] / merge_df['market_cap'] / 10000
         merge_df.set_index('date', inplace=True)
-        merge_df = merge_df.loc[:, ['code', 'EP_FY1']]
+        merge_df = merge_df.loc[:, ['code', 'EP_FY1', 'report_period']]
         merge_df = merge_df.replace(np.inf, np.nan)
         merge_df = merge_df.replace(-np.inf, np.nan)
         merge_df = merge_df.dropna()

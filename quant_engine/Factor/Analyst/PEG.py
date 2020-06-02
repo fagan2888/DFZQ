@@ -13,7 +13,7 @@ class PEG(FactorBase):
     def __init__(self):
         super().__init__()
         self.db = 'DailyFactors_Gus'
-        self.measure = 'Analyst'
+        self.measure = 'PEG'
 
     # 计算两个报告期相差几个季度的工具函数
     @staticmethod
