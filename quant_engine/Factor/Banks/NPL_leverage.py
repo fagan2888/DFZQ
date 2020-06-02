@@ -36,9 +36,9 @@ class NPL_leverage(FactorBase):
         return save_res
 
     def cal_factors(self, start, end, n_jobs):
-        NPL = self.influx.getDataMultiprocess('DailyFactors_Gus', 'NPL', start, end,
+        NPL = self.influx.getDataMultiprocess('FinancialReport_Gus', 'NPL', start, end,
                                               ['code', 'NPL', 'NPL_last1Q', 'report_period'])
-        CA_ratio = self.influx.getDataMultiprocess('DailyFactors_Gus', 'CA_ratio', start, end,
+        CA_ratio = self.influx.getDataMultiprocess('FinancialReport_Gus', 'CA_ratio', start, end,
                                                    ['code', 'CA_ratio', 'CA_ratio_last1Q', 'report_period'])
         NPL.index.names = ['date']
         NPL.reset_index(inplace=True)
