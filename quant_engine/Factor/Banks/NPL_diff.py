@@ -14,24 +14,21 @@ class NPL_diff(FactorBase):
 
     def cal_factors(self, start, end, n_jobs):
         fail_list = []
-        for npl_field in ['NPL', 'NPL_leverage']:
-            NPL_diff = self.influx.getDataMultiprocess(
-                'DailyFactors_Gus', npl_field, start, end,
-                ['code', 'report_period', npl_field, '{0}_last1Q'.format(npl_field)])
-            NPL_diff['{0}_diffQ'.format(npl_field)] = NPL_diff[npl_field] - NPL_diff['{0}_last1Q'.format(npl_field)]
-            NPL_diff = NPL_diff.loc[pd.notnull(NPL_diff['{0}_diffQ'.format(npl_field)]),
-                                    ['code', 'report_period', '{0}_diffQ'.format(npl_field)]]
-            NPL_diff.where(pd.notnull(NPL_diff), None)
-            codes = NPL_diff['code'].unique()
-            split_codes = np.array_split(codes, n_jobs)
-            with parallel_backend('multiprocessing', n_jobs=n_jobs):
-                res = Parallel()(delayed(influxdbData.JOB_saveData)
-                                 (NPL_diff, 'code', codes, self.db, '{0}_diffQ'.format(npl_field))
-                                 for codes in split_codes)
-            for r in res:
-                fail_list.extend(r)
-            print('{0}_diff finish'.format(npl_field))
-            print('-' * 30)
+        NPL_diff = self.influx.getDataMultiprocess('FinancialReport_Gus', 'NPL', start, end,
+                                                   ['code', 'report_period', 'NPL', 'NPL_last1Q'])
+        NPL_diff['NPL_diffQ'] = NPL_diff['NPL'] - NPL_diff['NPL_last1Q']
+        NPL_diff = NPL_diff.loc[pd.notnull(NPL_diff['NPL_diffQ']), ['code', 'report_period', 'NPL_diffQ']]
+        NPL_diff.where(pd.notnull(NPL_diff), None)
+        codes = NPL_diff['code'].unique()
+        split_codes = np.array_split(codes, n_jobs)
+        with parallel_backend('multiprocessing', n_jobs=n_jobs):
+            res = Parallel()(delayed(influxdbData.JOB_saveData)
+                             (NPL_diff, 'code', codes, self.db, 'NPL_diffQ')
+                             for codes in split_codes)
+        for r in res:
+            fail_list.extend(r)
+        print('NPL_diff finish')
+        print('-' * 30)
         return fail_list
 
 
