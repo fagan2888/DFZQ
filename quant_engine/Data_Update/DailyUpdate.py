@@ -164,7 +164,7 @@ class DailyUpdate:
             self.log_res(res)
             self.logger.info('--------------------Banks finish----------------------')
             loan = LoanClassification()
-            res = loan.cal_factors(last_week, last_trade_day, n_jobs)
+            res = loan.cal_factors(n_jobs)
             self.log_res(res)
             self.logger.info('---------------------Loan finish----------------------')
 
