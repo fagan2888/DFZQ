@@ -90,6 +90,13 @@ class DataProcess:
     # -------------------------------------------------
     # 数据处理工具
     @staticmethod
+    def check_report_period(df):
+        df['diff_days'] = (df.index - pd.to_datetime(df['report_period'])).dt.days
+        df = df.loc[df['diff_days'] < 300, :]
+        df = df.drop(['report_period', 'diff_days'], axis=1)
+        return df
+
+    @staticmethod
     def get_next_date(calendar, today, days):
         return {today: calendar[calendar > today].iloc[days - 1]}
 
