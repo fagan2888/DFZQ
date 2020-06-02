@@ -27,6 +27,7 @@ class OCFP(FactorBase):
         OCFP.set_index('date', inplace=True)
         OCFP['OCFP'] = OCFP['net_OCF_TTM'] / OCFP['market_cap'] / 10000
         OCFP = OCFP.loc[:, ['code', 'OCFP', 'report_period']]
+        OCFP = OCFP.dropna(subset='OCFP')
         codes = OCFP['code'].unique()
         split_codes = np.array_split(codes, n_jobs)
         with parallel_backend('multiprocessing', n_jobs=n_jobs):

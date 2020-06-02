@@ -30,6 +30,7 @@ class EPandEPcut(FactorBase):
         EP.set_index('date', inplace=True)
         EP['EP_TTM'] = EP['net_profit_TTM'] / EP['market_cap'] / 10000
         EP = EP.loc[:, ['code', 'EP_TTM', 'report_period']]
+        EP = EP.dropna(subset='EP_TTM')
         codes = EP['code'].unique()
         split_codes = np.array_split(codes, n_jobs)
         with parallel_backend('multiprocessing', n_jobs=n_jobs):

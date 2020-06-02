@@ -27,6 +27,7 @@ class NCFP(FactorBase):
         NCFP.set_index('date', inplace=True)
         NCFP['NCFP'] = NCFP['net_CF_TTM'] / NCFP['market_cap'] / 10000
         NCFP = NCFP.loc[:, ['code', 'NCFP', 'report_period']]
+        NCFP = NCFP.dropna(subset='NCFP')
         codes = NCFP['code'].unique()
         split_codes = np.array_split(codes, n_jobs)
         with parallel_backend('multiprocessing', n_jobs=n_jobs):
