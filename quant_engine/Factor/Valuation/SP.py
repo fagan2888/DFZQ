@@ -10,7 +10,6 @@ class SP(FactorBase):
     def __init__(self):
         super().__init__()
         self.db = 'DailyFactors_Gus'
-        self.measure = 'SP'
 
     def cal_factors(self, start, end, n_jobs):
         oper_rev_Q = self.influx.getDataMultiprocess('FinancialReport_Gus', 'oper_rev_Q', start, end,
@@ -38,7 +37,7 @@ class SP(FactorBase):
         split_codes = np.array_split(codes, n_jobs)
         with parallel_backend('multiprocessing', n_jobs=n_jobs):
             res = Parallel()(delayed(influxdbData.JOB_saveData)
-                             (SP_Q, 'code', codes, self.db, self.measure) for codes in split_codes)
+                             (SP_Q, 'code', codes, self.db, 'SP_Q') for codes in split_codes)
         for r in res:
             fail_list.extend(r)
         print('SP_Q finish')
@@ -55,7 +54,7 @@ class SP(FactorBase):
         split_codes = np.array_split(codes, n_jobs)
         with parallel_backend('multiprocessing', n_jobs=n_jobs):
             res = Parallel()(delayed(influxdbData.JOB_saveData)
-                             (SP, 'code', codes, self.db, self.measure) for codes in split_codes)
+                             (SP, 'code', codes, self.db, 'SP') for codes in split_codes)
         for r in res:
             fail_list.extend(r)
         print('SP finish')

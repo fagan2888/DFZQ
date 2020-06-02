@@ -10,7 +10,6 @@ class EPandEPcut(FactorBase):
     def __init__(self):
         super().__init__()
         self.db = 'DailyFactors_Gus'
-        self.measure = 'EP'
 
     def cal_factors(self, start, end, n_jobs):
         net_profit_TTM = self.influx.getDataMultiprocess('FinancialReport_Gus', 'net_profit_TTM', start, end,
@@ -35,7 +34,7 @@ class EPandEPcut(FactorBase):
         split_codes = np.array_split(codes, n_jobs)
         with parallel_backend('multiprocessing', n_jobs=n_jobs):
             res = Parallel()(delayed(influxdbData.JOB_saveData)
-                             (EP, 'code', codes, self.db, self.measure) for codes in split_codes)
+                             (EP, 'code', codes, self.db, 'EP') for codes in split_codes)
         print('EP_TTM finish')
         print('-' * 30)
         fail_list = []
@@ -51,7 +50,7 @@ class EPandEPcut(FactorBase):
         split_codes = np.array_split(codes, n_jobs)
         with parallel_backend('multiprocessing', n_jobs=n_jobs):
             res = Parallel()(delayed(influxdbData.JOB_saveData)
-                             (EPcut, 'code', codes, self.db, self.measure) for codes in split_codes)
+                             (EPcut, 'code', codes, self.db, 'EPcut') for codes in split_codes)
         print('EPcut_TTM finish')
         print('-' * 30)
         for r in res:
