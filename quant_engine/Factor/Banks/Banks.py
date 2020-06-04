@@ -76,7 +76,8 @@ class Banks(FactorBase):
         # 有408004000时，根据ann_dt酌情使用
         query = "select ANN_DT, S_INFO_WINDCODE, REPORT_PERIOD, NPL_RATIO, NET_INTEREST_MARGIN, CAPI_ADE_RATIO ," \
                 "CAPI_ADE_RATIO_2013, CORE_CAPI_ADE_RATIO, TIER1CAPI_ADE_RATIO, NPL_PROVISION_COVERAGE, " \
-                "TOTAL_INTEREST_INCOME, TOTAL_LOAN, STATEMENT_TYPE " \
+                "TOTAL_INTEREST_INCOME, TOTAL_LOAN, INTEREST_BEARING_ASSET, NON_INTEREST_MARGIN, " \
+                "NON_INTEREST_INCOME, STATEMENT_TYPE " \
                 "from wind_filesync.AShareBankIndicator " \
                 "where ANN_DT >= {0} and ANN_DT <= {1} " \
                 "and (STATEMENT_TYPE = '408001000' or STATEMENT_TYPE = '408005000' or STATEMENT_TYPE = '408004000')" \
@@ -87,7 +88,8 @@ class Banks(FactorBase):
         bank = \
             pd.DataFrame(self.rdf.curs.fetchall(),
                          columns=['date', 'code', 'report_period', 'NPL', 'net_interest_margin', 'CA1', 'CA2',
-                                  'core_CA1', 'core_CA2', 'provision_cov', 'interest_income', 'tot_loan', 'type'])
+                                  'core_CA1', 'core_CA2', 'provision_cov', 'interest_income', 'tot_loan',
+                                  'interest_bearing_asset', 'non_intertest_pct', 'non_interest_income', 'type'])
         bank['CA_ratio'] = np.where(pd.notnull(bank['CA2']).values, bank['CA2'].values, bank['CA1'].values)
         bank['core_CA_ratio'] = np.where(pd.notnull(bank['core_CA2']).values, bank['core_CA2'].values,
                                          bank['core_CA1'].values)
@@ -104,7 +106,8 @@ class Banks(FactorBase):
         # ***************************************************************************
         # 需要的field
         fields = ['NPL', 'CA_ratio', 'core_CA_ratio', 'net_interest_margin', 'provision_cov', 'interest_income',
-                  'tot_loan', 'bad_loan', 'provision_amount']
+                  'tot_loan', 'bad_loan', 'provision_amount', 'interest_bearing_asset', 'non_intertest_pct',
+                  'non_interest_income']
         # 处理数据
         calendar = self.rdf.get_trading_calendar()
         calendar = \
@@ -135,4 +138,4 @@ class Banks(FactorBase):
 
 if __name__ == '__main__':
     npl = Banks()
-    r = npl.cal_factors(20090101, 20200528, N_JOBS)
+    r = npl.cal_factors(20090101, 20200602, N_JOBS)
