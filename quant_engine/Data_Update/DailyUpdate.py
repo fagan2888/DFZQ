@@ -57,6 +57,7 @@ from consensus_net_profit import consensus_net_profit
 from EP_FY1 import EP_FY1
 from score_TPER import score_TPER
 from PEG import PEG
+from net_profit_FY1_growth import NetProfitFY1_growth
 from risk_exposure import RiskFactorsExposure
 from risk_cov import RiskCov
 from specific_risk import SpecificRisk
@@ -284,6 +285,10 @@ class DailyUpdate:
             res = peg.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
             self.logger.info('---------------------PEG finish-----------------------')
+            npfyg = NetProfitFY1_growth()
+            res = npfyg.cal_factors(last_week, last_trade_day, n_jobs)
+            self.log_res(res)
+            self.logger.info('-------------NetProfitFY1_growth finish---------------')
             npll = NPL_leverage()
             res = npll.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
