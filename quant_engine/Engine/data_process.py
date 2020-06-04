@@ -4,6 +4,8 @@ import math
 import statsmodels.api as sm
 from joblib import Parallel, delayed, parallel_backend
 import warnings
+import datetime
+from dateutil.relativedelta import relativedelta
 
 
 class DataProcess:
@@ -95,6 +97,12 @@ class DataProcess:
         df = df.loc[df['diff_days'] < 300, :]
         df = df.drop(['report_period', 'diff_days'], axis=1)
         return df
+
+    @staticmethod
+    def get_former_RP(rp, n_Qs):
+        rp_dt = pd.to_datetime(rp) + datetime.timedelta(days=1) - \
+                relativedelta(months=3 * n_Qs) - datetime.timedelta(days=1)
+        return rp_dt.strftime('%Y%m%d')
 
     @staticmethod
     def get_next_date(calendar, today, days):
