@@ -117,8 +117,14 @@ class StrategyBase:
         self.size_data.set_index('date', inplace=True)
         print('-size data loaded...')
 
-    def process_factor(self, measure, factor, direction, fillna):
-        factor_df = self.influx.getDataMultiprocess(self.factor_db, measure, self.start, self.end, ['code', factor])
+    def process_factor(self, measure, factor, direction, fillna, check_rp):
+        if check_rp:
+            factor_df = self.influx.getDataMultiprocess(self.factor_db, measure, self.start, self.end,
+                                                        ['code', factor, 'report_period'])
+            factor_df = DataProcess.check_report_period(factor_df)
+        else:
+            factor_df = self.influx.getDataMultiprocess(self.factor_db, measure, self.start, self.end,
+                                                        ['code', factor])
         factor_df.index.names = ['date']
         factor_df.reset_index(inplace=True)
         if direction == -1:
