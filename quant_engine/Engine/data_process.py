@@ -100,8 +100,8 @@ class DataProcess:
 
     @staticmethod
     def get_former_RP(rp, n_Qs):
-        rp_dt = pd.to_datetime(rp) + datetime.timedelta(days=1) - \
-                relativedelta(months=3 * n_Qs) - datetime.timedelta(days=1)
+        rp_dt = pd.to_datetime(rp) + datetime.timedelta(days=1) - relativedelta(months=3 * n_Qs) - \
+                datetime.timedelta(days=1)
         return rp_dt.strftime('%Y%m%d')
 
     @staticmethod
