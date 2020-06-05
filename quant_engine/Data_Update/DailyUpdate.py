@@ -56,6 +56,7 @@ from coverage_divergence import coverage_and_divergence
 from consensus_net_profit import consensus_net_profit
 from EP_FY1 import EP_FY1
 from score_TPER import score_TPER
+from ROE_FY1 import ROE_FY1
 from PEG import PEG
 from net_profit_FY1_growth import NetProfitFY1_growth
 from risk_exposure import RiskFactorsExposure
@@ -281,6 +282,10 @@ class DailyUpdate:
             res = score.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
             self.logger.info('----------------score and TPER finish-----------------')
+            roefy1 = ROE_FY1()
+            res = roefy1.cal_factors(last_week, last_trade_day, n_jobs)
+            self.log_res(res)
+            self.logger.info('-------------------ROE_FY1 finish---------------------')
             peg = PEG()
             res = peg.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
