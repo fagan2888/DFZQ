@@ -89,7 +89,7 @@ class Banks(FactorBase):
             pd.DataFrame(self.rdf.curs.fetchall(),
                          columns=['date', 'code', 'report_period', 'NPL', 'net_interest_margin', 'CA1', 'CA2',
                                   'core_CA1', 'core_CA2', 'provision_cov', 'interest_income', 'tot_loan',
-                                  'interest_bearing_asset', 'non_intertest_pct', 'non_interest_income', 'type'])
+                                  'interest_bearing_asset', 'non_interest_pct', 'non_interest_income', 'type'])
         bank['CA_ratio'] = np.where(pd.notnull(bank['CA2']).values, bank['CA2'].values, bank['CA1'].values)
         bank['core_CA_ratio'] = np.where(pd.notnull(bank['core_CA2']).values, bank['core_CA2'].values,
                                          bank['core_CA1'].values)
@@ -106,7 +106,7 @@ class Banks(FactorBase):
         # ***************************************************************************
         # 需要的field
         fields = ['NPL', 'CA_ratio', 'core_CA_ratio', 'net_interest_margin', 'provision_cov', 'interest_income',
-                  'tot_loan', 'bad_loan', 'provision_amount', 'interest_bearing_asset', 'non_intertest_pct',
+                  'tot_loan', 'bad_loan', 'provision_amount', 'interest_bearing_asset', 'non_interest_pct',
                   'non_interest_income']
         # 处理数据
         calendar = self.rdf.get_trading_calendar()
@@ -138,4 +138,4 @@ class Banks(FactorBase):
 
 if __name__ == '__main__':
     npl = Banks()
-    r = npl.cal_factors(20090101, 20200602, N_JOBS)
+    r = npl.cal_factors(20090101, 20200604, N_JOBS)
