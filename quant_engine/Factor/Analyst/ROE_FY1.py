@@ -90,7 +90,7 @@ class ROE_FY1(FactorBase):
         with parallel_backend('multiprocessing', n_jobs=self.n_jobs):
             res = Parallel()(delayed(ROE_FY1.JOB_cur_ROE_TTM)
                              (codes, ROE_df, self.db, save_measure) for codes in split_codes)
-        print('cur ROE_TTM finish')
+        print('ROE_FY1 finish')
         print('-' * 30)
         for r in res:
             self.fail_list.extend(r)
@@ -113,7 +113,7 @@ class ROE_FY1(FactorBase):
 
 if __name__ == '__main__':
     roe = ROE_FY1()
-    r = roe.cal_factors(20200101, 20200525, N_JOBS)
+    r = roe.cal_factors(20090101, 20200604, N_JOBS)
     print('task finish')
     print(r)
     print(datetime.datetime.now())
