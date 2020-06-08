@@ -20,7 +20,7 @@ class oper_rev_growthdiff(FactorBase):
             code_df = df.loc[df['code'] == code, :].copy()
             code_df['{0}_growthdiff'.format(factor)] = \
                 code_df['{0}_growthY'.format(factor)] - code_df['{0}_growthY_last4Q'.format(factor)]
-            cols = ['{0}_accY'.format(factor)]
+            cols = ['{0}_growthdiff'.format(factor)]
             for i in range(1, 4):
                 code_df['{0}_growthdiff_last{1}Q'.format(factor, i)] = \
                     code_df['{0}_growthY_last{1}Q'.format(factor, i)] - \
