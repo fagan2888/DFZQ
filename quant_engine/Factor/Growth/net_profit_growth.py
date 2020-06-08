@@ -79,7 +79,6 @@ class net_profit_growth(FactorBase):
     def cal_factors(self, start, end, n_jobs):
         pd.set_option('mode.use_inf_as_na', True)
         fail_list = []
-        '''
         # 计算 net_profit_Q 的 growth
         net_profit = self.influx.getDataMultiprocess('FinancialReport_Gus', 'net_profit_Q', start, end)
         codes = net_profit['code'].unique()
@@ -92,7 +91,6 @@ class net_profit_growth(FactorBase):
         print('-' * 30)
         for r in res:
             fail_list.extend(r)
-        '''
         # 计算 net_profit 的 growth
         net_profit = self.influx.getDataMultiprocess('FinancialReport_Gus', 'net_profit_TTM', start, end)
         codes = net_profit['code'].unique()
