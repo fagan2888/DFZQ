@@ -47,6 +47,7 @@ from CFROI2 import CFROI2
 from GPOA2 import GPOA2
 from net_profit_growth import net_profit_growth
 from oper_rev_growth import oper_rev_growth
+from tot_liab_growth import TotLiabGrowth
 from Surprise import Surprise
 from marginal_ROE import MarginalROE
 from amihud import Amihud
@@ -248,6 +249,10 @@ class DailyUpdate:
             res = org.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
             self.logger.info('----------------oper rev growth finish----------------')
+            tlg = TotLiabGrowth()
+            res = tlg.cal_factors(last_week, last_trade_day, n_jobs)
+            self.log_res(res)
+            self.logger.info('----------------tot liab growth finish----------------')
             surp = Surprise()
             res = surp.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
