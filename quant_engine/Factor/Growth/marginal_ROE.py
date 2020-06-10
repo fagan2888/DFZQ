@@ -33,7 +33,7 @@ class MarginalROE(FactorBase):
             choices = [code_df['net_profit_TTM'].values,
                        code_df['net_profit_TTM_last1Q'].values]
             code_df['later_profit'] = np.select(conditions, choices, default=np.nan)
-            code_df['delta_equity'] = code_df['net_equity'] - code_df['net_equity_last4Q']
+            code_df['delta_equity'] = code_df['later_equity'] - code_df['former_equity']
             code_df['delta_profit'] = code_df['later_profit'] - code_df['former_profit']
             code_df['marginal_ROE'] = code_df['delta_profit'] / code_df['delta_equity']
             code_df.set_index('date', inplace=True)
@@ -71,9 +71,11 @@ class MarginalROE(FactorBase):
         # get net equity
         net_equity = self.influx.getDataMultiprocess(
             'FinancialReport_Gus', 'net_equity', self.start, self.end,
-            ['code', 'report_period', 'net_equity', 'net_equity_last4Q'])
+            ['code', 'report_period', 'net_equity', 'net_equity_last4Q', 'net_equity_last8Q'])
         net_equity.index.names = ['date']
         net_equity.reset_index(inplace=True)
+        net_equity['former_equity'] = (net_equity['net_equity_last4Q'] + net_equity['net_equity_last8Q']) / 2
+        net_equity['later_equity'] = (net_equity['net_equity'] + net_equity['net_equity_last4Q']) / 2
         cur_rps = []
         former_rps = []
         for rp in net_equity['report_period'].unique():
