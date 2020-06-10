@@ -23,14 +23,18 @@ class MarginalROE(FactorBase):
         save_res = []
         for code in codes:
             code_df = df.loc[df['code'] == code, :].copy()
-            code_df['later_equity'] = code_df['net_equity'].fillna(method='ffill')
             conditions = [code_df['profit_last4Q_rp'].values == code_df['equity_last4Q_rp'].values,
-                          code_df['profit_last4Q_rp'].values == code_df['equity_last3Q_rp'].values]
-            choices = [code_df['net_equity_last4Q'].values,
-                       code_df['net_equity_last3Q'].values]
-            code_df['former_equity'] = np.select(conditions, choices, default=np.nan)
-            code_df['delta_equity'] = code_df['later_equity'] - code_df['former_equity']
-            code_df['delta_profit'] = code_df['net_profit_TTM'] - code_df['net_profit_TTM_last4Q']
+                          code_df['profit_last5Q_rp'].values == code_df['equity_last4Q_rp'].values]
+            choices = [code_df['net_profit_TTM_last4Q'].values,
+                       code_df['net_profit_TTM_last5Q'].values]
+            code_df['former_profit'] = np.select(conditions, choices, default=np.nan)
+            conditions = [code_df['profit_last0Q_rp'].values == code_df['report_period'].values,
+                          code_df['profit_last1Q_rp'].values == code_df['report_period'].values]
+            choices = [code_df['net_profit_TTM'].values,
+                       code_df['net_profit_TTM_last1Q'].values]
+            code_df['later_profit'] = np.select(conditions, choices, default=np.nan)
+            code_df['delta_equity'] = code_df['net_equity'] - code_df['net_equity_last4Q']
+            code_df['delta_profit'] = code_df['later_profit'] - code_df['former_profit']
             code_df['marginal_ROE'] = code_df['delta_profit'] / code_df['delta_equity']
             code_df.set_index('date', inplace=True)
             code_df = code_df.loc[:, ['code', 'report_period', 'marginal_ROE']]
@@ -44,38 +48,39 @@ class MarginalROE(FactorBase):
             if r == 'No error occurred...':
                 pass
             else:
-                save_res.append('cur ROE TTM Error: %s' % r)
+                save_res.append('marginal ROE Error: %s' % r)
         return save_res
 
     def cal_marginal_ROE(self):
         # get net profit
         net_profit = self.influx.getDataMultiprocess(
             'FinancialReport_Gus', 'net_profit_TTM', self.start, self.end,
-            ['code', 'report_period', 'net_profit_TTM', 'net_profit_TTM_last4Q'])
+            ['code', 'report_period', 'net_profit_TTM', 'net_profit_TTM_last1Q', 'net_profit_TTM_last4Q',
+             'net_profit_TTM_last5Q'])
         net_profit.index.names = ['date']
         net_profit.reset_index(inplace=True)
-        cur_rps = []
-        former_rps = []
-        for rp in net_profit['report_period'].unique():
-            cur_rps.append(rp)
-            former_rps.append(DataProcess.get_former_RP(rp, 4))
-        rp_dict = dict(zip(cur_rps, former_rps))
-        net_profit['profit_last4Q_rp'] = net_profit['report_period'].map(rp_dict)
-        # get net equity
-        net_equity = self.influx.getDataMultiprocess(
-            'FinancialReport_Gus', 'net_equity', self.start, self.end,
-            ['code', 'report_period', 'net_equity', 'net_equity_last3Q', 'net_equity_last4Q'])
-        net_equity.index.names = ['date']
-        net_equity.reset_index(inplace=True)
-        for i in [3, 4]:
+        for i in [0, 1, 4, 5]:
             cur_rps = []
             former_rps = []
-            for rp in net_equity['report_period'].unique():
+            for rp in net_profit['report_period'].unique():
                 cur_rps.append(rp)
                 former_rps.append(DataProcess.get_former_RP(rp, i))
             rp_dict = dict(zip(cur_rps, former_rps))
-            net_equity['equity_last{0}Q_rp'.format(i)] = net_equity['report_period'].map(rp_dict)
-        net_equity.drop('report_period', axis=1, inplace=True)
+            net_profit['profit_last{0}Q_rp'.format(i)] = net_profit['report_period'].map(rp_dict)
+        net_profit.drop('report_period', axis=1, inplace=True)
+        # get net equity
+        net_equity = self.influx.getDataMultiprocess(
+            'FinancialReport_Gus', 'net_equity', self.start, self.end,
+            ['code', 'report_period', 'net_equity', 'net_equity_last4Q'])
+        net_equity.index.names = ['date']
+        net_equity.reset_index(inplace=True)
+        cur_rps = []
+        former_rps = []
+        for rp in net_equity['report_period'].unique():
+            cur_rps.append(rp)
+            former_rps.append(DataProcess.get_former_RP(rp, 4))
+        rp_dict = dict(zip(cur_rps, former_rps))
+        net_equity['equity_last4Q_rp'.format(i)] = net_equity['report_period'].map(rp_dict)
         # --------------------------------------------------------------------------------------
         ROE_df = pd.merge(net_profit, net_equity, how='outer', on=['date', 'code'])
         ROE_df = ROE_df.sort_values(['date', 'code', 'report_period'])
