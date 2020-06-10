@@ -80,10 +80,11 @@ class IncomeUpdate(FactorBase):
         # type要用408001000，408005000，408004000(合并报表，合并更正前，合并调整后)，同时有408001000和408005000用408005000
         # 有408004000时，根据ann_dt酌情使用
         # 目前包含字段: 净利润(net_profit)，扣非净利润(net_profit_ddt)，营收(oper_rev)，总营收(tot_oper_rev)，
-        #              营业利润(oper_profit)，摊薄eps(EPS_diluted)，经营利润(oper_income)
+        #              营业利润(oper_profit)，摊薄eps(EPS_diluted)，经营利润(oper_income)，少数股东损益(minority_int_inc)，
+        #              财务费用(less_fin_exp)，利息净收入(net_int_inc)， 息税前利润(EBIT)，报告类型(statement_type)
         query = "select ANN_DT, S_INFO_WINDCODE, REPORT_PERIOD, NET_PROFIT_EXCL_MIN_INT_INC, " \
                 "NET_PROFIT_AFTER_DED_NR_LP, OPER_REV, TOT_OPER_REV, TOT_OPER_COST, OPER_PROFIT, TOT_PROFIT, " \
-                "S_FA_EPS_DILUTED, MINORITY_INT_INC, LESS_FIN_EXP, NET_INT_INC, STATEMENT_TYPE " \
+                "S_FA_EPS_DILUTED, MINORITY_INT_INC, LESS_FIN_EXP, NET_INT_INC, EBIT, STATEMENT_TYPE " \
                 "from wind_filesync.AShareIncome " \
                 "where ANN_DT >= {0} and ANN_DT <= {1} " \
                 "and (STATEMENT_TYPE = '408001000' or STATEMENT_TYPE = '408005000' or STATEMENT_TYPE = '408004000') " \
@@ -95,7 +96,7 @@ class IncomeUpdate(FactorBase):
             pd.DataFrame(self.rdf.curs.fetchall(),
                          columns=['date', 'code', 'report_period', 'net_profit', 'net_profit_ddt', 'oper_rev',
                                   'tot_oper_rev', 'tot_oper_cost', 'oper_profit', 'tot_profit', 'EPS_diluted',
-                                  'minority_interest_income', 'less_fin_exp', 'net_interest_income', 'type'])
+                                  'minority_interest_income', 'less_fin_exp', 'net_interest_income', 'EBIT', 'type'])
         income[['minority_interest_income', 'less_fin_exp', 'net_interest_income']] = \
             income[['minority_interest_income', 'less_fin_exp', 'net_interest_income']].fillna(0)
         # 同一code，同一date，同一report_period，同时出现type1，2，3时，取type大的
@@ -151,7 +152,8 @@ class IncomeUpdate(FactorBase):
         income['gross_margin'] = income['tot_oper_rev'] - income['tot_oper_cost']
         # 需要的field
         fields = ['net_profit', 'net_profit_ddt', 'oper_rev', 'tot_oper_rev', 'tot_oper_cost', 'oper_profit',
-                  'tot_profit', 'gross_margin', 'EPS_diluted', 'oper_income']
+                  'tot_profit', 'gross_margin', 'EPS_diluted', 'oper_income', 'EBIT']
+        #fields = ['EBIT']
         # 处理数据
         calendar = self.rdf.get_trading_calendar()
         calendar = \
@@ -183,4 +185,4 @@ class IncomeUpdate(FactorBase):
 
 if __name__ == '__main__':
     IU = IncomeUpdate()
-    r = IU.cal_factors(20100101, 20200501, N_JOBS)
+    r = IU.cal_factors(20090101, 20200609, N_JOBS)
