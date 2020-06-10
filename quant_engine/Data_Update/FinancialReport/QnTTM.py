@@ -14,10 +14,11 @@ class QnTTMUpdate(FactorBase):
         self.db = 'FinancialReport_Gus'
         # 目前包含字段: 净利润(net_profit)，扣非净利润(net_profit_ddt)，总利润(tot_profit), 营收(oper_rev)，
         #              总营收(tot_oper_rev)，总营业成本(tot_oper_cost), 营业利润(oper_profit), 现金流净额(net_CF),
-        #              经营现金流净额(net_OCF)，经营利润(oper_income)，毛利(gross_margin)
+        #              经营现金流净额(net_OCF)，经营利润(oper_income)，毛利(gross_margin)，非息利润(non_interest_income)，
+        #              利息利润(interest_income)，息税前利润(EBIT)
         self.fields = ['net_profit', 'net_profit_ddt', 'tot_profit', 'oper_rev', 'tot_oper_rev', 'tot_oper_cost',
                        'oper_profit', 'net_CF', 'net_OCF', 'oper_income', 'gross_margin', 'non_interest_income',
-                       'interest_income']
+                       'interest_income', 'EBIT']
 
     @staticmethod
     def JOB_calQ(value_cur, value_last, report_period, n_last):
