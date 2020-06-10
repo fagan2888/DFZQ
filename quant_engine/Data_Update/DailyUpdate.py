@@ -47,6 +47,7 @@ from GPOA2 import GPOA2
 from net_profit_growth import net_profit_growth
 from oper_rev_growth import oper_rev_growth
 from Surprise import Surprise
+from marginal_ROE import MarginalROE
 from amihud import Amihud
 from ln_turnover_60 import LnTurnover
 from MaxRet import MaxRet
@@ -246,6 +247,10 @@ class DailyUpdate:
             res = surp.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
             self.logger.info('------------------Surprise finish---------------------')
+            mr = MarginalROE()
+            res = mr.cal_factors(last_week, last_trade_day, n_jobs)
+            self.log_res(res)
+            self.logger.info('----------------Marginal ROE finish-------------------')
             amihud = Amihud()
             res = amihud.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
