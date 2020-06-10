@@ -86,7 +86,7 @@ class FactorTest:
         print('%s backtest finish!' % group_name)
         return portfolio_value
 
-    def __init__(self, measure, factor):
+    def __init__(self, db, measure, factor):
         self.rdf = rdf_data()
         self.influx = influxdbData()
         self.n_jobs = global_constant.N_JOBS
@@ -95,7 +95,7 @@ class FactorTest:
         self.idx_wgt_measure = 'index_weight'
         self.st_measure = 'isST'
         self.industry_measure = 'industry'
-        self.factor_db = 'DailyFactors_Gus'
+        self.factor_db = db
         self.factor_measure = measure
         self.factor = factor
 
@@ -150,13 +150,14 @@ class FactorTest:
         print('-market related data loaded...')
         # size
         self.size_data = \
-            self.influx.getDataMultiprocess(self.factor_db, 'Size', self.start, mkt_end, ['code', self.size_field])
+            self.influx.getDataMultiprocess(global_constant.FACTOR_DB, 'Size', self.start, mkt_end,
+                                            ['code', self.size_field])
         self.size_data.rename(columns={self.size_field: 'size'}, inplace=True)
         self.size_data.index.names = ['date']
         print('-size data loaded...')
         # risk
         self.risk_data = \
-            self.influx.getDataMultiprocess(self.factor_db, 'RiskExposure', self.start, mkt_end)
+            self.influx.getDataMultiprocess(global_constant.FACTOR_DB, 'RiskExposure', self.start, mkt_end)
         self.risk_data.index.names = ['date']
         print('-risk data loaded...')
         # ========================================================================
@@ -359,7 +360,9 @@ class FactorTest:
             # 重置 stk_portfolio
             BE.stk_portfolio.reset_portfolio(self.capital)
         tot_res = pd.concat(pvs, axis=1)
-        tot_res['long_short'] = tot_res['TotalValue_{0}'.format(group[-1])] - tot_res['TotalValue_{0}'.format(group[0])]
+        tot_res['long_short'] = tot_res['TotalValue_{0}'.format(group[-1])].pct_change().fillna(0) - \
+                                tot_res['TotalValue_{0}'.format(group[0])].pct_change().fillna(0)
+        tot_res['long_short'] = (tot_res['long_short'] + 1).cumprod()
         folder_dir = global_constant.ROOT_DIR + '/Backtest_Result/Group_Value/{0}/'.format(self.factor)
         if os.path.exists(folder_dir):
             pass
@@ -440,10 +443,11 @@ if __name__ == '__main__':
 
     start = 20120101
     end = 20181231
-    measurements = ['DP_LYR']
-    factors = ['DP_LYR']
+    dbs = [global_constant.FACTOR_DB]
+    measurements = ['oper_rev_Q_growthdiff']
+    factors = ['oper_rev_Q_growthdiff']
     directions = [1]
-    fillnas = ['zero']
+    fillnas = ['median']
     benchmark = 300
     select_range = 800
     adj_interval = 5
@@ -452,9 +456,10 @@ if __name__ == '__main__':
 
     for i in range(len(factors)):
         factor = factors[i]
+        db = dbs[i]
         measurement = measurements[i]
         direction = directions[i]
         fillna = fillnas[i]
-        test = FactorTest(measurement, factor)
+        test = FactorTest(db, measurement, factor)
         test.run(start, end, direction, fillna, benchmark, select_range, industry, size_field)
     print('Test finish! Time token: ', datetime.datetime.now() - dt_start)
