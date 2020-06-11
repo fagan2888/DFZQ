@@ -45,9 +45,11 @@ from ROA2 import ROA2
 from RNOA2 import RNOA2
 from CFROI2 import CFROI2
 from GPOA2 import GPOA2
+from EBIT_margin import EBITMargin
 from net_profit_growth import net_profit_growth
 from oper_rev_growth import oper_rev_growth
 from tot_liab_growth import TotLiabGrowth
+from EBITmargin_delta import EBITMarginDelta
 from Surprise import Surprise
 from marginal_ROE import MarginalROE
 from amihud import Amihud
@@ -241,6 +243,14 @@ class DailyUpdate:
             res = gpoa.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
             self.logger.info('--------------------GPOA finish-----------------------')
+            em = EBITMargin()
+            res = em.cal_factors(last_week, last_trade_day, n_jobs)
+            self.log_res(res)
+            self.logger.info('-----------------EBITMargin finish--------------------')
+            emd = EBITMarginDelta()
+            res = emd.cal_factors(last_week, last_trade_day, n_jobs)
+            self.log_res(res)
+            self.logger.info('--------------EBITMargin_Delta finish-----------------')
             npg = net_profit_growth()
             res = npg.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
