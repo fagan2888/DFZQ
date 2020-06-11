@@ -70,6 +70,7 @@ class EBITMargin(FactorBase):
         ebit.rename(columns={'EBIT_Q': 'EBIT_Q_last0Q'}, inplace=True)
         # get oper_rev
         oper_rev = self.influx.getDataMultiprocess('FinancialReport_Gus', 'oper_rev_Q', self.start, self.end)
+        oper_rev = oper_rev.replace(0, np.nan)
         oper_rev.index.names = ['date']
         oper_rev.reset_index(inplace=True)
         for i in range(12):
@@ -114,6 +115,7 @@ class EBITMargin(FactorBase):
         ebit.rename(columns={'EBIT_TTM': 'EBIT_TTM_last0Q'}, inplace=True)
         # get oper_rev
         oper_rev = self.influx.getDataMultiprocess('FinancialReport_Gus', 'oper_rev_TTM', self.start, self.end)
+        oper_rev = oper_rev.replace(0, np.nan)
         oper_rev.index.names = ['date']
         oper_rev.reset_index(inplace=True)
         for i in range(9):
@@ -158,6 +160,7 @@ class EBITMargin(FactorBase):
         ebit.rename(columns={'EBIT': 'EBIT_last0Q'}, inplace=True)
         # get oper_rev
         oper_rev = self.influx.getDataMultiprocess('FinancialReport_Gus', 'oper_rev', self.start, self.end)
+        oper_rev = oper_rev.replace(0, np.nan)
         oper_rev.index.names = ['date']
         oper_rev.reset_index(inplace=True)
         for i in range(13):
