@@ -7,11 +7,11 @@ from joblib import Parallel, delayed, parallel_backend
 from rdf_data import rdf_data
 from influxdb_data import influxdbData
 from dateutil.relativedelta import relativedelta
-import warnings
 import statsmodels.api as sm
 from backtest_engine import BacktestEngine
 import logging
 import datetime
+from factor_test_CONFIG import TEST_CONFIG, CATEGORY_WEIGHT, FACTOR_WEIGHT
 
 
 class FactorTest:
@@ -86,24 +86,35 @@ class FactorTest:
         print('%s backtest finish!' % group_name)
         return portfolio_value
 
-    def __init__(self, db, measure, factor):
+    def __init__(self):
         self.rdf = rdf_data()
         self.influx = influxdbData()
         self.n_jobs = global_constant.N_JOBS
-        self.mkt_db = 'DailyMarket_Gus'
+        self.mkt_db = global_constant.MARKET_DB
         self.mkt_measure = 'market'
         self.idx_wgt_measure = 'index_weight'
         self.st_measure = 'isST'
         self.industry_measure = 'industry'
-        self.factor_db = db
-        self.factor_measure = measure
-        self.factor = factor
+
+        self.start = TEST_CONFIG['start']
+        self.end = TEST_CONFIG['end']
+        self.benchmark = TEST_CONFIG['benchmark']
+        self.select_range = TEST_CONFIG['select_range']
+        self.industry = TEST_CONFIG['industry']
+        self.size_field = TEST_CONFIG['size_field']
+        # set save name
+        self.save_name = ''
+        for cate in CATEGORY_WEIGHT:
+            for fct in FACTOR_WEIGHT[cate]:
+                if self.save_name:
+                    self.save_name = self.save_name + '+'
+                self.save_name = self.save_name + '{0}({1})'.format(fct[2], str(fct[5]))
 
     def init_log(self):
         # 配置log
         self.logger = logging.getLogger('FactorTest')
         self.logger.setLevel(level=self.logger_lvl)
-        folder_dir = global_constant.ROOT_DIR + 'Factor_Test/{0}/'.format(self.factor)
+        folder_dir = global_constant.ROOT_DIR + 'Factor_Test/{0}/'.format(self.save_name)
         if os.path.exists(folder_dir):
             pass
         else:
@@ -187,31 +198,62 @@ class FactorTest:
         self.code_range.set_index('date', inplace=True)
         self.code_range = self.code_range.loc[str(self.start):str(self.end), :]
 
-    def get_factor_df(self):
-        factor_df = self.influx.getDataMultiprocess(self.factor_db, self.factor_measure, self.start, self.end,
-                                                    ['code', self.factor])
+    def factors_combination(self):
+        self.logger.info('COMBINE PARAMETERS: ')
+        categories = []
+        for category in CATEGORY_WEIGHT.keys():
+            self.logger.info('-%s  weight: %i' % (category, CATEGORY_WEIGHT[category]))
+            parameters_list = FACTOR_WEIGHT[category]
+            factors_in_category = []
+            for db, measure, factor, direction, if_fillna, weight, check_rp, neutrailize in parameters_list:
+                factor_df = self.get_factors(db, measure, factor, direction, if_fillna, weight, check_rp, neutrailize)
+                factors_in_category.append(factor_df)
+            category_df = pd.concat(factors_in_category, join='inner', axis=1)
+            category_df[category] = category_df.sum(axis=1)
+            category_df = category_df.reset_index().loc[:, ['date', 'code', category]]
+            category_df = DataProcess.standardize(category_df, category, False, self.n_jobs)
+            category_df[category] = CATEGORY_WEIGHT[category] * category_df[category]
+            category_df.set_index(['date', 'code'], inplace=True)
+            categories.append(category_df)
+        merged_df = pd.concat(categories, join='inner', axis=1)
+        merged_df['overall'] = merged_df.sum(axis=1)
+        merged_df = merged_df.reset_index().set_index('date')
+        print('Factors combination finish...')
+        return merged_df
+
+    def get_factors(self, db, measure, factor, direction, fillna, weight, check_rp, neutralize):
+        self.logger.info('  -Factor: %s  dir:%i, fillna:%s, weight:%i, check_rp:%s, neutralize:%s' %
+                         (factor, direction, str(fillna), weight, str(check_rp), str(neutralize)))
+        if check_rp:
+            factor_df = self.influx.getDataMultiprocess(db, measure, self.start, self.end,
+                                                        ['code', factor, 'report_period'])
+            factor_df = DataProcess.check_report_period(factor_df)
+        else:
+            factor_df = self.influx.getDataMultiprocess(db, measure, self.start, self.end,
+                                                        ['code', factor])
         factor_df.index.names = ['date']
         factor_df.reset_index(inplace=True)
-        if self.direction == -1:
-            factor_df[self.factor] = factor_df[self.factor] * -1
-        # 缺失的因子用行业中位数代
-        if self.fillna == 'median':
+        if direction == -1:
+            factor_df[factor] = factor_df[factor] * -1
+        # 缺失的因子用行业中位数填充
+        if fillna == 'median':
             factor_df = pd.merge(factor_df, self.code_range.reset_index(), how='right', on=['date', 'code'])
-            factor_df[self.factor] = factor_df.groupby(['date', 'industry'])[self.factor].apply(
-                lambda x: x.fillna(x.median()))
-        elif self.fillna == 'zero':
+            factor_df[factor] = factor_df.groupby(['date', 'industry'])[factor].apply(lambda x: x.fillna(x.median()))
+        # 缺失的因子用0填充
+        elif fillna == 'zero':
             factor_df = pd.merge(factor_df, self.code_range.reset_index(), how='right', on=['date', 'code'])
-            factor_df[self.factor] = factor_df[self.factor].fillna(0)
+            factor_df[factor] = factor_df[factor].fillna(0)
         else:
             factor_df = pd.merge(factor_df, self.code_range.reset_index(), how='inner', on=['date', 'code'])
+            factor_df = factor_df.dropna(subset=[factor])
+        # 进行 中性化 / 标准化
         factor_df.set_index('date', inplace=True)
-        industry_dummies = self.industry_dummies.copy()
-        size_data = self.size_data.copy()
-        # 进行remove outlier, z score和中性化
-        factor_df = DataProcess.neutralize(factor_df, self.factor, industry_dummies, size_data, self.n_jobs)
-        # 对所有 风格 做中性
-        #factor_df = DataProcess.neutralize_v2(factor_df, self.factor, self.risk_data, self.n_jobs)
-        print('-factor loaded...')
+        if neutralize:
+            factor_df = DataProcess.neutralize(factor_df, factor, self.industry_dummies, self.size_data, self.n_jobs)
+        else:
+            factor_df = DataProcess.standardize(factor_df, factor, False, self.n_jobs)
+        factor_df[factor] = factor_df[factor] * weight
+        factor_df.set_index(['date', 'code'], inplace=True)
         return factor_df
 
     def get_alpha_df(self):
@@ -256,7 +298,8 @@ class FactorTest:
 
     # days 决定next_period_return 的周期
     def validity_check(self, T_test=True):
-        factor_alpha = pd.merge(self.factor_data, self.alpha_df.reset_index(), on=['date', 'code'])
+        fct_data = self.factor_data.loc[:, ['code', 'overall']].copy()
+        factor_alpha = pd.merge(fct_data.reset_index(), self.alpha_df.reset_index(), on=['date', 'code'])
         factor_alpha = factor_alpha.loc[factor_alpha['status'] != '停牌', :]
         dates = factor_alpha['date'].unique()
         split_dates = np.array_split(dates, self.n_jobs)
@@ -264,7 +307,7 @@ class FactorTest:
             # T检验
             with parallel_backend('multiprocessing', n_jobs=self.n_jobs):
                 parallel_res = Parallel()(delayed(FactorTest.JOB_T_test)
-                                          (factor_alpha, self.factor, dates) for dates in split_dates)
+                                          (factor_alpha, 'overall', dates) for dates in split_dates)
             # 第一行F，第二行T
             RLM_result = np.concatenate(parallel_res, axis=1)
             F_alpha_values = RLM_result[0]
@@ -281,7 +324,7 @@ class FactorTest:
             # 计算IC
         with parallel_backend('multiprocessing', n_jobs=self.n_jobs):
             parallel_res = Parallel()(delayed(FactorTest.JOB_IC)
-                                      (factor_alpha, self.factor, dates) for dates in split_dates)
+                                      (factor_alpha, 'overall', dates) for dates in split_dates)
         IC = pd.concat(parallel_res)
         IC_over_0_pct = IC[IC > 0].shape[0] / IC.shape[0]
         abs_IC_over_20pct_pct = abs(IC)[abs(IC) > 0.02].shape[0] / IC.shape[0]
@@ -311,36 +354,30 @@ class FactorTest:
         mkt_data['next_1_day'] = mkt_data['date']
         mkt_data['next_1_day'] = mkt_data['next_1_day'].map(next_date_dict)
         # 组合得到当天未停牌因子的code，中性后的因子值，行业
-        merge_df = pd.merge(self.factor_data, mkt_data, on=['date', 'code'])
+        merge_df = pd.merge(self.factor_data.reset_index(), mkt_data, on=['date', 'code'])
         # 组合行业权重
         merge_df = pd.merge(merge_df, self.bm_indu_weight.reset_index(), how='left', on=['date', 'industry'])
         merge_df.rename(columns={'weight': 'industry_weight'}, inplace=True)
-        merge_df = merge_df.loc[:, ['date', 'code', self.factor, 'industry', 'industry_weight', 'next_1_day']]
-        # 组合市值
+        merge_df = merge_df.loc[:, ['date', 'code', 'overall', 'industry', 'industry_weight', 'next_1_day']]
         merge_df = pd.merge(merge_df, self.size_data.reset_index(), on=['date', 'code'])
-        # 按等权测试
+        # 按市值加权测试
         dates = merge_df['date'].unique()
         split_dates = np.array_split(dates, self.n_jobs)
         with parallel_backend('multiprocessing', n_jobs=self.n_jobs):
             result_list = Parallel()(delayed(FactorTest.JOB_group_factor)
-                                     (dates, self.groups, merge_df, self.factor) for dates in split_dates)
+                                     (dates, self.groups, merge_df, 'overall') for dates in split_dates)
         grouped_weight = pd.concat(result_list)
         grouped_weight.index.names = ['date']
         grouped_weight = grouped_weight.loc[grouped_weight['weight'] > 0, :].sort_index()
         str_start = grouped_weight.index[0].strftime('%Y%m%d')
         str_end = grouped_weight.index[-1].strftime('%Y%m%d')
-        folder_dir = global_constant.ROOT_DIR + '/Backtest_Result/Factor_Group_Weight/{0}/'.format(self.factor)
-        if os.path.exists(folder_dir):
-            pass
-        else:
-            os.makedirs(folder_dir.rstrip('/'))
-        grouped_weight.to_csv(folder_dir + 'GrpWgt_{1}to{2}.csv'.format(str(self.groups), str_start, str_end),
-                              encoding='gbk')
+        folder_dir = global_constant.ROOT_DIR + '/Factor_Test/{0}/'.format(self.save_name)
+        grouped_weight.to_csv(folder_dir + 'GrpWgt_{0}to{1}.csv'.format(str_start, str_end), encoding='gbk')
         return grouped_weight
 
     def group_backtest(self, grouped_weight):
         group = []
-        BE = BacktestEngine('FactorTest_{0}'.format(self.factor), self.start, self.end, self.adj_interval,
+        BE = BacktestEngine('FactorTest_{0}'.format(self.save_name), self.start, self.end, self.adj_interval,
                             self.benchmark, stock_capital=self.capital, logger_lvl=logging.DEBUG)
         for i in range(1, self.groups + 1):
             group.append('group_' + str(i))
@@ -363,11 +400,7 @@ class FactorTest:
         tot_res['long_short'] = tot_res['TotalValue_{0}'.format(group[-1])].pct_change().fillna(0) - \
                                 tot_res['TotalValue_{0}'.format(group[0])].pct_change().fillna(0)
         tot_res['long_short'] = (tot_res['long_short'] + 1).cumprod()
-        folder_dir = global_constant.ROOT_DIR + '/Backtest_Result/Group_Value/{0}/'.format(self.factor)
-        if os.path.exists(folder_dir):
-            pass
-        else:
-            os.makedirs(folder_dir.rstrip('/'))
+        folder_dir = global_constant.ROOT_DIR + '/Factor_Test/{0}/'.format(self.save_name)
         tot_res.to_csv(folder_dir + 'Value_{0}to{1}.csv'.format(self.start, self.end), encoding='gbk')
         print('-' * 30)
         # -------------------------------------
@@ -382,25 +415,13 @@ class FactorTest:
     def generate_report(self):
         fields = ['Start_Time', 'End_Time', 'IC_mean', 'IC_std', 'IR', 'ICIR', 'AnnAlpha', 'AlphaMDD',
                   'IC_over_0_pct', 'abs_IC_over_20pct_pct', 'Falp_over_0_pct', 'avg_abs_Talp', 'abs_Talp_over_2_pct']
-        self.logger.info('Factor: %s' % self.factor)
+        self.logger.info('TEST RESULT:')
         for field in fields:
             self.logger.info('{0}:   {1}'.format(field, self.summary_dict[field]))
         self.logger.info('*' * 30)
 
-    def run(
-            # 初始化参数
-            self, start, end, direction, fillna, benchmark, select_range, industry, size_field,
-            # 回测参数
-            adj_interval=5, groups=5, capital=5000000, cash_reserve=0.03, stk_slippage=0.001,
+    def run(self, adj_interval=5, groups=5, capital=5000000, cash_reserve=0.03, stk_slippage=0.001,
             stk_fee=0.0001, price_field='vwap', logger_lvl=logging.INFO):
-        self.start = start
-        self.end = end
-        self.direction = direction
-        self.fillna = fillna
-        self.benchmark = benchmark
-        self.select_range = select_range
-        self.industry = industry
-        self.size_field = size_field
         self.groups = groups
         self.capital = capital
         self.cash_reserve = cash_reserve
@@ -411,12 +432,14 @@ class FactorTest:
         self.logger_lvl = logger_lvl
         self.summary_dict = {}
         # ---------------------------------------------------------------
+        # init log
+        self.init_log()
         # load data
         self.df_prepare()
         # alpha 数据
         self.alpha_df = self.get_alpha_df()
         # 因子数据
-        self.factor_data = self.get_factor_df()
+        self.factor_data = self.factors_combination()
         # 有效性检验
         self.validity_check(T_test=True)
         print('validity checking finish')
@@ -429,8 +452,6 @@ class FactorTest:
         self.group_backtest(grouped_weight)
         print('group backtest finish')
         print('-' * 30)
-        # init log
-        self.init_log()
         # 生成报告
         print(self.summary_dict)
         self.generate_report()
@@ -439,27 +460,6 @@ class FactorTest:
 
 if __name__ == '__main__':
     dt_start = datetime.datetime.now()
-    warnings.filterwarnings("ignore")
-
-    start = 20120101
-    end = 20181231
-    dbs = [global_constant.FACTOR_DB]
-    measurements = ['oper_rev_Q_growthdiff']
-    factors = ['oper_rev_Q_growthdiff']
-    directions = [1]
-    fillnas = ['median']
-    benchmark = 300
-    select_range = 800
-    adj_interval = 5
-    industry = 'improved_lv1'
-    size_field = 'ln_market_cap'
-
-    for i in range(len(factors)):
-        factor = factors[i]
-        db = dbs[i]
-        measurement = measurements[i]
-        direction = directions[i]
-        fillna = fillnas[i]
-        test = FactorTest(db, measurement, factor)
-        test.run(start, end, direction, fillna, benchmark, select_range, industry, size_field)
+    ft = FactorTest()
+    ft.run()
     print('Test finish! Time token: ', datetime.datetime.now() - dt_start)
