@@ -25,6 +25,7 @@ from ex_right import ex_right
 from stk_swap import stk_swap
 from stk_industry import StkIndustry
 from index_weight import index_weight
+from stk_info import StkInfo
 from shares_turnover import shares_turnover
 from BalanceSheet import BalanceSheetUpdate
 from Income import IncomeUpdate
@@ -141,6 +142,10 @@ class DailyUpdate:
             res = idx_weight.process_data(last_week, last_trade_day, n_jobs)
             self.log_res(res)
             self.logger.info('------------------index weight finish-----------------')
+            stk_info = StkInfo()
+            res = stk_info.process_data(n_jobs)
+            self.log_res(res)
+            self.logger.info('--------------------stk info finish-------------------')
             sh = shares_turnover()
             res = sh.process_data(last_week, last_trade_day, n_jobs)
             self.log_res(res)
