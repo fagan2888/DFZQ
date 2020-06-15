@@ -24,7 +24,7 @@ class StkInfo:
                 "where (S_INFO_WINDCODE like '0%' or S_INFO_WINDCODE like '3%' or S_INFO_WINDCODE like '6%') "
         self.rdf.curs.execute(query)
         stk_info = pd.DataFrame(self.rdf.curs.fetchall(), columns=['code', 'name', 'list_date', 'delist_date'])
-        stk_info['date'] = datetime.datetime.now().strftime('%Y%m%d')
+        stk_info['date'] = 20200615
         stk_info['date'] = pd.to_datetime(stk_info['date'])
         stk_info.set_index('date', inplace=True)
         codes = stk_info['code'].unique()
