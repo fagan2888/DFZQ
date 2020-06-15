@@ -412,10 +412,12 @@ class FactorTest:
             tot_res['TotalValue_{0}'.format(group[-1])], tot_res['BenchmarkValue_{0}'.format(group[-1])])
         self.summary_dict['AlphaMDD'] = DataProcess.calc_alpha_max_draw_down(
             tot_res['TotalValue_{0}'.format(group[-1])], tot_res['BenchmarkValue_{0}'.format(group[-1])])
+        self.summary_dict['AlphaSharpe'] = DataProcess.calc_alpha_sharpe(
+            tot_res['TotalValue_{0}'.format(group[-1])], tot_res['BenchmarkValue_{0}'.format(group[-1])])
         return self.summary_dict.copy()
 
     def generate_report(self):
-        fields = ['Start_Time', 'End_Time', 'IC_mean', 'IC_std', 'IR', 'ICIR', 'AnnAlpha', 'AlphaMDD',
+        fields = ['Start_Time', 'End_Time', 'IC_mean', 'IC_std', 'IR', 'ICIR', 'AnnAlpha', 'AlphaMDD', 'AlphaSharpe'
                   'IC_over_0_pct', 'abs_IC_over_20pct_pct', 'Falp_over_0_pct', 'avg_abs_Talp', 'abs_Talp_over_2_pct']
         self.logger.info('TEST RESULT:')
         for field in fields:
