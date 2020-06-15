@@ -218,6 +218,8 @@ class FactorTest:
         merged_df = pd.concat(categories, join='inner', axis=1)
         merged_df['overall'] = merged_df.sum(axis=1)
         merged_df = merged_df.reset_index().set_index('date')
+        folder_dir = global_constant.ROOT_DIR + 'Factor_Test/{0}/'.format(self.save_name)
+        merged_df.to_csv(folder_dir + 'FactorsCombination.csv', encoding='gbk')
         print('Factors combination finish...')
         return merged_df
 
