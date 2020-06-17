@@ -133,43 +133,6 @@ class FactorTest(StrategyBase):
             os.makedirs(self.folder_dir.rstrip('/'))
         super().__init__(self.save_name)
 
-    # 重写 process_factor
-    # 加上 判断是否 中性化
-    # 加上 log
-    def process_factor(self, db, measure, factor, direction, fillna, check_rp, neutralize):
-        self.logger.info('  -Factor: %s   DIR:%i,   FILLNA:%s,   CHECKRP:%s,   NEUTRALIZE:%s' %
-                         (factor, direction, str(fillna), str(check_rp), str(neutralize)))
-        if check_rp:
-            factor_df = \
-                self.influx.getDataMultiprocess(db, measure, self.start, self.end, ['code', factor, 'report_period'])
-            factor_df = DataProcess.check_report_period(factor_df)
-        else:
-            factor_df = self.influx.getDataMultiprocess(db, measure, self.start, self.end, ['code', factor])
-        factor_df.index.names = ['date']
-        factor_df.reset_index(inplace=True)
-        if direction == -1:
-            factor_df[factor] = factor_df[factor] * -1
-        # 缺失的因子用行业中位数填充
-        if fillna == 'median':
-            factor_df = pd.merge(factor_df, self.code_range.reset_index(), how='right', on=['date', 'code'])
-            factor_df[factor] = factor_df.groupby(['date', 'industry'])[factor].apply(
-                lambda x: x.fillna(x.median()))
-        # 缺失的因子用0填充
-        elif fillna == 'zero':
-            factor_df = pd.merge(factor_df, self.code_range.reset_index(), how='right', on=['date', 'code'])
-            factor_df[factor] = factor_df[factor].fillna(0)
-        else:
-            factor_df = pd.merge(factor_df, self.code_range.reset_index(), how='inner', on=['date', 'code'])
-            factor_df = factor_df.dropna(subset=[factor])
-        factor_df.set_index('date', inplace=True)
-        # 进行 中性化 / 标准化
-        if neutralize:
-            factor_df = DataProcess.neutralize(factor_df, factor, self.industry_dummies, self.size_data, self.n_jobs)
-            factor_df = pd.merge(factor_df, self.industry_data.reset_index(), on=['date', 'code'])
-        else:
-            factor_df = DataProcess.standardize(factor_df, factor, False, self.n_jobs)
-        return factor_df
-
     def factors_combination(self):
         self.logger.info('COMBINE PARAMETERS: ')
         categories = []
@@ -177,22 +140,25 @@ class FactorTest(StrategyBase):
             self.logger.info('-%s  weight: %i' % (category, CATEGORY_WEIGHT[category]))
             parameters_list = FACTOR_WEIGHT[category]
             factors_in_category = []
-            for db, measure, factor, direction, fillna, weight, check_rp, neutrailize in parameters_list:
-                factor_df = self.process_factor(db, measure, factor, direction, fillna, check_rp, neutrailize)
+            for db, measure, factor, direction, fillna, weight, check_rp, neutralize in parameters_list:
+                self.logger.info('  -Factor: %s   DIR:%i,   FILLNA:%s,   CHECKRP:%s,   NEUTRALIZE:%s' %
+                                 (factor, direction, str(fillna), str(check_rp), str(neutralize)))
                 self.logger.info('  -Factor: %s  weight:%i' % (factor, weight))
+                factor_df = self.process_factor(db, measure, factor, direction, fillna, check_rp, neutralize)
                 factor_df[factor] = factor_df[factor] * weight
-                factor_df.set_index(['date', 'code', 'industry'], inplace=True)
+                factor_df.set_index(['date', 'code'], inplace=True)
                 factors_in_category.append(factor_df)
             category_df = pd.concat(factors_in_category, join='inner', axis=1)
             category_df[category] = category_df.sum(axis=1)
             category_df = category_df.reset_index()
             category_df = DataProcess.standardize(category_df, category, False, self.n_jobs)
             category_df[category] = CATEGORY_WEIGHT[category] * category_df[category]
-            category_df.set_index(['date', 'code', 'industry'], inplace=True)
+            category_df.set_index(['date', 'code'], inplace=True)
             categories.append(category_df)
         merged_df = pd.concat(categories, join='inner', axis=1)
         merged_df['overall'] = merged_df[list(CATEGORY_WEIGHT.keys())].sum(axis=1)
         merged_df = merged_df.reset_index()
+        merged_df = pd.merge(merged_df, self.industry_data.reset_index(), how='inner', on=['date', 'code'])
         merged_df = pd.merge(merged_df, self.float_mv.reset_index(), how='inner', on=['date', 'code'])
         merged_df = merged_df.set_index('date')
         folder_dir = global_constant.ROOT_DIR + 'Factor_Test/{0}/'.format(self.save_name)
