@@ -159,8 +159,8 @@ class StrategyBase:
         if neutralize:
             factor_df = DataProcess.neutralize(factor_df, factor, self.industry_dummies, self.size_data, self.n_jobs)
         else:
-            factor_df = factor_df.loc[:, ['date', 'code', factor]]
-            factor_df = DataProcess.standardize(factor_df, factor, False, self.n_jobs)
+            factor_df = factor_df.loc[:, ['code', factor]]
+            factor_df = DataProcess.standardize(factor_df, factor, True, self.n_jobs)
         return factor_df
 
     def initialize_strategy(self, start, end, benchmark, select_range, industry, adj_interval):
