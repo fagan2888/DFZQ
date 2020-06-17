@@ -7,7 +7,8 @@ TEST_CONFIG = \
         'benchmark': 300,
         'select_range': 800,
         'industry': 'improved_lv1',
-        'size_field': 'ln_market_cap'
+        'size_field': 'ln_market_cap',
+        'adj_interval': 5
     }
 
 # 大类因子权重

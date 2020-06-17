@@ -4,17 +4,16 @@ import numpy as np
 import os.path
 from data_process import DataProcess
 from joblib import Parallel, delayed, parallel_backend
-from rdf_data import rdf_data
-from influxdb_data import influxdbData
-from dateutil.relativedelta import relativedelta
 import statsmodels.api as sm
 from backtest_engine import BacktestEngine
 import logging
 import datetime
 from factor_test_CONFIG import TEST_CONFIG, CATEGORY_WEIGHT, FACTOR_WEIGHT
+from strategy_base import StrategyBase
+from dateutil.relativedelta import relativedelta
 
 
-class FactorTest:
+class FactorTest(StrategyBase):
     @staticmethod
     def JOB_T_test(processed_factor, factor_field, dates):
         F_alpha = []
@@ -40,15 +39,15 @@ class FactorTest:
             IC_date.append(date)
         return pd.Series(day_IC, index=IC_date)
 
-    # 市值加权所用的分组job
+    # 等权分配所用的分组job
     @staticmethod
-    def JOB_group_factor(dates, groups, factor, factor_field):
+    def JOB_group_factor(dates, groups, factor, factor_field, size_field):
         labels = []
         for i in range(1, groups + 1):
             labels.append('group_' + str(i))
         res = []
         for date in dates:
-            day_factor = factor.loc[factor['date'] == date, :].copy()
+            day_factor = factor.loc[date, :].copy()
             industries = day_factor['industry'].unique()
             for ind in industries:
                 day_industry_factor = day_factor.loc[day_factor['industry'] == ind, :].copy()
@@ -56,19 +55,16 @@ class FactorTest:
                 if day_industry_factor.shape[0] < 10:
                     day_industry_factor['group'] = 'same group'
                     day_industry_factor['weight'] = \
-                        day_industry_factor['industry_weight'] / day_industry_factor['size'].sum() * \
-                        day_industry_factor['size']
+                        day_industry_factor['industry_weight'] / day_industry_factor[size_field].sum() * \
+                        day_industry_factor[size_field]
                 else:
                     day_industry_factor['group'] = pd.qcut(day_industry_factor[factor_field], 5, labels=labels)
-                    group_size = day_industry_factor.groupby('group')['size'].sum().to_dict()
+                    group_size = day_industry_factor.groupby('group')[size_field].sum().to_dict()
                     day_industry_factor['group_size'] = day_industry_factor['group'].map(group_size)
-                    day_industry_factor['weight'] = \
-                        day_industry_factor['industry_weight'] / day_industry_factor['group_size'] * \
-                        day_industry_factor['size']
+                    day_industry_factor['weight'] = day_industry_factor['industry_weight'] / \
+                                                    day_industry_factor['group_size'] * day_industry_factor[size_field]
                 res.append(day_industry_factor)
         res_df = pd.concat(res)
-        res_df.set_index('next_1_day', inplace=True)
-        res_df.drop('date', axis=1, inplace=True)
         return res_df
 
     # 回测所用的工具函数
@@ -86,22 +82,43 @@ class FactorTest:
         print('%s backtest finish!' % group_name)
         return portfolio_value
 
-    def __init__(self):
-        self.rdf = rdf_data()
-        self.influx = influxdbData()
-        self.n_jobs = global_constant.N_JOBS
-        self.mkt_db = global_constant.MARKET_DB
-        self.mkt_measure = 'market'
-        self.idx_wgt_measure = 'index_weight'
-        self.st_measure = 'isST'
-        self.industry_measure = 'industry'
+    # 重写 init_log
+    def init_log(self):
+        # 配置log
+        self.logger = logging.getLogger('FactorTest')
+        self.logger.setLevel(level=self.logger_lvl)
+        handler = logging.FileHandler(self.folder_dir + 'Test_result.log')
+        handler.setLevel(logging.INFO)
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s: %(message)s')
+        handler.setFormatter(formatter)
+        self.logger.addHandler(handler)
 
+    # 重写 initialize_strategy
+    def initialize_strategy(self):
+        self.n_jobs = global_constant.N_STRATEGY
         self.start = TEST_CONFIG['start']
         self.end = TEST_CONFIG['end']
         self.benchmark = TEST_CONFIG['benchmark']
         self.select_range = TEST_CONFIG['select_range']
         self.industry = TEST_CONFIG['industry']
-        self.size_field = TEST_CONFIG['size_field']
+        self.adj_interval = TEST_CONFIG['adj_interval']
+        mkt_end = (pd.to_datetime(str(self.end)) + relativedelta(months=1)).strftime('%Y%m%d')
+        self.data_prepare(self.start, mkt_end)
+        # 获取 benchmark 的 行业权重
+        self.bm_indu_weight = \
+            pd.merge(self.bm_stk_wgt.reset_index(), self.industry_data.reset_index(), on=['date', 'code'])
+        self.bm_indu_weight = self.bm_indu_weight.groupby(['date', 'industry'])['weight'].sum()
+        self.bm_indu_weight = self.bm_indu_weight.reset_index().set_index('date')
+        # 获取 benchmark 的 行情
+        self.bm_mkt = self.mkt_data.loc[self.mkt_data['code'] == self.benchmark_code, :].copy()
+        # 获取 流通市值
+        self.float_mv = self.influx.getDataMultiprocess(global_constant.FACTOR_DB, 'Size', self.start, self.end,
+                                                        ['code', 'float_market_cap'])
+        self.float_mv.index.names = ['date']
+        self.init_log()
+
+    # 重写 __init__
+    def __init__(self):
         # set save name
         self.save_name = ''
         for cate in CATEGORY_WEIGHT:
@@ -109,94 +126,49 @@ class FactorTest:
                 if self.save_name:
                     self.save_name = self.save_name + '+'
                 self.save_name = self.save_name + '{0}({1})'.format(fct[2], str(fct[5]))
-
-    def init_log(self):
-        # 配置log
-        self.logger = logging.getLogger('FactorTest')
-        self.logger.setLevel(level=self.logger_lvl)
-        folder_dir = global_constant.ROOT_DIR + 'Factor_Test/{0}/'.format(self.save_name)
-        if os.path.exists(folder_dir):
+        self.folder_dir = global_constant.ROOT_DIR + 'Factor_Test/{0}/'.format(self.save_name)
+        if os.path.exists(self.folder_dir):
             pass
         else:
-            os.makedirs(folder_dir.rstrip('/'))
-        handler = logging.FileHandler(folder_dir + 'Test_result.log')
-        handler.setLevel(logging.INFO)
-        formatter = logging.Formatter('%(asctime)s - %(levelname)s: %(message)s')
-        handler.setFormatter(formatter)
-        self.logger.addHandler(handler)
+            os.makedirs(self.folder_dir.rstrip('/'))
+        super().__init__(self.save_name)
 
-    def df_prepare(self):
-        # --------------------------------load data------------------------------------
-        # market data
-        mkt_end = (pd.to_datetime(str(self.end)) + relativedelta(months=1)).strftime('%Y%m%d')
-        self.mkt_data = self.influx.getDataMultiprocess(self.mkt_db, self.mkt_measure, self.start, mkt_end)
-        self.mkt_data.index.names = ['date']
-        # calendar
-        self.calendar = self.rdf.get_trading_calendar()
-        # index weight
-        self.idx_wgt_data = self.influx.getDataMultiprocess(self.mkt_db, self.idx_wgt_measure, self.start, mkt_end)
-        self.idx_wgt_data.index.names = ['date']
-        # benchmark_weight
-        benchmark_code_dict = {50: '000016.SH', 300: '000300.SH', 500: '000905.SH'}
-        self.benchmark_code = benchmark_code_dict[self.benchmark]
-        self.bm_stk_wgt = self.idx_wgt_data.loc[
-            self.idx_wgt_data['index_code'] == self.benchmark_code, ['code', 'weight']].copy()
-        self.bm_mkt = self.mkt_data.loc[self.mkt_data['code'] == self.benchmark_code, :].copy()
-        # isST
-        self.st_data = self.influx.getDataMultiprocess(self.mkt_db, self.st_measure, self.start, mkt_end)
-        self.st_data.index.names = ['date']
-        # industry
-        self.industry_data = self.influx.getDataMultiprocess(self.mkt_db, self.industry_measure,
-                                                             self.start, mkt_end, ['code', self.industry])
-        self.industry_data.rename(columns={self.industry: 'industry'}, inplace=True)
-        self.industry_data.index.names = ['date']
-        # industry dummies
-        self.industry_dummies = DataProcess.get_industry_dummies(self.industry_data, 'industry')
-        self.industry_dummies.index.names = ['date']
-        # benchmark industry weight
-        self.bm_indu_weight = pd.merge(self.bm_stk_wgt.reset_index(), self.industry_data.reset_index(),
-                                       on=['date', 'code'])
-        self.bm_indu_weight = self.bm_indu_weight.groupby(['date', 'industry'])['weight'].sum()
-        self.bm_indu_weight = self.bm_indu_weight.reset_index().set_index('date')
-        print('-market related data loaded...')
-        # size
-        self.size_data = \
-            self.influx.getDataMultiprocess(global_constant.FACTOR_DB, 'Size', self.start, mkt_end,
-                                            ['code', self.size_field])
-        self.size_data.rename(columns={self.size_field: 'size'}, inplace=True)
-        self.size_data.index.names = ['date']
-        print('-size data loaded...')
-        # risk
-        self.risk_data = \
-            self.influx.getDataMultiprocess(global_constant.FACTOR_DB, 'RiskExposure', self.start, mkt_end)
-        self.risk_data.index.names = ['date']
-        print('-risk data loaded...')
-        # ========================================================================
-        # ----------------------select codes in select range----------------------
-        # 过滤 select range内 的票
-        if self.select_range == 300:
-            self.code_range = self.idx_wgt_data.loc[self.idx_wgt_data['index_code'] == '000300.SH', ['code']].copy()
-        elif self.select_range == 500:
-            self.code_range = self.idx_wgt_data.loc[self.idx_wgt_data['index_code'] == '000905.SH', ['code']].copy()
-        elif self.select_range == 800:
-            self.code_range = self.idx_wgt_data.loc[
-                (self.idx_wgt_data['index_code'] == '000300.SH') | (self.idx_wgt_data['index_code'] == '000905.SH'),
-                ['code']].copy()
+    # 重写 process_factor
+    # 加上 判断是否 中性化
+    # 加上 log
+    def process_factor(self, db, measure, factor, direction, fillna, check_rp, neutralize):
+        self.logger.info('  -Factor: %s   DIR:%i,   FILLNA:%s,   CHECKRP:%s,   NEUTRALIZE:%s' %
+                         (factor, direction, str(fillna), str(check_rp), str(neutralize)))
+        if check_rp:
+            factor_df = \
+                self.influx.getDataMultiprocess(db, measure, self.start, self.end, ['code', factor, 'report_period'])
+            factor_df = DataProcess.check_report_period(factor_df)
         else:
-            self.code_range = self.mkt_data.loc[:, ['code']].copy()
-        self.code_range.reset_index(inplace=True)
-        # 过滤 停牌 的票
-        suspend_stk = self.mkt_data.loc[self.mkt_data['status'] != '停牌', ['code']].copy()
-        suspend_stk.reset_index(inplace=True)
-        self.code_range = pd.merge(self.code_range, suspend_stk, how='inner', on=['date', 'code'])
-        # 过滤 st 的票
-        st = self.st_data.copy().reset_index()
-        self.code_range = pd.merge(self.code_range, st, how='left', on=['date', 'code'])
-        self.code_range = self.code_range.loc[pd.isnull(self.code_range['isST']), ['date', 'code']]
-        # 组合 industry
-        self.code_range = pd.merge(self.code_range, self.industry_data.reset_index(), how='inner', on=['date', 'code'])
-        self.code_range.set_index('date', inplace=True)
-        self.code_range = self.code_range.loc[str(self.start):str(self.end), :]
+            factor_df = self.influx.getDataMultiprocess(db, measure, self.start, self.end, ['code', factor])
+        factor_df.index.names = ['date']
+        factor_df.reset_index(inplace=True)
+        if direction == -1:
+            factor_df[factor] = factor_df[factor] * -1
+        # 缺失的因子用行业中位数填充
+        if fillna == 'median':
+            factor_df = pd.merge(factor_df, self.code_range.reset_index(), how='right', on=['date', 'code'])
+            factor_df[factor] = factor_df.groupby(['date', 'industry'])[factor].apply(
+                lambda x: x.fillna(x.median()))
+        # 缺失的因子用0填充
+        elif fillna == 'zero':
+            factor_df = pd.merge(factor_df, self.code_range.reset_index(), how='right', on=['date', 'code'])
+            factor_df[factor] = factor_df[factor].fillna(0)
+        else:
+            factor_df = pd.merge(factor_df, self.code_range.reset_index(), how='inner', on=['date', 'code'])
+            factor_df = factor_df.dropna(subset=[factor])
+        factor_df.set_index('date', inplace=True)
+        # 进行 中性化 / 标准化
+        if neutralize:
+            factor_df = DataProcess.neutralize(factor_df, factor, self.industry_dummies, self.size_data, self.n_jobs)
+            factor_df = pd.merge(factor_df, self.industry_data.reset_index(), on=['date', 'code'])
+        else:
+            factor_df = DataProcess.standardize(factor_df, factor, False, self.n_jobs)
+        return factor_df
 
     def factors_combination(self):
         self.logger.info('COMBINE PARAMETERS: ')
@@ -205,68 +177,39 @@ class FactorTest:
             self.logger.info('-%s  weight: %i' % (category, CATEGORY_WEIGHT[category]))
             parameters_list = FACTOR_WEIGHT[category]
             factors_in_category = []
-            for db, measure, factor, direction, if_fillna, weight, check_rp, neutrailize in parameters_list:
-                factor_df = self.get_factors(db, measure, factor, direction, if_fillna, weight, check_rp, neutrailize)
+            for db, measure, factor, direction, fillna, weight, check_rp, neutrailize in parameters_list:
+                factor_df = self.process_factor(db, measure, factor, direction, fillna, check_rp, neutrailize)
+                self.logger.info('  -Factor: %s  weight:%i' % (factor, weight))
+                factor_df[factor] = factor_df[factor] * weight
+                factor_df.set_index(['date', 'code', 'industry'], inplace=True)
                 factors_in_category.append(factor_df)
             category_df = pd.concat(factors_in_category, join='inner', axis=1)
             category_df[category] = category_df.sum(axis=1)
-            category_df = category_df.reset_index().loc[:, ['date', 'code', category]]
+            category_df = category_df.reset_index()
             category_df = DataProcess.standardize(category_df, category, False, self.n_jobs)
             category_df[category] = CATEGORY_WEIGHT[category] * category_df[category]
-            category_df.set_index(['date', 'code'], inplace=True)
+            category_df.set_index(['date', 'code', 'industry'], inplace=True)
             categories.append(category_df)
         merged_df = pd.concat(categories, join='inner', axis=1)
-        merged_df['overall'] = merged_df.sum(axis=1)
-        merged_df = merged_df.reset_index().set_index('date')
+        merged_df['overall'] = merged_df[list(CATEGORY_WEIGHT.keys())].sum(axis=1)
+        merged_df = merged_df.reset_index()
+        merged_df = pd.merge(merged_df, self.float_mv.reset_index(), how='inner', on=['date', 'code'])
+        merged_df = merged_df.set_index('date')
         folder_dir = global_constant.ROOT_DIR + 'Factor_Test/{0}/'.format(self.save_name)
         merged_df.to_csv(folder_dir + 'FactorsCombination.csv', encoding='gbk')
         print('Factors combination finish...')
         return merged_df
 
-    def get_factors(self, db, measure, factor, direction, fillna, weight, check_rp, neutralize):
-        self.logger.info('  -Factor: %s  dir:%i, fillna:%s, weight:%i, check_rp:%s, neutralize:%s' %
-                         (factor, direction, str(fillna), weight, str(check_rp), str(neutralize)))
-        if check_rp:
-            factor_df = self.influx.getDataMultiprocess(db, measure, self.start, self.end,
-                                                        ['code', factor, 'report_period'])
-            factor_df = DataProcess.check_report_period(factor_df)
-        else:
-            factor_df = self.influx.getDataMultiprocess(db, measure, self.start, self.end,
-                                                        ['code', factor])
-        factor_df.index.names = ['date']
-        factor_df.reset_index(inplace=True)
-        if direction == -1:
-            factor_df[factor] = factor_df[factor] * -1
-        # 缺失的因子用行业中位数填充
-        if fillna == 'median':
-            factor_df = pd.merge(factor_df, self.code_range.reset_index(), how='right', on=['date', 'code'])
-            factor_df[factor] = factor_df.groupby(['date', 'industry'])[factor].apply(lambda x: x.fillna(x.median()))
-        # 缺失的因子用0填充
-        elif fillna == 'zero':
-            factor_df = pd.merge(factor_df, self.code_range.reset_index(), how='right', on=['date', 'code'])
-            factor_df[factor] = factor_df[factor].fillna(0)
-        else:
-            factor_df = pd.merge(factor_df, self.code_range.reset_index(), how='inner', on=['date', 'code'])
-            factor_df = factor_df.dropna(subset=[factor])
-        # 进行 中性化 / 标准化
-        factor_df.set_index('date', inplace=True)
-        if neutralize:
-            factor_df = DataProcess.neutralize(factor_df, factor, self.industry_dummies, self.size_data, self.n_jobs)
-        else:
-            factor_df = DataProcess.standardize(factor_df, factor, False, self.n_jobs)
-        factor_df[factor] = factor_df[factor] * weight
-        factor_df.set_index(['date', 'code'], inplace=True)
-        return factor_df
-
     def get_alpha_df(self):
         next_date_dict = {}
-        for date in self.mkt_data.index.unique():
+        for date in self.mkt_data.index.unique().strftime('%Y%m%d')[:-self.adj_interval]:
             next_date_dict.update(DataProcess.get_next_date(self.calendar, date, self.adj_interval))
         # get stk return
         stk_ret_df = self.mkt_data.copy()
-        stk_ret_df['next_period_date'] = stk_ret_df.index
+        stk_ret_df['next_period_date'] = stk_ret_df.index.strftime('%Y%m%d')
         stk_ret_df['next_period_date'] = stk_ret_df['next_period_date'].map(next_date_dict)
         stk_ret_df = stk_ret_df.dropna(subset=['next_period_date'])
+        stk_ret_df['next_period_date'] = pd.to_datetime(stk_ret_df['next_period_date'])
         stk_ret_df['fq_close'] = stk_ret_df['adj_factor'] * stk_ret_df['close']
         stk_ret_df.reset_index(inplace=True)
         stk_ret_df = stk_ret_df.loc[:, ['date', 'code', 'status', 'fq_close', 'next_period_date']]
@@ -275,14 +218,15 @@ class FactorTest:
         next_mkt_data.rename(columns={'date': 'next_period_date', 'fq_close': 'next_fq_close'}, inplace=True)
         stk_ret_df = pd.merge(stk_ret_df, next_mkt_data, on=['next_period_date', 'code'])
         stk_ret_df['return'] = stk_ret_df['next_fq_close'] / stk_ret_df['fq_close'] - 1
-        stk_ret_df = stk_ret_df.loc[(stk_ret_df['return'] < 0.1 * self.adj_interval) &
-                                    (stk_ret_df['return'] > -0.1 * self.adj_interval), :]
+        stk_ret_df = stk_ret_df.loc[(stk_ret_df['return'] < 1.1 ** self.adj_interval - 1) &
+                                    (stk_ret_df['return'] > 0.9 ** self.adj_interval - 1), :]
         stk_ret_df = stk_ret_df.loc[:, ['date', 'code', 'status', 'return']]
         # get benchmark return
         bm_ret_df = self.bm_mkt.copy()
-        bm_ret_df['next_period_date'] = bm_ret_df.index
+        bm_ret_df['next_period_date'] = bm_ret_df.index.strftime('%Y%m%d')
         bm_ret_df['next_period_date'] = bm_ret_df['next_period_date'].map(next_date_dict)
         bm_ret_df = bm_ret_df.dropna(subset=['next_period_date'])
+        bm_ret_df['next_period_date'] = pd.to_datetime(bm_ret_df['next_period_date'])
         bm_ret_df['fq_close'] = bm_ret_df['adj_factor'] * bm_ret_df['close']
         bm_ret_df.reset_index(inplace=True)
         bm_ret_df = bm_ret_df.loc[:, ['date', 'fq_close', 'next_period_date']]
@@ -347,29 +291,27 @@ class FactorTest:
 
     # 此处weight_field为行业内权重分配的field
     def group_factor(self):
-        mkt_data = pd.merge(self.mkt_data.reset_index(), self.code_range.reset_index(), on=['date', 'code'])
-        mkt_data = mkt_data.loc[mkt_data['status'] != '停牌', :]
-        idxs = mkt_data['date'].unique()
-        next_date_dict = {}
-        for date in idxs:
-            next_date_dict.update(DataProcess.get_next_date(self.calendar, date, 1))
-        mkt_data['next_1_day'] = mkt_data['date']
-        mkt_data['next_1_day'] = mkt_data['next_1_day'].map(next_date_dict)
-        # 组合得到当天未停牌因子的code，中性后的因子值，行业
-        merge_df = pd.merge(self.factor_data.reset_index(), mkt_data, on=['date', 'code'])
         # 组合行业权重
-        merge_df = pd.merge(merge_df, self.bm_indu_weight.reset_index(), how='left', on=['date', 'industry'])
+        fct_data = self.factor_data.loc[:, ['code', 'industry', 'overall', 'float_market_cap']]
+        next_date_dict = {}
+        for date in fct_data.index.unique().strftime('%Y%m%d')[:-1]:
+            next_date_dict.update(DataProcess.get_next_date(self.calendar, date, 1))
+        fct_data['date'] = fct_data.index.strftime('%Y%m%d')
+        fct_data['date'] = fct_data['date'].map(next_date_dict)
+        fct_data = fct_data.dropna(subset=['date'])
+        fct_data['date'] = pd.to_datetime(fct_data['date'])
+        # 以前一天的因子值，市值 组合后一天的行业权重
+        merge_df = pd.merge(fct_data, self.bm_indu_weight.reset_index(), how='inner', on=['date', 'industry'])
         merge_df.rename(columns={'weight': 'industry_weight'}, inplace=True)
-        merge_df = merge_df.loc[:, ['date', 'code', 'overall', 'industry', 'industry_weight', 'next_1_day']]
-        merge_df = pd.merge(merge_df, self.size_data.reset_index(), on=['date', 'code'])
+        merge_df.set_index('date', inplace=True)
         # 按市值加权测试
-        dates = merge_df['date'].unique()
+        dates = merge_df.index.unique().strftime('%Y%m%d')
         split_dates = np.array_split(dates, self.n_jobs)
         with parallel_backend('multiprocessing', n_jobs=self.n_jobs):
             result_list = Parallel()(delayed(FactorTest.JOB_group_factor)
-                                     (dates, self.groups, merge_df, 'overall') for dates in split_dates)
+                                     (dates, self.groups, merge_df, 'overall', 'float_market_cap')
+                                     for dates in split_dates)
         grouped_weight = pd.concat(result_list)
-        grouped_weight.index.names = ['date']
         grouped_weight = grouped_weight.loc[grouped_weight['weight'] > 0, :].sort_index()
         str_start = grouped_weight.index[0].strftime('%Y%m%d')
         str_end = grouped_weight.index[-1].strftime('%Y%m%d')
@@ -417,7 +359,7 @@ class FactorTest:
         return self.summary_dict.copy()
 
     def generate_report(self):
-        fields = ['Start_Time', 'End_Time', 'IC_mean', 'IC_std', 'IR', 'ICIR', 'AnnAlpha', 'AlphaMDD', 'AlphaSharpe'
+        fields = ['Start_Time', 'End_Time', 'IC_mean', 'IC_std', 'IR', 'ICIR', 'AnnAlpha', 'AlphaMDD', 'AlphaSharpe',
                   'IC_over_0_pct', 'abs_IC_over_20pct_pct', 'Falp_over_0_pct', 'avg_abs_Talp', 'abs_Talp_over_2_pct']
         self.logger.info('TEST RESULT:')
         for field in fields:
@@ -436,10 +378,8 @@ class FactorTest:
         self.logger_lvl = logger_lvl
         self.summary_dict = {}
         # ---------------------------------------------------------------
-        # init log
-        self.init_log()
-        # load data
-        self.df_prepare()
+        # initialize strategy
+        self.initialize_strategy()
         # alpha 数据
         self.alpha_df = self.get_alpha_df()
         # 因子数据
