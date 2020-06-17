@@ -132,7 +132,7 @@ class StrategyBase:
         self.size_data.set_index('date', inplace=True)
         print('-size data loaded...')
 
-    def process_factor(self, db, measure, factor, direction, fillna, check_rp):
+    def process_factor(self, db, measure, factor, direction, fillna, check_rp, neutralize):
         if check_rp:
             factor_df = \
                 self.influx.getDataMultiprocess(db, measure, self.start, self.end, ['code', factor, 'report_period'])
@@ -155,9 +155,12 @@ class StrategyBase:
             factor_df = pd.merge(factor_df, self.code_range.reset_index(), how='inner', on=['date', 'code'])
             factor_df = factor_df.dropna(subset=[factor])
         factor_df.set_index('date', inplace=True)
-        # 进行remove outlier, 中性化 和 标准化
-        size_data = self.size_data.rename(columns={'z_mv': 'size'})
-        factor_df = DataProcess.neutralize(factor_df, factor, self.industry_dummies, size_data, self.n_jobs)
+        # 进行 中性化 / 标准化
+        if neutralize:
+            factor_df = DataProcess.neutralize(factor_df, factor, self.industry_dummies, self.size_data, self.n_jobs)
+        else:
+            factor_df = factor_df.loc[:, ['date', 'code', 'factor']]
+            factor_df = DataProcess.standardize(factor_df, factor, False, self.n_jobs)
         return factor_df
 
     def initialize_strategy(self, start, end, benchmark, select_range, industry, adj_interval):
