@@ -106,7 +106,7 @@ class DataProcess:
 
     @staticmethod
     def get_next_date(calendar, today, days):
-        return {today: calendar[calendar > today].iloc[days - 1]}
+        return {today: calendar[calendar > today][days - 1]}
 
     @staticmethod
     # 获取行业哑变量
@@ -149,13 +149,13 @@ class DataProcess:
     # 市值行业中性化: 因子先去极值，行业变换哑变量，回归完取残差
     # 数据中不能有nan，否则答案全为nan
     # 返回的date在columns里
-    def neutralize(factor_data, factor_field, industry_dummies, size_data, n_process=5):
+    def neutralize(factor_data, factor_field, industry_dummies, z_size_data, n_process=5):
         industry_dummies.index.names = ['date']
         factor_data.index.names = ['date']
-        size_data.index.names = ['date']
+        z_size_data.index.names = ['date']
         factor = factor_data.reset_index().loc[:, ['date', 'code', factor_field]].copy()
         industry = industry_dummies.reset_index()
-        size = size_data.reset_index().loc[:, ['date', 'code', 'size']].copy()
+        size = z_size_data.reset_index()
         factor = pd.merge(factor, industry, on=['date', 'code'])
         factor = pd.merge(factor, size, on=['date', 'code'])
         factor = factor.dropna()

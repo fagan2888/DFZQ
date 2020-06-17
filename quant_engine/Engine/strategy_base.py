@@ -4,7 +4,7 @@ import numpy as np
 from rdf_data import rdf_data
 from influxdb_data import influxdbData
 from data_process import DataProcess
-from joblib import Parallel, delayed, parallel_backend
+from dateutil.relativedelta import relativedelta
 import logging
 import os.path
 
@@ -14,12 +14,13 @@ class StrategyBase:
         self.influx = influxdbData()
         self.rdf = rdf_data()
         self.strategy_name = strategy_name
-        self.mkt_db = 'DailyMarket_Gus'
+        self.mkt_db = global_constant.MARKET_DB
         self.mkt_measure = 'market'
         self.idx_wgt_measure = 'index_weight'
         self.st_measure = 'isST'
         self.industry_measure = 'industry'
-        self.factor_db = 'DailyFactors_Gus'
+        self.info_measure = 'stk_info'
+        self.factor_db = global_constant.FACTOR_DB
         self.risk_exp_measure = 'RiskExposure'
         self.risk_cov_measure = 'RiskCov'
         self.spec_risk_measure = 'SpecificRisk'
@@ -40,16 +41,17 @@ class StrategyBase:
     # 获得行情信息以及选股的范围
     # 行情信息为全市场，以免吸收合并出现没有行情的情况
     # data_prepare 所生成的所有数据，date都是index
-    def data_prepare(self):
+    # factor test 所用的 start end 会跟 做策略有所不同
+    def data_prepare(self, start, end):
         # =============================================================================
         # --------------------------------load data------------------------------------
         # market data
-        self.mkt_data = self.influx.getDataMultiprocess(self.mkt_db, self.mkt_measure, self.start, self.end)
+        self.mkt_data = self.influx.getDataMultiprocess(self.mkt_db, self.mkt_measure, start, end)
         self.mkt_data.index.names = ['date']
         # calendar
         self.calendar = self.mkt_data.index.unique().strftime('%Y%m%d')
         # index weight
-        self.idx_wgt_data = self.influx.getDataMultiprocess(self.mkt_db, self.idx_wgt_measure, self.start, self.end)
+        self.idx_wgt_data = self.influx.getDataMultiprocess(self.mkt_db, self.idx_wgt_measure, start, end)
         self.idx_wgt_data.index.names = ['date']
         # benchmark_weight
         benchmark_code_dict = {50: '000016.SH', 300: '000300.SH', 500: '000905.SH'}
@@ -57,13 +59,21 @@ class StrategyBase:
         self.bm_stk_wgt = self.idx_wgt_data.loc[
             self.idx_wgt_data['index_code'] == self.benchmark_code, ['code', 'weight']].copy()
         # isST
-        self.st_data = self.influx.getDataMultiprocess(self.mkt_db, self.st_measure, self.start, self.end)
+        self.st_data = self.influx.getDataMultiprocess(self.mkt_db, self.st_measure, start, end)
         self.st_data.index.names = ['date']
         # industry
-        self.industry_data = self.influx.getDataMultiprocess(self.mkt_db, self.industry_measure,
-                                                             self.start, self.end, ['code', self.industry])
+        self.industry_data = self.influx.getDataMultiprocess(self.mkt_db, self.industry_measure, start, end,
+                                                             ['code', self.industry])
         self.industry_data.rename(columns={self.industry: 'industry'}, inplace=True)
         self.industry_data.index.names = ['date']
+        # stock info
+        self.stk_info = self.influx.getDataMultiprocess(self.mkt_db, self.info_measure, 20200615, 20200615,
+                                                        ['code', 'list_date', 'delist_date'])
+        self.stk_info.reset_index(inplace=True)
+        self.stk_info = self.stk_info.drop('index', axis=1)
+        self.stk_info['list_date'] = pd.to_datetime(self.stk_info['list_date'])
+        self.stk_info['delist_date'] = pd.to_datetime(self.stk_info['delist_date'])
+        self.stk_info['range_date'] = self.stk_info['list_date'].apply(lambda x: x + relativedelta(years=2))
         # industry dummies
         self.industry_dummies = DataProcess.get_industry_dummies(self.industry_data, 'industry')
         self.industry_dummies.index.names = ['date']
@@ -100,6 +110,11 @@ class StrategyBase:
         self.code_range = pd.merge(self.code_range, suspend_stk.reset_index(), how='left', on=['date', 'code'])
         # 过滤 st 的票
         self.code_range = pd.merge(self.code_range, self.st_data.reset_index(), how='left', on=['date', 'code'])
+        # 过滤 新股 和 退市 的票
+        self.code_range = pd.merge(self.code_range, self.stk_info, how='inner', on=['code'])
+        self.code_range = self.code_range.loc[(self.code_range['date'] >= self.code_range['range_date']) &
+                                              ((self.code_range['date'] < self.code_range['delist_date']) |
+                                               pd.isnull(self.code_range['delist_date'])), ['date', 'code']]
         # 组合 industry
         self.code_range = pd.merge(self.code_range, self.industry_data.reset_index(), how='left', on=['date', 'code'])
         self.code_range.set_index('date', inplace=True)
@@ -117,14 +132,13 @@ class StrategyBase:
         self.size_data.set_index('date', inplace=True)
         print('-size data loaded...')
 
-    def process_factor(self, measure, factor, direction, fillna, check_rp):
+    def process_factor(self, db, measure, factor, direction, fillna, check_rp):
         if check_rp:
-            factor_df = self.influx.getDataMultiprocess(self.factor_db, measure, self.start, self.end,
-                                                        ['code', factor, 'report_period'])
+            factor_df = \
+                self.influx.getDataMultiprocess(db, measure, self.start, self.end, ['code', factor, 'report_period'])
             factor_df = DataProcess.check_report_period(factor_df)
         else:
-            factor_df = self.influx.getDataMultiprocess(self.factor_db, measure, self.start, self.end,
-                                                        ['code', factor])
+            factor_df = self.influx.getDataMultiprocess(db, measure, self.start, self.end, ['code', factor])
         factor_df.index.names = ['date']
         factor_df.reset_index(inplace=True)
         if direction == -1:
@@ -159,7 +173,7 @@ class StrategyBase:
             pass
         else:
             os.makedirs(self.folder_dir.rstrip('/'))
-        self.data_prepare()
+        self.data_prepare(self.start, self.end)
         self.init_log()
 
 
