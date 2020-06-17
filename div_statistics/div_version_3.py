@@ -536,6 +536,24 @@ class div_pred_statistic:
                     modified_code_list.append([code, status])
         return modified_df
 
+    def auto_modify(self, raw_df):
+        modified_df = raw_df.copy()
+        recent_fill_dt = self.get_prompt_date(self.dt)
+        if (self.dt - recent_fill_dt).days < 7:
+            recent_fill_dt = self.get_prompt_date(self.dt + relativedelta(months=1))
+        dt_before_recent = self.trading_calendar[self.trading_calendar < recent_fill_dt].iloc[-1]
+        forward_fill_dt = self.date_needed[-1]
+        dt_before_forward = self.trading_calendar[self.trading_calendar < forward_fill_dt].iloc[-1]
+        modified_df.loc[(modified_df['状态'] == "去年有分红，今年金额未满，预测仍将分红") &
+                        pd.isnull(modified_df['派息日']), '股权登记日'] = dt_before_forward
+        modified_df.loc[(modified_df['状态'] == "去年有分红，今年金额未满，预测仍将分红") &
+                        pd.isnull(modified_df['派息日']), '派息日'] = forward_fill_dt
+        modified_df.loc[(modified_df['状态'] != "去年有分红，今年金额未满，预测仍将分红") &
+                        pd.isnull(modified_df['派息日']), '股权登记日'] = dt_before_recent
+        modified_df.loc[(modified_df['状态'] != "去年有分红，今年金额未满，预测仍将分红") &
+                        pd.isnull(modified_df['派息日']), '派息日'] = recent_fill_dt
+        return modified_df
+
     def get_summary_date_dict(self, df):
         date_dict = {}
         date_dict['置空点数'] = df.loc[pd.isnull(df['派息日']), '分红点数'].sum()
@@ -580,7 +598,8 @@ class div_pred_statistic:
             index_constituent_div_df.to_csv(local_prefix + 'raw_gbk/' + filename, encoding='gbk')
 
             # 修订
-            modified_df = self.modify(index_constituent_div_df, index_type)
+            # modified_df = self.modify(index_constituent_div_df, index_type)
+            modified_df = self.auto_modify(index_constituent_div_df)
             modified_df.to_csv(local_prefix + 'modified_utf8/' + filename, encoding='utf-8')
             self.ftp_client.upload_file(remote_utf8_prefix + filename, local_prefix + 'modified_utf8/' + filename)
             modified_df.to_csv(local_prefix + 'modified_gbk/' + filename, encoding='gbk')
