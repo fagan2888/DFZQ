@@ -1,41 +1,33 @@
+from global_constant import FACTOR_DB, REPORT_DB
+
 STRATEGY_CONFIG = \
     {
-        'start': 20180101,
-        'end': 20200101,
+        'start': 20100101,
+        'end': 20181231,
         'benchmark': 300,
         'select_range': 800,
         'industry': 'improved_lv1',
         'capital': 100000000,
         'adj_interval': 5,
-        'npl_quantile': 0.8,
-        'npl_field': 'NPL',
-        'n_selection': 3
+        'n_selection': 5
     }
 
 
 # 大类因子权重
 CATEGORY_WEIGHT = \
     {
-        'VALUE': 1,
-        'FIN_QUAL': 1,
         'GROWTH': 1,
     }
 
 # 因子权重
-# list内分别为measure, factor, direction, if_fillna, style, weight
+# list内分别为db, measure, factor, direction, fillna, weight, check_rp, neutralize
 FACTOR_WEIGHT = \
     {
         'VALUE': [
-            ['BP', 'BP', 1, 'median', 1],
-            ['Analyst', 'EP_FY1', 1, 'median', 1],
-            ['net_interest_margin', 'net_interest_margin', 1, 'median', 1]],
+            [FACTOR_DB, 'BP', 'BP', 1, 'median', 1, True, False],
+            [FACTOR_DB, 'EP_FY1', 'EP_FY1', 1, 'median', 1, True, False]],
         'FIN_QUAL': [
-            ['ROE', 'ROE', 1, 'median', 1],
-            ['RNOA', 'RNOA', 1, 'median', 1],
-            ['GPOA', 'GPOA', 1, 'median', 1],
-            ['CFROI', 'CFROI', 1, 'median', 1],
-            ['ROA', 'ROA', 1, 'median', 1]],
+            [FACTOR_DB, 'ROE2', 'ROE', 1, 'median', 1, True, False]],
         'GROWTH': [
-            ['net_profit_growth', 'net_profit_Q_growthY', 1, 'median', 1],
-            ['oper_rev_growth', 'oper_rev_Q_growthY', 1, 'median', 1]]
+            [FACTOR_DB, 'cost_income_ratio_delta', 'cost_income_ratio_deltaQ', 1, 'median', 1, True, False]]
     }
