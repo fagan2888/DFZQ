@@ -47,14 +47,14 @@ class EBITMarginDelta(FactorBase):
     def cal_factors(self, start, end, n_jobs):
         fail_list = []
         # get EBITMargin_Q
-        save_db = 'EBITmargin_Q_delta'
+        save_measure = 'EBITmargin_Q_delta'
         margin = self.influx.getDataMultiprocess('DailyFactors_Gus', 'EBITmargin_Q', start, end)
         margin.rename(columns={'EBITmargin_Q': 'EBITmargin_Q_last0Q'}, inplace=True)
         codes = margin['code'].unique()
         split_codes = np.array_split(codes, n_jobs)
         with parallel_backend('multiprocessing', n_jobs=n_jobs):
             res = Parallel()(delayed(EBITMarginDelta.JOB_factor)
-                             (codes, margin, 'EBITmargin_Q', 9, self.db, save_db)
+                             (codes, margin, 'EBITmargin_Q', 9, self.db, save_measure)
                              for codes in split_codes)
         print('EBITmargin_Q_delta finish')
         print('-' * 30)
@@ -62,14 +62,14 @@ class EBITMarginDelta(FactorBase):
             fail_list.extend(r)
         # -------------------------------------------------------------------------------
         # get EBITMargin_TTM
-        save_db = 'EBITmargin_TTM_delta'
+        save_measure = 'EBITmargin_TTM_delta'
         margin = self.influx.getDataMultiprocess('DailyFactors_Gus', 'EBITmargin_TTM', start, end)
         margin.rename(columns={'EBITmargin_TTM': 'EBITmargin_TTM_last0Q'}, inplace=True)
         codes = margin['code'].unique()
         split_codes = np.array_split(codes, n_jobs)
         with parallel_backend('multiprocessing', n_jobs=n_jobs):
             res = Parallel()(delayed(EBITMarginDelta.JOB_factor)
-                             (codes, margin, 'EBITmargin_TTM', 6, self.db, save_db)
+                             (codes, margin, 'EBITmargin_TTM', 6, self.db, save_measure)
                              for codes in split_codes)
         print('EBITmargin_TTM_delta finish')
         print('-' * 30)
@@ -77,14 +77,14 @@ class EBITMarginDelta(FactorBase):
             fail_list.extend(r)
         # -------------------------------------------------------------------------------
         # get EBITMargin_latest
-        save_db = 'EBITmargin_latest_delta'
+        save_measure = 'EBITmargin_latest_delta'
         margin = self.influx.getDataMultiprocess('DailyFactors_Gus', 'EBITmargin_latest', start, end)
         margin.rename(columns={'EBITmargin_latest': 'EBITmargin_latest_last0Q'}, inplace=True)
         codes = margin['code'].unique()
         split_codes = np.array_split(codes, n_jobs)
         with parallel_backend('multiprocessing', n_jobs=n_jobs):
             res = Parallel()(delayed(EBITMarginDelta.JOB_factor)
-                             (codes, margin, 'EBITmargin_latest', 10, self.db, save_db)
+                             (codes, margin, 'EBITmargin_latest', 10, self.db, save_measure)
                              for codes in split_codes)
         print('EBITmargin_latest_delta finish')
         print('-' * 30)
