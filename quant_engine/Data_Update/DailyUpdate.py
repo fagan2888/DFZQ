@@ -72,6 +72,9 @@ from NPL_diff import NPL_diff
 from provision_cov_growth import provision_cov_growth
 from interest_income_growth import InterestIncome_growth
 from monthly_report import SecMonthlyReport
+from BP_M import BP_M
+from EP_M_TTM import EP_M
+from SP_M_TTM import SP_M
 
 
 class DailyUpdate:
@@ -344,6 +347,18 @@ class DailyUpdate:
             res = iig.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
             self.logger.info('------------interest income growth finish-------------')
+            bpm = BP_M()
+            res = bpm.cal_factors(last_week, last_trade_day, n_jobs)
+            self.log_res(res)
+            self.logger.info('---------------------BP_M finish----------------------')
+            epm = EP_M()
+            res = epm.cal_factors(last_week, last_trade_day, n_jobs)
+            self.log_res(res)
+            self.logger.info('---------------------EP_M finish----------------------')
+            spm = SP_M()
+            res = spm.cal_factors(last_week, last_trade_day, n_jobs)
+            self.log_res(res)
+            self.logger.info('---------------------SP_M finish----------------------')
 
             self.logger.info('//////////////////////////////////////////////////////')
             self.logger.info('EndTime: %s' % datetime.datetime.now().strftime('%Y%m%d-%H:%M:%S'))
