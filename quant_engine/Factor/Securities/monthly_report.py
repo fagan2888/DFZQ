@@ -15,7 +15,7 @@ class SecMonthlyReport(FactorBase):
         self.db = 'FinancialReport_Gus'
 
     @staticmethod
-    def JOB_factors(df, field, codes, calendar, start, save_db):
+    def JOB_factors(df, field, codes, calendar, start, save_db, if_TTM):
         columns = df.columns
         influx = influxdbData()
         save_res = []
@@ -55,13 +55,27 @@ class SecMonthlyReport(FactorBase):
                 code_df[res_field] = np.select(conditions, choices, default=np.nan)
             # 处理储存数据
             code_df = code_df.loc[:, ['code', 'report_period', field] + res_flds]
+            # 计算TTM
+            if if_TTM:
+                TTM_cur_cols = [field]
+                for i in range(1, 12):
+                    TTM_cur_cols.append('{0}_last{1}M'.format(field, i))
+                code_df['{0}_TTM'.format(field)] = np.where(np.any(pd.isnull(code_df[TTM_cur_cols]), axis=1), np.nan,
+                                                            np.sum(code_df[TTM_cur_cols], axis=1))
+                for n in range(1, 9):
+                    TTM_field = '{0}_TTM_last{1}M'.format(field, n)
+                    TTM_hist_cols = []
+                    for i in range(n, n+12):
+                        TTM_hist_cols.append('{0}_last{1}M'.format(field, i))
+                    code_df[TTM_field] = np.where(np.any(pd.isnull(code_df[TTM_hist_cols]), axis=1), np.nan,
+                                                  np.sum(code_df[TTM_hist_cols], axis=1))
             code_df = code_df.where(pd.notnull(code_df), None)
             print('code: %s' % code)
             r = influx.saveData(code_df, save_db, field)
             if r == 'No error occurred...':
                 pass
             else:
-                save_res.append('Banks Field: %s  Error: %s' % (field, r))
+                save_res.append('Sec Field: %s  Error: %s' % (field, r))
         return save_res
 
 
@@ -83,11 +97,11 @@ class SecMonthlyReport(FactorBase):
         calendar = \
             set(calendar.loc[(calendar >= (dtparser.parse(str(start)) - relativedelta(years=2)).strftime('%Y%m%d')) &
                              (calendar <= str(end))])
-        fields = ['oper_rev_M', 'net_profit_M', 'net_equity_M']
+        task = [('oper_rev_M', True), ('net_profit_M', True), ('net_equity_M', False)]
         # 存放的db
         fail_list = []
-        for f in fields:
-            print('BANKS \n field: %s begins processing...' % f)
+        for f, if_TTM in task:
+            print('Sec \n field: %s begins processing...' % f)
             df = pd.DataFrame(report.dropna(subset=[f]).groupby(['code', 'date', 'report_period'])[f].last()) \
                 .reset_index()
             df = df.sort_values(by=['report_period', 'date'])
@@ -99,7 +113,7 @@ class SecMonthlyReport(FactorBase):
             split_codes = np.array_split(codes, n_jobs)
             with parallel_backend('multiprocessing', n_jobs=n_jobs):
                 res = Parallel()(delayed(SecMonthlyReport.JOB_factors)
-                                 (df, f, codes, calendar, start, self.db) for codes in split_codes)
+                                 (df, f, codes, calendar, start, self.db, if_TTM) for codes in split_codes)
             print('%s finish' % f)
             print('-' * 30)
             for r in res:
