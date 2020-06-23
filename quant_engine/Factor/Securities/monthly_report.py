@@ -75,7 +75,7 @@ class SecMonthlyReport(FactorBase):
             .format((dtparser.parse(str(start)) - relativedelta(years=4)).strftime('%Y%m%d'), str(end))
         self.rdf.curs.execute(query)
         report = pd.DataFrame(self.rdf.curs.fetchall(),
-                              columns=['date', 'code', 'report_period', 'oper_rev_M', 'net_profit_M', 'net_equity'])
+                              columns=['date', 'code', 'report_period', 'oper_rev_M', 'net_profit_M', 'net_equity_M'])
         report.set_index('date', inplace=True)
         report.index = pd.to_datetime(report.index)
         # 处理数据
@@ -83,7 +83,7 @@ class SecMonthlyReport(FactorBase):
         calendar = \
             set(calendar.loc[(calendar >= (dtparser.parse(str(start)) - relativedelta(years=2)).strftime('%Y%m%d')) &
                              (calendar <= str(end))])
-        fields = ['oper_rev_M', 'net_profit_M', 'net_equity']
+        fields = ['oper_rev_M', 'net_profit_M', 'net_equity_M']
         # 存放的db
         fail_list = []
         for f in fields:
