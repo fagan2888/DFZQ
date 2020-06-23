@@ -8,10 +8,9 @@ sys.path.extend([root_dir, root_dir + '\\Data_Resource', root_dir + '\\Engine', 
                  root_dir + '\\Data_Update\\marketData', root_dir + '\\Data_Update\\Indicators',
                  root_dir + '\\Data_Update\\FinancialReport', root_dir + '\\Factor\\Size',
                  root_dir + '\\Factor\\Valuation', root_dir + '\\Factor\\Financial_Quality',
-                 root_dir + '\\Factor\\Growth', root_dir + '\\Factor\\Turnover',
-                 root_dir + '\\Factor\\Momentum', root_dir + '\\Factor\\Analyst',
-                 root_dir + '\\Factor\\Risk', root_dir + '\\Factor\\Iliquidity',
-                 root_dir + '\\Factor\\Reverse', root_dir + '\\Factor\\Banks'])
+                 root_dir + '\\Factor\\Growth', root_dir + '\\Factor\\Turnover', root_dir + '\\Factor\\Momentum',
+                 root_dir + '\\Factor\\Analyst', root_dir + '\\Factor\\Risk', root_dir + '\\Factor\\Iliquidity',
+                 root_dir + '\\Factor\\Reverse', root_dir + '\\Factor\\Banks', root_dir + '\\Factor\\Securities'])
 # -------------------------------
 from rdf_data import rdf_data
 import logging
@@ -72,6 +71,7 @@ from NPL_leverage import NPL_leverage
 from NPL_diff import NPL_diff
 from provision_cov_growth import provision_cov_growth
 from interest_income_growth import InterestIncome_growth
+from monthly_report import SecMonthlyReport
 
 
 class DailyUpdate:
@@ -183,6 +183,10 @@ class DailyUpdate:
             res = loan.cal_factors(n_jobs)
             self.log_res(res)
             self.logger.info('---------------------Loan finish----------------------')
+            sec = SecMonthlyReport()
+            res = sec.cal_factors(last_week, last_trade_day, n_jobs)
+            self.log_res(res)
+            self.logger.info('------------------Securities finish-------------------')
 
             # ---------------------------------------------
             self.logger.info('******************************************************')
