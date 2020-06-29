@@ -42,7 +42,7 @@ class EP_M(FactorBase):
 if __name__ == '__main__':
     print(datetime.datetime.now())
     ep = EP_M()
-    r = ep.cal_factors(20090101, 20200622, N_JOBS)
+    r = ep.cal_factors(20100101, 20200629, N_JOBS)
     print('task finish')
     print(r)
     print(datetime.datetime.now())

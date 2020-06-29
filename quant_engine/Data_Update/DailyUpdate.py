@@ -187,7 +187,7 @@ class DailyUpdate:
             self.log_res(res)
             self.logger.info('---------------------Loan finish----------------------')
             sec = SecMonthlyReport()
-            res = sec.cal_factors(last_week, last_trade_day, n_jobs)
+            res = sec.cal_factors(20100101, last_trade_day, n_jobs)
             self.log_res(res)
             self.logger.info('------------------Securities finish-------------------')
 
