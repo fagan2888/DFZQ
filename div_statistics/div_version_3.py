@@ -539,7 +539,7 @@ class div_pred_statistic:
     def auto_modify(self, raw_df):
         modified_df = raw_df.copy()
         recent_fill_dt = self.get_prompt_date(self.dt)
-        if (self.dt - recent_fill_dt).days < 7:
+        if (recent_fill_dt - self.dt).days < 7:
             recent_fill_dt = self.get_prompt_date(self.dt + relativedelta(months=1))
         dt_before_recent = self.trading_calendar[self.trading_calendar < recent_fill_dt].iloc[-1]
         forward_fill_dt = self.date_needed[-1]
