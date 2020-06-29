@@ -70,7 +70,7 @@ class BankTestOpt(StrategyBase):
         merged_df = merged_df.reset_index()
         merged_df = pd.merge(merged_df, self.industry_data.reset_index(), how='inner', on=['date', 'code'])
         merged_df = merged_df.set_index('date')
-        folder_dir = global_constant.ROOT_DIR + 'Bank_Test/{0}/'.format(self.save_name)
+        folder_dir = global_constant.ROOT_DIR + 'Bank_Opt/{0}/'.format(self.save_name)
         merged_df.to_csv(folder_dir + 'FactorsCombination.csv', encoding='gbk')
         print('Factors combination finish...')
         return merged_df
