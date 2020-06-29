@@ -10,7 +10,8 @@ sys.path.extend([root_dir, root_dir + '\\Data_Resource', root_dir + '\\Engine', 
                  root_dir + '\\Factor\\Valuation', root_dir + '\\Factor\\Financial_Quality',
                  root_dir + '\\Factor\\Growth', root_dir + '\\Factor\\Turnover', root_dir + '\\Factor\\Momentum',
                  root_dir + '\\Factor\\Analyst', root_dir + '\\Factor\\Risk', root_dir + '\\Factor\\Iliquidity',
-                 root_dir + '\\Factor\\Reverse', root_dir + '\\Factor\\Banks', root_dir + '\\Factor\\Securities'])
+                 root_dir + '\\Factor\\Reverse', root_dir + '\\Factor\\Banks', root_dir + '\\Factor\\Securities',
+                 root_dir + '\\Factor\\Insurance'])
 # -------------------------------
 from rdf_data import rdf_data
 import logging
@@ -75,6 +76,7 @@ from monthly_report import SecMonthlyReport
 from BP_M import BP_M
 from EP_M_TTM import EP_M
 from SP_M_TTM import SP_M
+from insurance_indicators import InsurIndicators
 
 
 class DailyUpdate:
@@ -190,6 +192,10 @@ class DailyUpdate:
             res = sec.cal_factors(20100101, last_trade_day, n_jobs)
             self.log_res(res)
             self.logger.info('------------------Securities finish-------------------')
+            insur = InsurIndicators()
+            res = insur.cal_factors(last_week, last_trade_day, n_jobs)
+            self.log_res(res)
+            self.logger.info('-------------------Insurance finish-------------------')
 
             # ---------------------------------------------
             self.logger.info('******************************************************')
