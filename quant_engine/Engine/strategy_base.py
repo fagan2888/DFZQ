@@ -73,7 +73,7 @@ class StrategyBase:
         self.stk_info = self.stk_info.drop('index', axis=1)
         self.stk_info['list_date'] = pd.to_datetime(self.stk_info['list_date'])
         self.stk_info['delist_date'] = pd.to_datetime(self.stk_info['delist_date'])
-        self.stk_info['range_date'] = self.stk_info['list_date'].apply(lambda x: x + relativedelta(years=2))
+        self.stk_info['range_date'] = self.stk_info['list_date'].apply(lambda x: x + relativedelta(years=1))
         # industry dummies
         self.industry_dummies = DataProcess.get_industry_dummies(self.industry_data, 'industry')
         self.industry_dummies.index.names = ['date']
