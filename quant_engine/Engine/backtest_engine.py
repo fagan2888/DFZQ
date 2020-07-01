@@ -14,6 +14,7 @@ class BacktestEngine:
                  stock_capital=1000000, stk_slippage=0.001, stk_fee=0.0001, price_field='vwap',
                  indu_field='improved_lv1', logger_lvl=logging.INFO):
         # 配置钱包
+        self.stock_capital = stock_capital
         self.stk_portfolio = \
             stock_portfolio(save_name, capital_input=stock_capital, slippage_input=stk_slippage,
                             transaction_fee_input=stk_fee)
@@ -47,39 +48,38 @@ class BacktestEngine:
         self.res_logger.addHandler(console)
         self.adj_interval = adj_interval
         self.cash_reserve_rate = cash_reserve_rate
-        self.initialize_engine(start, end, benchmark, price_field, indu_field)
+        self.initialize_engine(start, end, benchmark, price_field)
         self.price_field = price_field
+        self.indu_field = indu_field
 
-    def initialize_engine(self, start, end, benchmark, price_field, indu_field):
+    def initialize_engine(self, start, end, benchmark, price_field):
         bm_dict = {50: '000016.SH', 300: '000300.SH', 500: '000905.SH'}
         self.benchmark_code = bm_dict[benchmark]
-        influx = influxdbData()
-        DB = 'DailyMarket_Gus'
+        self.influx = influxdbData()
+        self.DB = 'DailyMarket_Gus'
+        self.start =start
+        self.end = end
         # 读取数据
         measure = 'market'
-        self.market = influx.getDataMultiprocess(
-            DB, measure, start, end, ['code', 'status', 'preclose', 'high', 'low', 'close', price_field])
+        self.market = self.influx.getDataMultiprocess(
+            self.DB, measure, self.start, self.end,
+            ['code', 'status', 'preclose', 'high', 'low', 'close', price_field])
         self.market.index.names = ['date']
         measure = 'exright'
-        self.exright = influx.getDataMultiprocess(DB, measure, start, end)
+        self.exright = self.influx.getDataMultiprocess(self.DB, measure, self.start, self.end)
         self.exright.index.names = ['date']
         self.exright = self.exright.fillna(0)
         measure = 'swap'
-        self.swap = influx.getDataMultiprocess(DB, measure, start, end)
+        self.swap = self.influx.getDataMultiprocess(self.DB, measure, self.start, self.end)
         self.swap.index.names = ['date']
         self.swap['str_date'] = self.swap.index.strftime('%Y%m%d')
         self.swap = self.swap.loc[self.swap['swap_date'] == self.swap['str_date'], :]
-        # industry 为统计用数据
-        measure = 'industry'
-        self.industry = influx.getDataMultiprocess(DB, measure, start, end, ['code', indu_field])
-        self.industry.index.names = ['date']
         # benchmark 的报价 Series
         self.benchmark_quote = self.market.loc[self.market['code'] == self.benchmark_code, 'close'].copy()
         print('All Data Needed is ready...')
 
-
     # 默认输入的权重 以日期为index
-    def run(self, stk_weight, start, end):
+    def run(self, stk_weight, start, end, name=None):
         backtest_starttime = datetime.datetime.now()
         # 默认输入的权重 以日期为index
         stk_weight.index.names = ['date']
@@ -94,7 +94,6 @@ class BacktestEngine:
         positions_dict = {}
         portfolio_value_dict = {}
         balance, stk_value, total_value = self.stk_portfolio.get_portfolio_value(price_input=pd.Series([]))
-        portfolio_start_value = total_value
         # 记录 benchmark 净值
         benchmark_networth = self.benchmark_quote[calendar[0]]
         benchmark_start_value = total_value
@@ -123,9 +122,9 @@ class BacktestEngine:
                 # 记录没法交易的股票
                 # 记录 (weight不为0 或者 已在position中) 且 状态停牌 的票
                 codes = day_mkt_with_weight.loc[
-                    ((day_mkt_with_weight['target_volume'] > 0) |
-                     (day_mkt_with_weight.index.isin(self.stk_portfolio.stk_positions.keys()))) &
-                    (day_mkt_with_weight['status'] == '停牌'), :].index.values
+                        ((day_mkt_with_weight['target_volume'] > 0) |
+                         (day_mkt_with_weight.index.isin(self.stk_portfolio.stk_positions.keys()))) &
+                        (day_mkt_with_weight['status'] == '停牌'), :].index.values
                 weights = day_mkt_with_weight.loc[
                     ((day_mkt_with_weight['target_volume'] > 0) |
                      (day_mkt_with_weight.index.isin(self.stk_portfolio.stk_positions.keys()))) &
@@ -133,9 +132,9 @@ class BacktestEngine:
                 untradeable = dict(zip(codes, weights))
                 # (weight不为0 或者 已在position中) 且 状态不停牌 的票
                 tradeable_df = day_mkt_with_weight.loc[
-                    ((day_mkt_with_weight['target_volume'] > 0) |
-                     (day_mkt_with_weight.index.isin(self.stk_portfolio.stk_positions.keys()))) &
-                    (day_mkt_with_weight['status'] != '停牌'), :].copy()
+                               ((day_mkt_with_weight['target_volume'] > 0) |
+                                (day_mkt_with_weight.index.isin(self.stk_portfolio.stk_positions.keys()))) &
+                               (day_mkt_with_weight['status'] != '停牌'), :].copy()
                 for code, row in tradeable_df.iterrows():
                     if (row['low'] == row['high']) and (row['high'] >= round(row['preclose'] * 1.1, 2)):
                         price_limit = 'high'
@@ -238,18 +237,27 @@ class BacktestEngine:
             trade_day_position.index.name = 'Code'
             positions_dfs.append(trade_day_position.reset_index())
         positions = pd.concat(positions_dfs, ignore_index=True)
+        positions['Time'] = pd.to_datetime(positions['Time'])
         positions.set_index('Time', inplace=True)
-        filename = self.dir + 'Positions_{0}.csv'.format(self.save_name)
+        if not name:
+            filename = self.dir + 'Positions.csv'
+        else:
+            filename = self.dir + 'Positions_{0}.csv'.format(name)
         positions.to_csv(filename, encoding='gbk')
         # 输出净值
         portfolio_value = pd.DataFrame(portfolio_value_dict).T
         portfolio_value['AccumAlpha'] = \
             DataProcess.calc_accum_alpha(portfolio_value['TotalValue'], portfolio_value['BenchmarkValue']) - 1
-        filename = self.dir + 'Value_{0}.csv'.format(self.save_name)
+        portfolio_value.index = pd.to_datetime(portfolio_value.index)
+        portfolio_value.index.names = ['date']
+        if not name:
+            filename = self.dir + 'Value.csv'
+        else:
+            filename = self.dir + 'Value_{0}.csv'.format(name)
         portfolio_value.to_csv(filename, encoding='gbk')
         self.res_logger.info('Backtest finish time: %s' % datetime.datetime.now().strftime('%Y/%m/%d - %H:%M:%S'))
         self.res_logger.info('*' * 50)
-        self.res_logger.info('PERFORMANCE:')
+        self.res_logger.info('{0} PERFORMANCE:'.format(name))
         self.res_logger.info('-ANN_Alpha: %f' % DataProcess.calc_alpha_ann_return(
             portfolio_value['TotalValue'], portfolio_value['BenchmarkValue']))
         MDD, MDD_period = DataProcess.calc_alpha_max_draw_down(
@@ -259,11 +267,86 @@ class BacktestEngine:
         self.res_logger.info('-Alpha_sharpe: %f' % DataProcess.calc_alpha_sharpe(
             portfolio_value['TotalValue'], portfolio_value['BenchmarkValue']))
         print('Backtest finish! Time used: ', datetime.datetime.now() - backtest_starttime)
-        return portfolio_value
+        return portfolio_value, positions
+
+    def all_indu_run(self, stk_weight, start, end):
+        # folder
+        if os.path.exists(self.dir + '/industry_alpha/'):
+            pass
+        else:
+            os.makedirs(self.dir + '/industry_alpha')
+        # logger
+        self.indu_logger = logging.getLogger('industry_log')
+        self.indu_logger.setLevel(level=logging.INFO)
+        file_name = 'industry.log'
+        handler = logging.FileHandler(self.dir + '/industry_alpha/' + file_name)
+        handler.setLevel(logging.INFO)
+        console = logging.StreamHandler()
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s: %(message)s')
+        handler.setFormatter(formatter)
+        handler.setFormatter(formatter)
+        self.indu_logger.addHandler(handler)
+        self.indu_logger.addHandler(console)
+        # industry 为统计用数据
+        measure = 'industry'
+        industry = self.influx.getDataMultiprocess(self.DB, measure, self.start, self.end, ['code', self.indu_field])
+        industry.index.names = ['date']
+        industry.rename(columns={self.indu_field: 'industry'}, inplace=True)
+        # benchmark comp
+        measure = 'index_weight'
+        bm_comp = self.influx.getDataMultiprocess(self.DB, measure, self.start, self.end)
+        bm_comp = bm_comp.loc[bm_comp['index_code'] == self.benchmark_code, ['code', 'weight']]
+        former_date_dict = dict(zip(bm_comp.index.unique()[1:], bm_comp.index.unique()[:-1]))
+        bm_comp['date'] = bm_comp.index
+        bm_comp['date'] = bm_comp['date'].map(former_date_dict)
+        bm_comp = bm_comp.dropna(subset=['date'])
+        bt_start = max(bm_comp.index.unique()[0], stk_weight.index.unique()[0], pd.to_datetime(str(start)))
+        bt_end = min(bm_comp.index.unique()[-1], stk_weight.index.unique()[-1], pd.to_datetime(str(end)))
+        # merge industry
+        bm_comp = pd.merge(bm_comp, industry.reset_index(), on=['date', 'code'])
+        stk_weight = pd.merge(stk_weight.reset_index(), industry.reset_index(), on=['date', 'code'])
+        for indu in bm_comp['industry'].unique():
+            bm_comp_indu = bm_comp.loc[bm_comp['industry'] == indu, ['date', 'code', 'weight']].copy()
+            indu_weight = bm_comp_indu.groupby('date')['weight'].sum().to_dict()
+            bm_comp_indu['bm_weight'] = bm_comp_indu['date'].map(indu_weight)
+            bm_comp_indu['weight'] = bm_comp_indu['weight'] / bm_comp_indu['bm_weight'] * 100
+            bm_comp_indu = bm_comp_indu.loc[:, ['date', 'code', 'weight']]
+            bm_comp_indu.set_index('date', inplace=True)
+            stk_weight_indu = stk_weight.loc[stk_weight['industry'] == indu, ['date', 'code', 'weight']].copy()
+            indu_weight = stk_weight_indu.groupby('date')['weight'].sum().to_dict()
+            stk_weight_indu['bm_weight'] = stk_weight_indu['date'].map(indu_weight)
+            stk_weight_indu['weight'] = stk_weight_indu['weight'] / stk_weight_indu['bm_weight'] * 100
+            stk_weight_indu = stk_weight_indu.loc[:, ['date', 'code', 'weight']]
+            stk_weight_indu.set_index('date', inplace=True)
+            # ===========================================================================================
+            bm_value, _ = self.run(bm_comp_indu, bt_start, bt_end, 'bm_{0}'.format(indu))
+            self.stk_portfolio.reset_portfolio(self.stock_capital)
+            alpha_value, _ = self.run(stk_weight_indu, bt_start, bt_end, 'alpha_{0}'.format(indu))
+            self.stk_portfolio.reset_portfolio(self.stock_capital)
+            bm_value.rename(columns={'TotalValue': 'BmStkValue'}, inplace=True)
+            bm_value = bm_value.loc[:, ['BmStkValue']]
+            alpha_value.rename(columns={'TotalValue': 'AlphaValue'}, inplace=True)
+            alpha_value = alpha_value.loc[:, ['AlphaValue']]
+            merge_value = pd.merge(bm_value.reset_index(), alpha_value.reset_index(), on=['date'])
+            merge_value['AccumAlpha'] = \
+                DataProcess.calc_accum_alpha(merge_value['AlphaValue'], merge_value['BmStkValue']) - 1
+            merge_value.set_index('date', inplace=True)
+            filename = self.dir + '/industry_alpha/{0}.csv'.format(indu)
+            merge_value.to_csv(filename, encoding='gbk')
+            self.indu_logger.info('INDUSTRY: {0}'.format(indu))
+            self.indu_logger.info('-ANN_Alpha: %f' % DataProcess.calc_alpha_ann_return(
+                merge_value['AlphaValue'], merge_value['BmStkValue']))
+            MDD, MDD_period = DataProcess.calc_alpha_max_draw_down(
+                merge_value['AlphaValue'], merge_value['BmStkValue'])
+            self.indu_logger.info('-Alpha_MDD: %f' % MDD)
+            self.indu_logger.info('-Alpha_MDD period: %s - %s' % (MDD_period[0], MDD_period[1]))
+            self.indu_logger.info('-Alpha_sharpe: %f' % DataProcess.calc_alpha_sharpe(
+                merge_value['AlphaValue'], merge_value['BmStkValue']))
+            self.indu_logger.info('-'*50)
 
 
 if __name__ == '__main__':
     weight = pd.read_pickle('C:\\Users\\Gu-PC\\Downloads\\strategy_ou.pkl')
     print('Weight_loaded')
-    QE = BacktestEngine('test_ou', 20160101, 20200512, 1, 300, stock_capital=100000000,)
-    QE.run(weight, 20160101, 20200512)
+    QE = BacktestEngine('test_ou', 20160101, 20200512, 1, 300, stock_capital=100000000, )
+    QE.all_indu_run(weight, 20160101, 20200512)
