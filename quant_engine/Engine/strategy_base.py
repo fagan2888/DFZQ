@@ -84,11 +84,12 @@ class StrategyBase:
         # risk cov
         self.risk_cov = self.influx.getDataMultiprocess(self.factor_db, self.risk_cov_measure, self.start, self.end)
         cols = self.risk_cov.columns.difference(['code'])
-        self.risk_cov[cols] = self.risk_cov[cols] * self.adj_interval * 0.0001
+        # 年化风险
+        self.risk_cov[cols] = self.risk_cov[cols] * 252 * 0.0001
         self.risk_cov.index.names = ['date']
         # specific risk
         self.spec_risk = self.influx.getDataMultiprocess(self.factor_db, self.spec_risk_measure, self.start, self.end)
-        self.spec_risk['specific_risk'] = self.spec_risk['specific_risk'] * np.sqrt(self.adj_interval) * 0.01
+        self.spec_risk['specific_risk'] = self.spec_risk['specific_risk'] * np.sqrt(252) * 0.01
         self.spec_risk.index.names = ['date']
         print('-risk data loaded...')
         # ========================================================================
@@ -106,31 +107,22 @@ class StrategyBase:
             self.code_range = self.mkt_data.loc[:, ['code']].copy()
         self.code_range.reset_index(inplace=True)
         # 过滤 停牌 的票
-        suspend_stk = self.mkt_data.loc[:, ['code', 'status']].copy()
-        self.code_range = pd.merge(self.code_range, suspend_stk.reset_index(), how='left', on=['date', 'code'])
+        trading_stk = self.mkt_data.loc[:, ['code', 'status']].copy()
+        trading_stk = trading_stk.loc[trading_stk['status'] != '停牌', ['code']]
+        self.code_range = pd.merge(self.code_range, trading_stk.reset_index(), how='inner', on=['date', 'code'])
         # 过滤 st 的票
-        self.code_range = pd.merge(self.code_range, self.st_data.reset_index(), how='left', on=['date', 'code'])
+        self.code_range = pd.merge(self.code_range, self.st_data.reset_index(), how='outer', on=['date', 'code'])
+        self.code_range = self.code_range.loc[pd.isnull(self.code_range['isST']), ['date', 'code']]
         # 过滤 新股 和 退市 的票
         self.code_range = pd.merge(self.code_range, self.stk_info, how='inner', on=['code'])
         self.code_range = self.code_range.loc[(self.code_range['date'] >= self.code_range['range_date']) &
                                               ((self.code_range['date'] < self.code_range['delist_date']) |
                                                pd.isnull(self.code_range['delist_date'])), ['date', 'code']]
         # 组合 industry
-        self.code_range = pd.merge(self.code_range, self.industry_data.reset_index(), how='left', on=['date', 'code'])
+        self.code_range = pd.merge(self.code_range, self.industry_data.reset_index(), how='inner', on=['date', 'code'])
         self.code_range.set_index('date', inplace=True)
         print('-code range loaded...')
-        self.size_data = self.influx.getDataMultiprocess(self.factor_db, 'Size', self.start, self.end,
-                                                         ['code', 'ln_market_cap'])
-        self.size_data.rename(columns={'ln_market_cap': 'z_mv'}, inplace=True)
-        self.size_data.index.names = ['date']
-        self.size_data = pd.merge(self.size_data.reset_index(), self.code_range.reset_index(), how='right',
-                                  on=['date', 'code'])
-        self.size_data['z_mv'] = \
-            self.size_data.groupby(['date', 'industry'])['z_mv'].apply(lambda x: x.fillna(x.median()))
-        self.size_data = self.size_data.loc[:, ['date', 'code', 'z_mv']]
-        self.size_data = DataProcess.standardize(self.size_data, 'z_mv', False, self.n_jobs)
-        self.size_data.set_index('date', inplace=True)
-        print('-size data loaded...')
+        # size 数据可以直接用风险模型中的 size
 
     def process_factor(self, db, measure, factor, direction, fillna, check_rp, neutralize):
         if check_rp:
@@ -157,7 +149,7 @@ class StrategyBase:
         factor_df.set_index('date', inplace=True)
         # 进行 中性化 / 标准化
         if neutralize:
-            factor_df = DataProcess.neutralize(factor_df, factor, self.industry_dummies, self.size_data, self.n_jobs)
+            factor_df = DataProcess.neutralize_v2(factor_df, factor, self.risk_exp, [], self.n_jobs)
         else:
             factor_df = factor_df.loc[:, ['code', factor]]
             factor_df = DataProcess.standardize(factor_df, factor, True, self.n_jobs)
@@ -182,4 +174,4 @@ class StrategyBase:
 
 if __name__ == '__main__':
     sb = StrategyBase('test')
-    sb.initialize_strategy(20150101, 20160101, 300, 500, 'improved_lv1', 5)
+    sb.initialize_strategy(20150101, 20160101, 300, 800, 'improved_lv1', 5)
