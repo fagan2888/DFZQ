@@ -3,14 +3,13 @@ from global_constant import FACTOR_DB, REPORT_DB
 STRATEGY_CONFIG = \
     {
         'start': 20120101,
-        'end': 20181231,
+        'end': 20201231,
         'benchmark': 300,
         'select_range': 800,
         'industry': 'improved_lv1',
         'capital': 100000000,
         'adj_interval': 5,
         'target_sigma': 0.05,
-        'weight_limit': 30
     }
 
 
