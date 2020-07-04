@@ -16,7 +16,7 @@ class SP_M(FactorBase):
         oper_rev = self.influx.getDataMultiprocess('FinancialReport_Gus', 'oper_rev_M', start, end,
                                                      ['code', 'oper_rev_M_TTM', 'report_period'])
         market_cap = self.influx.getDataMultiprocess('DailyFactors_Gus', 'Size', start, end,
-                                                     ['code', 'market_cap'])
+                                                     ['code', 'market_cap', 'float_market_cap', 'free_market_cap'])
         oper_rev.index.names = ['date']
         oper_rev.reset_index(inplace=True)
         market_cap.index.names = ['date']
@@ -25,8 +25,11 @@ class SP_M(FactorBase):
         SP = pd.merge(oper_rev, market_cap, on=['date', 'code'])
         SP.set_index('date', inplace=True)
         SP['SP_M_TTM'] = SP['oper_rev_M_TTM'] / SP['market_cap'] / 10000
-        SP = SP.loc[:, ['code', 'SP_M_TTM', 'report_period']]
-        SP = SP.dropna(subset=['SP_M_TTM'])
+        SP['SP_M_TTM_float'] = SP['oper_rev_M_TTM'] / SP['float_market_cap'] / 10000
+        SP['SP_M_TTM_free'] = SP['oper_rev_M_TTM'] / SP['free_market_cap'] / 10000
+        cols = ['SP_M_TTM', 'SP_M_TTM_float', 'SP_M_TTM_free']
+        SP = SP.loc[np.any(pd.notnull(SP[cols]), axis=1), ['code', 'report_period'] + cols]
+        SP = SP.where(pd.notnull(SP), None)
         codes = SP['code'].unique()
         split_codes = np.array_split(codes, n_jobs)
         with parallel_backend('multiprocessing', n_jobs=n_jobs):

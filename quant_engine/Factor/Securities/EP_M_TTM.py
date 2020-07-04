@@ -16,7 +16,7 @@ class EP_M(FactorBase):
         net_profit = self.influx.getDataMultiprocess('FinancialReport_Gus', 'net_profit_M', start, end,
                                                      ['code', 'net_profit_M_TTM', 'report_period'])
         market_cap = self.influx.getDataMultiprocess('DailyFactors_Gus', 'Size', start, end,
-                                                     ['code', 'market_cap'])
+                                                     ['code', 'market_cap', 'float_market_cap', 'free_market_cap'])
         net_profit.index.names = ['date']
         net_profit.reset_index(inplace=True)
         market_cap.index.names = ['date']
@@ -25,8 +25,11 @@ class EP_M(FactorBase):
         EP = pd.merge(net_profit, market_cap, on=['date', 'code'])
         EP.set_index('date', inplace=True)
         EP['EP_M_TTM'] = EP['net_profit_M_TTM'] / EP['market_cap'] / 10000
-        EP = EP.loc[:, ['code', 'EP_M_TTM', 'report_period']]
-        EP = EP.dropna(subset=['EP_M_TTM'])
+        EP['EP_M_TTM_float'] = EP['net_profit_M_TTM'] / EP['float_market_cap'] / 10000
+        EP['EP_M_TTM_free'] = EP['net_profit_M_TTM'] / EP['free_market_cap'] / 10000
+        cols = ['EP_M_TTM', 'EP_M_TTM_float', 'EP_M_TTM_free']
+        EP = EP.loc[np.any(pd.notnull(EP[cols]), axis=1), ['code', 'report_period'] + cols]
+        EP = EP.where(pd.notnull(EP), None)
         codes = EP['code'].unique()
         split_codes = np.array_split(codes, n_jobs)
         with parallel_backend('multiprocessing', n_jobs=n_jobs):
