@@ -95,7 +95,9 @@ class PEG(FactorBase):
         # market_cap 单位为万元
         merge_df['PEG'] = merge_df['market_cap'] * 10000 / merge_df['net_profit_FY1'] / \
                           (merge_df['net_profit_FY2'] / merge_df['net_profit_FY0'])
-        merge_df = merge_df.loc[:, ['date', 'code', 'PEG']]
+        merge_df['PEG2'] = merge_df['market_cap'] * 10000 / merge_df['net_profit_FY1'] / \
+                           (100 * np.sqrt(merge_df['net_profit_FY2'] / merge_df['net_profit_FY0']) - 1)
+        merge_df = merge_df.loc[:, ['date', 'code', 'PEG', 'PEG2']]
         merge_df.set_index('date', inplace=True)
         merge_df = merge_df.replace(np.inf, np.nan)
         merge_df = merge_df.replace(-np.inf, np.nan)
@@ -117,7 +119,7 @@ class PEG(FactorBase):
 if __name__ == '__main__':
     time_start = datetime.datetime.now()
     af = PEG()
-    f = af.cal_factors(20100101, 20200402, N_JOBS)
+    f = af.cal_factors(20090101, 20200706, N_JOBS)
     print(f)
     time_end = datetime.datetime.now()
     print('Time token:', time_end - time_start)
