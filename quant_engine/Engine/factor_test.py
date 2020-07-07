@@ -298,7 +298,7 @@ class FactorTest(StrategyBase):
             weight = grouped_weight.loc[
                 (grouped_weight['group'] == g) | (grouped_weight['group'] == 'same_group'),
                 ['code', 'weight']].copy()
-            portfolio_value = BE.run(weight, start, end)
+            portfolio_value, _ = BE.run(weight, start, end)
             portfolio_value = portfolio_value.loc[:, ['TotalValue', 'BenchmarkValue', 'AccumAlpha']]
             portfolio_value.rename(columns={'TotalValue': 'TotalValue_{0}'.format(g),
                                             'BenchmarkValue': 'BenchmarkValue_{0}'.format(g),
