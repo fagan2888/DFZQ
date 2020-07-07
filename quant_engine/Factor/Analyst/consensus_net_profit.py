@@ -22,7 +22,7 @@ class consensus_net_profit(FactorBase):
         # 获取一致预期数据
         query = "SELECT [CON_DATE], [STOCK_CODE], [RPT_DATE], [C4], [C82]" \
                 "FROM [{0}].[dbo].[CON_FORECAST_STK] " \
-                "WHERE [CON_DATE] >= '{1}' and [CON_DATE] <= '{2}' and [RPT_TYPE] = 4 " \
+                "WHERE [CON_DATE] >= '{1}' and [CON_DATE] <= '{2}' and [RPT_TYPE] = 4 and [C4_TYPE] != 4" \
                 "order by [CON_DATE] " \
             .format(self.gogoal.database,
                     (dtparser.parse(str(start)) - relativedelta(months=1)).strftime('%Y%m%d'), end)
