@@ -36,7 +36,7 @@ class SecTestOpt(StrategyBase):
         self.industry = STRATEGY_CONFIG['industry']
         self.adj_interval = STRATEGY_CONFIG['adj_interval']
         self.capital = STRATEGY_CONFIG['capital']
-        self.target_sigma = STRATEGY_CONFIG['target_sigma']
+        self.lmd = STRATEGY_CONFIG['lambda']
         self.data_prepare(self.start, self.end)
         self.init_log()
         self.logger.info('Strategy start time: %s' % datetime.datetime.now().strftime('%Y/%m/%d - %H:%M:%S'))
@@ -113,7 +113,7 @@ class SecTestOpt(StrategyBase):
         split_dates = np.array_split(dates, self.n_jobs)
         with parallel_backend('multiprocessing', n_jobs=self.n_jobs):
             parallel_res = Parallel()(delayed(SecTestOpt.JOB_opt_weight)
-                                      (dates, self.target_sigma, merge, self.risks, self.risk_cov)
+                                      (dates, merge, self.risks, self.risk_cov, self.lmd)
                                       for dates in split_dates)
         parallel_dfs = []
         fail_dates = []
@@ -127,7 +127,7 @@ class SecTestOpt(StrategyBase):
         return target_weight
 
     @staticmethod
-    def JOB_opt_weight(dates, target_sigma, base_weight, risks_field, risk_cov):
+    def JOB_opt_weight(dates, base_weight, risks_field, risk_cov, lmd):
         dfs = []
         fail_dates = []
         for date in dates:
@@ -153,10 +153,11 @@ class SecTestOpt(StrategyBase):
             array_lowbound = -1 * day_base_weight['bm_weight'].values
             # ----------------------track error-------------------------
             overall_exp = array_overall * solve_weight / 100
-            obj = overall_exp
+
             tot_risk_exp = array_risk_exp.T * solve_weight / 100
             variance = cp.quad_form(tot_risk_exp, array_risk_cov) + \
                        cp.sum_squares(cp.multiply(array_spec_risk, solve_weight / 100))
+            obj = overall_exp - lmd * variance
             # -----------------------set cons---------------------------
             cons = []
             #  权重上下缘
@@ -164,7 +165,7 @@ class SecTestOpt(StrategyBase):
             cons.append(solve_weight >= array_lowbound)
             cons.append(cp.sum(solve_weight) == 0)
             #  跟踪误差设置
-            cons.append(variance <= target_sigma ** 2)
+            #cons.append(variance <= target_sigma ** 2)
             # -------------------------优化-----------------------------
             prob = cp.Problem(cp.Maximize(obj), constraints=cons)
             argskw = {'mi_max_iters': 1000, 'feastol': 1e-3, 'abstol': 1e-3}

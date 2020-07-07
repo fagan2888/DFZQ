@@ -70,6 +70,7 @@ class FactorsRerun:
 
     def run(self, start, end, n_jobs):
         self.logger.info('FACTORS RERUN: \n Time period: %i ~ %i' % (start, end))
+        '''
         sz = market_cap()
         res = sz.cal_factors(start, end, n_jobs)
         self.log_res(res)
@@ -162,6 +163,7 @@ class FactorsRerun:
         res = cgo.cal_factors(start, end, n_jobs)
         self.log_res(res)
         self.logger.info('--------------------CGO finish------------------------')
+        '''
         cov_div = coverage_and_divergence()
         res = cov_div.cal_factors(start, end, n_jobs)
         self.log_res(res)
@@ -182,6 +184,7 @@ class FactorsRerun:
         res = peg.cal_factors(start, end, n_jobs)
         self.log_res(res)
         self.logger.info('---------------------PEG finish-----------------------')
+        '''
         npll = NPL_leverage()
         res = npll.cal_factors(start, end, n_jobs)
         self.log_res(res)
@@ -198,6 +201,7 @@ class FactorsRerun:
         res = iig.cal_factors(start, end, n_jobs)
         self.log_res(res)
         self.logger.info('------------interest income growth finish-------------')
+        '''
 
         self.logger.info('//////////////////////////////////////////////////////')
         self.logger.info('EndTime: %s' % datetime.datetime.now().strftime('%Y%m%d-%H:%M:%S'))
@@ -205,4 +209,4 @@ class FactorsRerun:
 
 if __name__ == '__main__':
     du = FactorsRerun()
-    du.run(20090101, 20200528, N_JOBS)
+    du.run(20090101, 20200706, N_JOBS)
