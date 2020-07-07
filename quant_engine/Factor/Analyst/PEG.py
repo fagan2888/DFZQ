@@ -101,7 +101,7 @@ class PEG(FactorBase):
         merge_df.set_index('date', inplace=True)
         merge_df = merge_df.replace(np.inf, np.nan)
         merge_df = merge_df.replace(-np.inf, np.nan)
-        merge_df = merge_df.dropna()
+        merge_df = merge_df.loc[np.any(pd.notnull(merge_df[['PEG', 'PEG2']]), axis=1), :]
         codes = merge_df['code'].unique()
         split_codes = np.array_split(codes, n_jobs)
         with parallel_backend('multiprocessing', n_jobs=n_jobs):
