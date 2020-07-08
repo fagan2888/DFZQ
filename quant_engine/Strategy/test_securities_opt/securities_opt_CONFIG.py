@@ -3,7 +3,7 @@ from global_constant import FACTOR_DB, REPORT_DB
 STRATEGY_CONFIG = \
     {
         'start': 20120101,
-        'end': 20200701,
+        'end': 20200702,
         'benchmark': 300,
         'select_range': 800,
         'industry': 'improved_lv1',

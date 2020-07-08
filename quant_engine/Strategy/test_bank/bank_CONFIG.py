@@ -8,7 +8,7 @@ STRATEGY_CONFIG = \
         'select_range': 800,
         'industry': 'improved_lv1',
         'capital': 100000000,
-        'adj_interval': 5,
+        'adj_interval': 1,
         'n_selection': 5
     }
 
@@ -16,7 +16,7 @@ STRATEGY_CONFIG = \
 # 大类因子权重
 CATEGORY_WEIGHT = \
     {
-        'GROWTH': 1,
+        'VALUE': 1,
     }
 
 # 因子权重
@@ -24,10 +24,10 @@ CATEGORY_WEIGHT = \
 FACTOR_WEIGHT = \
     {
         'VALUE': [
-            [FACTOR_DB, 'BP', 'BP', 1, 'median', 1, True, False],
-            [FACTOR_DB, 'EP_FY1', 'EP_FY1', 1, 'median', 1, True, False]],
+            [FACTOR_DB, 'SP_Q', 'SP_Q', 1, 'median', 1, True, False]],
         'FIN_QUAL': [
             [FACTOR_DB, 'ROE2', 'ROE', 1, 'median', 1, True, False]],
         'GROWTH': [
-            [FACTOR_DB, 'cost_income_ratio_delta', 'cost_income_ratio_deltaQ', 1, 'median', 1, True, False]]
+            [FACTOR_DB, 'net_profit_Q_growth', 'net_profit_Q_growthY', 1, 'median', 1, True, False],
+            [FACTOR_DB, 'oper_rev_Q_acc', 'oper_rev_Q_acc', 1, 'median', 1, True, False]]
     }

@@ -36,8 +36,7 @@ class BankTestOpt(StrategyBase):
         self.industry = STRATEGY_CONFIG['industry']
         self.adj_interval = STRATEGY_CONFIG['adj_interval']
         self.capital = STRATEGY_CONFIG['capital']
-        self.target_sigma = STRATEGY_CONFIG['target_sigma']
-        self.weight_limit = STRATEGY_CONFIG['weight_limit']
+        self.lmd = STRATEGY_CONFIG['lambda']
         self.data_prepare(self.start, self.end)
         self.init_log()
         self.logger.info('Strategy start time: %s' % datetime.datetime.now().strftime('%Y/%m/%d - %H:%M:%S'))
@@ -73,6 +72,7 @@ class BankTestOpt(StrategyBase):
         folder_dir = global_constant.ROOT_DIR + 'Bank_Opt/{0}/'.format(self.save_name)
         merged_df.to_csv(folder_dir + 'FactorsCombination.csv', encoding='gbk')
         print('Factors combination finish...')
+        merged_df = merged_df.loc[:, ['code', 'overall']]
         return merged_df
 
     def get_bm_stk_wgt(self):
@@ -95,23 +95,25 @@ class BankTestOpt(StrategyBase):
         bm_df.rename(columns={'weight': 'bm_weight'}, inplace=True)
         bm_df['next_date'] = bm_df.index.strftime('%Y%m%d')
         merge = pd.merge(factor_df.reset_index(), bm_df, how='outer', on=['next_date', 'code'])
+        merge['date'] = merge.groupby('next_date')['date'].fillna(method='ffill')
+        merge['date'] = merge.groupby('next_date')['date'].fillna(method='bfill')
+        merge = merge.dropna(subset=['date'])
+        merge = merge.dropna(subset=['next_date'])
         self.risks = self.risk_exp.columns.difference(['code'])
         merge = pd.merge(merge, self.risk_exp.reset_index(), how='left', on=['date', 'code'])
         merge = pd.merge(merge, self.spec_risk.reset_index(), how='left', on=['date', 'code'])
-        merge['sum_risks'] = merge[self.risks].sum(axis=1)
-        merge[self.risks] = merge[self.risks].fillna(0)
-        merge['filled_overall'] = merge['overall'].fillna(0)
+        merge['overall'] = merge['overall'].fillna(-999)
         merge['bm_weight'] = merge['bm_weight'].fillna(0)
-        merge['filled_spec_risk'] = merge['specific_risk'].fillna(0)
-        merge = merge.dropna(subset=['next_date'])
+        merge[self.risks] = merge[self.risks].fillna(0)
+        merge = merge.drop('date', axis=1)
         merge.set_index('next_date', inplace=True)
         merge.index = pd.to_datetime(merge.index)
+        merge.index.names = ['date']
         dates = merge.index.unique().strftime('%Y%m%d')
         split_dates = np.array_split(dates, self.n_jobs)
         with parallel_backend('multiprocessing', n_jobs=self.n_jobs):
             parallel_res = Parallel()(delayed(BankTestOpt.JOB_opt_weight)
-                                      (dates, self.weight_limit, self.adj_interval, self.target_sigma, merge,
-                                       self.risks, self.risk_cov)
+                                      (dates, merge, self.risks, self.risk_cov, self.lmd)
                                       for dates in split_dates)
         parallel_dfs = []
         fail_dates = []
@@ -125,17 +127,17 @@ class BankTestOpt(StrategyBase):
         return target_weight
 
     @staticmethod
-    def JOB_opt_weight(dates, weight_limit, adj_interval, target_sigma, base_weight, risks_field, risk_cov):
+    def JOB_opt_weight(dates, base_weight, risks_field, risk_cov, lmd):
         dfs = []
         fail_dates = []
         for date in dates:
             day_base_weight = base_weight.loc[date, :].copy()
             # -----------------------get array--------------------------
             array_codes = day_base_weight['code'].values
-            array_overall = day_base_weight['filled_overall'].values
+            array_overall = day_base_weight['overall'].values
             array_base_weight = day_base_weight['bm_weight'].values
-            array_risk_exp = day_base_weight[risks_field].values
-            array_spec_risk = day_base_weight['filled_spec_risk'].values
+            array_risk_exp = day_base_weight.loc[:, risks_field].values
+            array_spec_risk = day_base_weight['specific_risk'].values
             # -------------------------set para-------------------------
             n_stk, n_risk = array_risk_exp.shape
             solve_weight = cp.Variable(n_stk)
@@ -145,20 +147,17 @@ class BankTestOpt(StrategyBase):
             array_risk_cov = 0.5 * (array_risk_cov + array_risk_cov.T)
             # ------------------------get bound-------------------------
             # 设置权重上下限
-            #   权重上限 可以到 weight_limit
-            #   没有overall 或 sum_risks 或 specific_risk 因子值的 总权重为0
-            array_upbound = np.where(
-                pd.isnull(day_base_weight['overall']).values | pd.isnull(day_base_weight['sum_risks']).values |
-                pd.isnull(day_base_weight['specific_risk']).values,
-                -1 * day_base_weight['bm_weight'].values, weight_limit - day_base_weight['bm_weight'].values)
+            # 行业内绝对权重 20 或 1.5 * base_weight
+            array_upbound = np.where(20 - array_base_weight > 0.5 * array_base_weight, 20 - array_base_weight,
+                                     0.5 * array_base_weight)
             array_lowbound = -1 * day_base_weight['bm_weight'].values
             # ----------------------track error-------------------------
             overall_exp = array_overall * solve_weight / 100
-            obj = overall_exp
+
             tot_risk_exp = array_risk_exp.T * solve_weight / 100
             variance = cp.quad_form(tot_risk_exp, array_risk_cov) + \
                        cp.sum_squares(cp.multiply(array_spec_risk, solve_weight / 100))
-            sigma = target_sigma / np.sqrt(252 / adj_interval)
+            obj = overall_exp - lmd * variance
             # -----------------------set cons---------------------------
             cons = []
             #  权重上下缘
@@ -166,7 +165,7 @@ class BankTestOpt(StrategyBase):
             cons.append(solve_weight >= array_lowbound)
             cons.append(cp.sum(solve_weight) == 0)
             #  跟踪误差设置
-            cons.append(variance <= sigma ** 2)
+            # cons.append(variance <= target_sigma ** 2)
             # -------------------------优化-----------------------------
             prob = cp.Problem(cp.Maximize(obj), constraints=cons)
             argskw = {'mi_max_iters': 1000, 'feastol': 1e-3, 'abstol': 1e-3}
@@ -203,12 +202,12 @@ class BankTestOpt(StrategyBase):
         QE = BacktestEngine(self.strategy_name, bt_start, bt_end, self.adj_interval, self.benchmark,
                             stock_capital=self.capital)
         pvs = []
-        portfolio_value = QE.run(target_weight, bt_start, bt_end)
+        portfolio_value, _ = QE.run(target_weight, bt_start, bt_end)
         portfolio_value = portfolio_value.loc[:, ['TotalValue']]
         portfolio_value.rename(columns={'TotalValue': 'AlphaBank'}, inplace=True)
         pvs.append(portfolio_value)
         QE.stk_portfolio.reset_portfolio(self.capital)
-        portfolio_value = QE.run(bm_stk_wgt, bt_start, bt_end)
+        portfolio_value, _ = QE.run(bm_stk_wgt, bt_start, bt_end)
         portfolio_value = portfolio_value.loc[:, ['TotalValue']]
         portfolio_value.rename(columns={'TotalValue': 'BmBank'}, inplace=True)
         pvs.append(portfolio_value)
