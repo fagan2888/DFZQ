@@ -105,6 +105,8 @@ class StrategyBase:
                 ['code']].copy()
         else:
             self.code_range = self.mkt_data.loc[:, ['code']].copy()
+        # 过滤 东方证券(600958) 和 申能股份(600642)
+        self.code_range = self.code_range.loc[~self.code_range['code'].isin(['600958.SH', '600642.SH']), :]
         self.code_range.reset_index(inplace=True)
         # 过滤 停牌 的票
         trading_stk = self.mkt_data.loc[:, ['code', 'status']].copy()
