@@ -171,7 +171,6 @@ class StrategyBase:
         else:
             os.makedirs(self.folder_dir.rstrip('/'))
         self.data_prepare(self.start, self.end)
-        self.init_log()
 
 
 if __name__ == '__main__':
