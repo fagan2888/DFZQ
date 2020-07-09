@@ -49,6 +49,8 @@ class FactorTest(StrategyBase):
         for date in dates:
             day_factor = factor.loc[date, :].copy()
             industries = day_factor['industry'].unique()
+            day_tot_wgt = day_factor.groupby('industry')['industry_weight'].mean()
+            day_tot_wgt = day_tot_wgt.sum()
             for ind in industries:
                 day_industry_factor = day_factor.loc[day_factor['industry'] == ind, :].copy()
                 # 行业成分不足10支票时，所有group配置一样
@@ -63,6 +65,7 @@ class FactorTest(StrategyBase):
                     day_industry_factor['group_size'] = day_industry_factor['group'].map(group_size)
                     day_industry_factor['weight'] = day_industry_factor['industry_weight'] / \
                                                     day_industry_factor['group_size'] * day_industry_factor[size_field]
+                day_industry_factor['weight'] = day_industry_factor['weight'] / day_tot_wgt * 100
                 res.append(day_industry_factor)
         res_df = pd.concat(res)
         return res_df
