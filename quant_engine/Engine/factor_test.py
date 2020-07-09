@@ -333,7 +333,7 @@ class FactorTest(StrategyBase):
         self.logger.info('*' * 30)
 
     def run(self, adj_interval=5, groups=5, capital=5000000, cash_reserve=0.03, stk_slippage=0.001,
-            stk_fee=0.0001, price_field='vwap', logger_lvl=logging.INFO):
+            stk_fee=0.0001, price_field='vwap', logger_lvl=logging.INFO, industry=None):
         self.groups = groups
         self.capital = capital
         self.cash_reserve = cash_reserve
@@ -346,8 +346,14 @@ class FactorTest(StrategyBase):
         # ---------------------------------------------------------------
         # initialize strategy
         self.initialize_strategy()
+        self.init_log()
         # alpha 数据
         self.alpha_df = self.get_alpha_df()
+        # 是否过滤 金融类股票
+        if not industry:
+            self.code_range = self.code_range.loc[~self.code_range['industry'].isin(['银行(中信)', '证券Ⅱ(中信)']), :]
+        else:
+            self.code_range = self.code_range.loc[self.code_range['industry'] == industry, :]
         # 因子数据
         self.factor_data = self.factors_combination()
         # 有效性检验
