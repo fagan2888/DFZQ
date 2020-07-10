@@ -97,7 +97,6 @@ class Alpha_V4(StrategyBase):
         else:
             bm_idsty = bm_idsty.loc[~bm_idsty['industry'].isin(['银行(中信)', '证券Ⅱ(中信)']), :]
         bm_idsty.set_index('date', inplace=True)
-        bm_idsty = bm_idsty.loc[:, ['code', 'weight']]
         return bm_idsty
 
     def opt_weight(self, factor_df, benchmark_df, const, ratio):
@@ -231,24 +230,24 @@ class Alpha_V4(StrategyBase):
         next_bm_non_fin = self.get_bm_idsty_wgt(next_bm_stk_wgt, None)
         print('ALL Factors finish!')
         # ---------------------------opt_weight------------------------------
-        bm_wgt = pd.merge(self.bm_stk_wgt.reset_index(), self.industry_data.reset_index(), on=['date', 'code'])
         # 银行权重
         print('BANK Opt processing...')
         opt_bank_wgt = self.opt_weight(overall_bank, next_bm_bank, self.bank_const, self.bank_ratio)
-        bank_tot_wgt = bm_wgt.loc[bm_wgt['industry'] == '银行(中信)', :]
-        bank_tot_wgt = bank_tot_wgt.groupby('date')['weight'].sum().to_dict()
+        bank_tot_wgt = dict(zip(next_bm_bank.index.unique(), next_bm_bank['tot_wgt'].unique()))
         opt_bank_wgt['tot_wgt'] = opt_bank_wgt.index
         opt_bank_wgt['tot_wgt'] = opt_bank_wgt['tot_wgt'].map(bank_tot_wgt)
         opt_bank_wgt['weight'] = opt_bank_wgt['weight'] / 100 * opt_bank_wgt['tot_wgt']
+        opt_bank_wgt = opt_bank_wgt.drop('tot_weight', axis=1)
         # opt_bank_wgt.to_csv(self.folder_dir + 'bank_weight.csv', encoding='gbk')
         # 券商权重
         print('SEC Opt processing...')
+        # 行业内权重
         opt_sec_wgt = self.opt_weight(overall_sec, next_bm_sec, self.sec_const, self.sec_ratio)
-        sec_tot_wgt = bm_wgt.loc[bm_wgt['industry'] == '证券Ⅱ(中信)', :]
-        sec_tot_wgt = sec_tot_wgt.groupby('date')['weight'].sum().to_dict()
+        sec_tot_wgt = dict(zip(next_bm_sec.index.unique(), next_bm_sec['tot_wgt'].unique()))
         opt_sec_wgt['tot_wgt'] = opt_sec_wgt.index
         opt_sec_wgt['tot_wgt'] = opt_sec_wgt['tot_wgt'].map(sec_tot_wgt)
         opt_sec_wgt['weight'] = opt_sec_wgt['weight'] / 100 * opt_sec_wgt['tot_wgt']
+        opt_sec_wgt = opt_sec_wgt.drop('tot_weight', axis=1)
         # 非金融权重
         print('NON FIN Opt processing...')
         opt_non_fin_wgt = self.opt_weight(overall_non_fin, next_bm_non_fin, self.non_fin_const, self.non_fin_ratio)

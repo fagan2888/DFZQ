@@ -94,7 +94,6 @@ FACTOR_NON_FIN = \
         'ANALYST': [
             [FACTOR_DB, 'Analyst', 'sqrt_anlst_cov', 1, 'zero', 1, False, False],
             [FACTOR_DB, 'Analyst', 'net_profit_divergence', -1, 'median', 1, False, False],
-            [FACTOR_DB, 'Score', 'score', 1, 'median', 1, False, True],
             [FACTOR_DB, 'PEG', 'PEG2', -1, 'median', 1, False, True]],
         'ILIQUIDITY': [
             [FACTOR_DB, 'Amihud', 'amihud_20', 1, 'zero', 1, False, True],
