@@ -234,8 +234,8 @@ class Alpha_V4(StrategyBase):
         print('BANK Opt processing...')
         opt_bank_wgt = self.opt_weight(overall_bank, next_bm_bank, self.bank_const, self.bank_ratio)
         bank_tot_wgt = dict(zip(next_bm_bank.index.unique(), next_bm_bank['tot_wgt'].unique()))
-        opt_bank_wgt['tot_wgt'] = opt_bank_wgt.index
-        opt_bank_wgt['tot_wgt'] = opt_bank_wgt['tot_wgt'].map(bank_tot_wgt)
+        opt_bank_wgt['bank_wgt'] = opt_bank_wgt.index
+        opt_bank_wgt['bank_wgt'] = opt_bank_wgt['bank_wgt'].map(bank_tot_wgt)
         opt_bank_wgt['weight'] = opt_bank_wgt['weight'] / 100 * opt_bank_wgt['tot_wgt']
         opt_bank_wgt = opt_bank_wgt.drop('tot_weight', axis=1)
         # opt_bank_wgt.to_csv(self.folder_dir + 'bank_weight.csv', encoding='gbk')
@@ -244,8 +244,8 @@ class Alpha_V4(StrategyBase):
         # 行业内权重
         opt_sec_wgt = self.opt_weight(overall_sec, next_bm_sec, self.sec_const, self.sec_ratio)
         sec_tot_wgt = dict(zip(next_bm_sec.index.unique(), next_bm_sec['tot_wgt'].unique()))
-        opt_sec_wgt['tot_wgt'] = opt_sec_wgt.index
-        opt_sec_wgt['tot_wgt'] = opt_sec_wgt['tot_wgt'].map(sec_tot_wgt)
+        opt_sec_wgt['sec_wgt'] = opt_sec_wgt.index
+        opt_sec_wgt['sec_wgt'] = opt_sec_wgt['sec_wgt'].map(sec_tot_wgt)
         opt_sec_wgt['weight'] = opt_sec_wgt['weight'] / 100 * opt_sec_wgt['tot_wgt']
         opt_sec_wgt = opt_sec_wgt.drop('tot_weight', axis=1)
         # 非金融权重
