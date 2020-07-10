@@ -25,7 +25,7 @@ CATEGORY_WEIGHT = \
 FACTOR_WEIGHT = \
     {
         'VALUE': [
-            [FACTOR_DB, 'BP_M', 'BP_M', 1, 'median', 1, True, False],
-            [FACTOR_DB, 'EP_M_TTM', 'EP_M_TTM', 1, 'median', 1, True, False],
-            [FACTOR_DB, 'SP_M_TTM', 'SP_M_TTM', 1, 'median', 1, True, False]]
+            [FACTOR_DB, 'BP_M', 'BP_M', 1, None, 1, True, False],
+            [FACTOR_DB, 'EP_M_TTM', 'EP_M_TTM', 1, None, 1, True, False],
+            [FACTOR_DB, 'SP_M_TTM', 'SP_M_TTM', 1, None, 1, True, False]]
     }
