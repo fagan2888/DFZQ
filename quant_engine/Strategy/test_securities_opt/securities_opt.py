@@ -37,6 +37,7 @@ class SecTestOpt(StrategyBase):
         self.adj_interval = STRATEGY_CONFIG['adj_interval']
         self.capital = STRATEGY_CONFIG['capital']
         self.lmd = STRATEGY_CONFIG['lambda']
+        self.size_limit = STRATEGY_CONFIG['size_limit']
         self.data_prepare(self.start, self.end)
         self.init_log()
         self.logger.info('Strategy start time: %s' % datetime.datetime.now().strftime('%Y/%m/%d - %H:%M:%S'))
@@ -113,7 +114,7 @@ class SecTestOpt(StrategyBase):
         split_dates = np.array_split(dates, self.n_jobs)
         with parallel_backend('multiprocessing', n_jobs=self.n_jobs):
             parallel_res = Parallel()(delayed(SecTestOpt.JOB_opt_weight)
-                                      (dates, merge, self.risks, self.risk_cov, self.lmd)
+                                      (dates, merge, self.risks, self.risk_cov, self.lmd, self.size_limit)
                                       for dates in split_dates)
         parallel_dfs = []
         fail_dates = []
@@ -127,7 +128,7 @@ class SecTestOpt(StrategyBase):
         return target_weight
 
     @staticmethod
-    def JOB_opt_weight(dates, base_weight, risks_field, risk_cov, lmd):
+    def JOB_opt_weight(dates, base_weight, risks_field, risk_cov, lmd, size_limit):
         dfs = []
         fail_dates = []
         for date in dates:
@@ -135,6 +136,7 @@ class SecTestOpt(StrategyBase):
             # -----------------------get array--------------------------
             array_codes = day_base_weight['code'].values
             array_overall = day_base_weight['overall'].values
+            array_size = day_base_weight['Size'].values
             array_base_weight = day_base_weight['bm_weight'].values
             array_risk_exp = day_base_weight.loc[:, risks_field].values
             array_spec_risk = day_base_weight['specific_risk'].values
@@ -148,12 +150,12 @@ class SecTestOpt(StrategyBase):
             # ------------------------get bound-------------------------
             # 设置权重上下限
             # 行业内绝对权重 20 或 1.5 * base_weight
-            array_upbound = np.where(20 - array_base_weight > 0.5 * array_base_weight, 20 - array_base_weight,
-                                     0.5 * array_base_weight)
+            array_upbound = np.where(20 - array_base_weight > 1.5 * array_base_weight, 20 - array_base_weight,
+                                     1.5 * array_base_weight)
             array_lowbound = -1 * day_base_weight['bm_weight'].values
             # ----------------------track error-------------------------
             overall_exp = array_overall * solve_weight / 100
-
+            size_exp = array_size * solve_weight / 100
             tot_risk_exp = array_risk_exp.T * solve_weight / 100
             variance = cp.quad_form(tot_risk_exp, array_risk_cov) + \
                        cp.sum_squares(cp.multiply(array_spec_risk, solve_weight / 100))
@@ -164,6 +166,9 @@ class SecTestOpt(StrategyBase):
             cons.append(solve_weight <= array_upbound)
             cons.append(solve_weight >= array_lowbound)
             cons.append(cp.sum(solve_weight) == 0)
+            # size 偏离设置
+            cons.append(size_exp >= -size_limit)
+            cons.append(size_exp <= size_limit)
             #  跟踪误差设置
             #cons.append(variance <= target_sigma ** 2)
             # -------------------------优化-----------------------------

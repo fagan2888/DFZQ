@@ -9,7 +9,8 @@ STRATEGY_CONFIG = \
         'industry': 'improved_lv1',
         'capital': 100000000,
         'adj_interval': 5,
-        'lambda': 25
+        'lambda': 25,
+        'size_limit': 0.1
     }
 
 
