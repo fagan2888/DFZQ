@@ -9,7 +9,8 @@ STRATEGY_CONFIG = \
         'industry': 'improved_lv1',
         'capital': 100000000,
         'adj_interval': 5,
-        'lambda': 25
+        'lambda': 25,
+        'size_limit': 0.1
     }
 
 
@@ -27,12 +28,12 @@ CATEGORY_WEIGHT = \
 FACTOR_WEIGHT = \
     {
         'VALUE': [
-            [FACTOR_DB, 'BP', 'BP', 1, 'median', 1, True, False],
-            [FACTOR_DB, 'EP_FY1', 'EP_FY1', 1, 'median', 1, True, False]],
+            [FACTOR_DB, 'BP', 'BP', 1, None, 1, True, False],
+            [FACTOR_DB, 'EP_FY1', 'EP_FY1', 1, None, 1, True, False]],
         'FIN_QUAL': [
-            [FACTOR_DB, 'ROE2', 'ROE', 1, 'median', 1, True, False]],
+            [FACTOR_DB, 'ROE2', 'ROE', 1, None, 1, True, False]],
         'GROWTH': [
-            [FACTOR_DB, 'net_profit_Q_growth', 'net_profit_Q_growthY', 1, 'median', 1, True, False]],
+            [FACTOR_DB, 'net_profit_Q_growth', 'net_profit_Q_growthY', 1, None, 1, True, False]],
         'BANK': [
-            [REPORT_DB, 'provision_cov', 'provision_cov', 1, 'median', 1, True, False]]
+            [REPORT_DB, 'provision_cov', 'provision_cov', 1, None, 1, True, False]]
     }
