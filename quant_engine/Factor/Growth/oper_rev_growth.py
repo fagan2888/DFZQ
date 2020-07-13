@@ -101,9 +101,19 @@ class oper_rev_growth(FactorBase):
                              for codes in split_codes)
         print('oper_rev_TTM_growth finish')
         print('-' * 30)
+        # 计算 oper_rev 的 growth
+        oper_rev = self.influx.getDataMultiprocess('FinancialReport_Gus', 'oper_rev', start, end)
+        codes = oper_rev['code'].unique()
+        split_codes = np.array_split(codes, n_jobs)
+        with parallel_backend('multiprocessing', n_jobs=n_jobs):
+            res = Parallel()(delayed(oper_rev_growth.JOB_Q_growth)
+                             (codes, oper_rev, 'oper_rev', self.db, 'oper_rev_growth')
+                             for codes in split_codes)
+        print('oper_rev_growth finish')
+        print('-' * 30)
+
         for r in res:
             fail_list.extend(r)
-
         return fail_list
 
 
@@ -111,6 +121,6 @@ if __name__ == '__main__':
     pd.set_option('mode.use_inf_as_na', True)
     start_dt = datetime.datetime.now()
     oper_revg = oper_rev_growth()
-    r = oper_revg.cal_factors(20090101, 20200605, N_JOBS)
+    r = oper_revg.cal_factors(20090101, 20200710, N_JOBS)
     print(r)
     print('time token:', datetime.datetime.now()-start_dt)
