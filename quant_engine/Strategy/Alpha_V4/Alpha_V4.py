@@ -75,19 +75,8 @@ class Alpha_V4(StrategyBase):
         print('Factors combination finish...')
         return merged_df
 
-    def get_next_bm_stk_wgt(self):
-        next_bm_stk_wgt = self.bm_stk_wgt.copy()
-        next_bm_stk_wgt['former_date'] = next_bm_stk_wgt.index.strftime('%Y%m%d')
-        former_dict = dict(zip(self.calendar[1:], self.calendar[:-1]))
-        next_bm_stk_wgt['former_date'] = next_bm_stk_wgt['former_date'].map(former_dict)
-        next_bm_stk_wgt = next_bm_stk_wgt.dropna(subset=['former_date'])
-        next_bm_stk_wgt['former_date'] = pd.to_datetime(next_bm_stk_wgt['former_date'])
-        next_bm_stk_wgt.set_index('former_date', inplace=True)
-        next_bm_stk_wgt.index.names = ['date']
-        return next_bm_stk_wgt
-
-    def get_bm_idsty_wgt(self, bm_stk_wgt, industry):
-        bm_idsty = pd.merge(bm_stk_wgt.reset_index(), self.industry_data.reset_index(), on=['date', 'code'])
+    def get_bm_idsty_wgt(self, industry):
+        bm_idsty = pd.merge(self.bm_stk_wgt.reset_index(), self.industry_data.reset_index(), on=['date', 'code'])
         if industry:
             bm_idsty = bm_idsty.loc[bm_idsty['industry'] == industry, :]
             wgt_sum = bm_idsty.groupby('date')['weight'].sum()
@@ -213,31 +202,30 @@ class Alpha_V4(StrategyBase):
     def run(self):
         start_time = datetime.datetime.now()
         # -----------------------------get data------------------------------
-        next_bm_stk_wgt = self.get_next_bm_stk_wgt()
         # 银行因子
         print('BANK Factors processing...')
         overall_bank = self.factors_combination(CATEGORY_BANK, FACTOR_BANK, '银行(中信)')
         overall_bank.to_csv(self.folder_dir + 'factors_bank.csv', encoding='gbk')
         overall_bank = overall_bank.loc[:, ['code', 'overall', 'industry']]
-        next_bm_bank = self.get_bm_idsty_wgt(next_bm_stk_wgt, '银行(中信)')
+        bm_bank = self.get_bm_idsty_wgt('银行(中信)')
         # 券商因子
         print('SEC Factors processing...')
         overall_sec = self.factors_combination(CATEGORY_SEC, FACTOR_SEC, '证券Ⅱ(中信)')
         overall_sec.to_csv(self.folder_dir + 'factors_sec.csv', encoding='gbk')
         overall_sec = overall_sec.loc[:, ['code', 'overall', 'industry']]
-        next_bm_sec = self.get_bm_idsty_wgt(next_bm_stk_wgt, '证券Ⅱ(中信)')
+        bm_sec = self.get_bm_idsty_wgt('证券Ⅱ(中信)')
         # 非金融因子
         print('NON FIN Factors processing...')
         overall_non_fin = self.factors_combination(CATEGORY_NON_FIN, FACTOR_NON_FIN, None)
         overall_non_fin.to_csv(self.folder_dir + 'factors_non_fin.csv', encoding='gbk')
         overall_non_fin = overall_non_fin.loc[:, ['code', 'overall', 'industry']]
-        next_bm_non_fin = self.get_bm_idsty_wgt(next_bm_stk_wgt, None)
+        bm_non_fin = self.get_bm_idsty_wgt(None)
         print('ALL Factors finish!')
         # ---------------------------opt_weight------------------------------
         # 银行权重
         print('BANK Opt processing...')
-        opt_bank_wgt = self.opt_weight(overall_bank, next_bm_bank, self.bank_const, self.bank_ratio)
-        bank_tot_wgt = dict(zip(next_bm_bank.index.unique(), next_bm_bank['tot_wgt'].unique()))
+        opt_bank_wgt = self.opt_weight(overall_bank, bm_bank, self.bank_const, self.bank_ratio)
+        bank_tot_wgt = dict(zip(bm_bank.index.unique(), bm_bank['tot_wgt'].unique()))
         opt_bank_wgt['bank_wgt'] = opt_bank_wgt.index
         opt_bank_wgt['bank_wgt'] = opt_bank_wgt['bank_wgt'].map(bank_tot_wgt)
         opt_bank_wgt['weight'] = opt_bank_wgt['weight'] / 100 * opt_bank_wgt['bank_wgt']
@@ -245,14 +233,14 @@ class Alpha_V4(StrategyBase):
         # 券商权重
         print('SEC Opt processing...')
         # 行业内权重
-        opt_sec_wgt = self.opt_weight(overall_sec, next_bm_sec, self.sec_const, self.sec_ratio)
-        sec_tot_wgt = dict(zip(next_bm_sec.index.unique(), next_bm_sec['tot_wgt'].unique()))
+        opt_sec_wgt = self.opt_weight(overall_sec, bm_sec, self.sec_const, self.sec_ratio)
+        sec_tot_wgt = dict(zip(bm_sec.index.unique(), bm_sec['tot_wgt'].unique()))
         opt_sec_wgt['sec_wgt'] = opt_sec_wgt.index
         opt_sec_wgt['sec_wgt'] = opt_sec_wgt['sec_wgt'].map(sec_tot_wgt)
         opt_sec_wgt['weight'] = opt_sec_wgt['weight'] / 100 * opt_sec_wgt['sec_wgt']
         # 非金融权重
         print('NON FIN Opt processing...')
-        opt_non_fin_wgt = self.opt_weight(overall_non_fin, next_bm_non_fin, self.non_fin_const, self.non_fin_ratio)
+        opt_non_fin_wgt = self.opt_weight(overall_non_fin, bm_non_fin, self.non_fin_const, self.non_fin_ratio)
         # 组合权重
         target_weight = pd.concat(
             [opt_bank_wgt.reset_index(), opt_sec_wgt.reset_index(), opt_non_fin_wgt.reset_index()], ignore_index=True)
