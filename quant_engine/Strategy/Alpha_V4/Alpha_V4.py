@@ -222,19 +222,23 @@ class Alpha_V4(StrategyBase):
         # 银行权重
         print('BANK Opt processing...')
         opt_bank_wgt = self.opt_weight(overall_bank, bm_bank, self.bank_const, self.bank_ratio)
-        bank_tot_wgt = dict(zip(bm_bank.index.unique(), bm_bank['tot_wgt'].unique()))
+        bank_tot_wgt = bm_bank.reset_index().drop_duplicates(['date'])
+        bank_tot_wgt = bank_tot_wgt.loc[:, ['date', 'tot_wgt']]
+        bank_tot_wgt = dict(zip(bank_tot_wgt['date'], bank_tot_wgt['tot_wgt']))
         opt_bank_wgt['bank_wgt'] = opt_bank_wgt.index
         opt_bank_wgt['bank_wgt'] = opt_bank_wgt['bank_wgt'].map(bank_tot_wgt)
-        opt_bank_wgt['weight'] = opt_bank_wgt['weight'] / 100 * opt_bank_wgt['bank_wgt']
+        opt_bank_wgt['weight'] = np.round(opt_bank_wgt['weight'] / 100 * opt_bank_wgt['bank_wgt'], 2)
         # opt_bank_wgt.to_csv(self.folder_dir + 'bank_weight.csv', encoding='gbk')
         # 券商权重
         print('SEC Opt processing...')
         # 行业内权重
         opt_sec_wgt = self.opt_weight(overall_sec, bm_sec, self.sec_const, self.sec_ratio)
-        sec_tot_wgt = dict(zip(bm_sec.index.unique(), bm_sec['tot_wgt'].unique()))
+        sec_tot_wgt = bm_sec.reset_index().drop_duplicates(['date'])
+        sec_tot_wgt = sec_tot_wgt.loc[:, ['date', 'tot_wgt']]
+        sec_tot_wgt = dict(zip(sec_tot_wgt['date'], sec_tot_wgt['tot_wgt']))
         opt_sec_wgt['sec_wgt'] = opt_sec_wgt.index
         opt_sec_wgt['sec_wgt'] = opt_sec_wgt['sec_wgt'].map(sec_tot_wgt)
-        opt_sec_wgt['weight'] = opt_sec_wgt['weight'] / 100 * opt_sec_wgt['sec_wgt']
+        opt_sec_wgt['weight'] = np.round(opt_sec_wgt['weight'] / 100 * opt_sec_wgt['sec_wgt'], 2)
         # 非金融权重
         print('NON FIN Opt processing...')
         opt_non_fin_wgt = self.opt_weight(overall_non_fin, bm_non_fin, self.non_fin_const, self.non_fin_ratio)
@@ -242,6 +246,7 @@ class Alpha_V4(StrategyBase):
         target_weight = pd.concat(
             [opt_bank_wgt.reset_index(), opt_sec_wgt.reset_index(), opt_non_fin_wgt.reset_index()], ignore_index=True)
         target_weight = target_weight.set_index('date')
+        target_weight = target_weight.sort_index()
         target_weight.to_csv(self.folder_dir + 'target_weight.csv', encoding='gbk')
         print('target_weight is ready!')
         # --------------------------backtest--------------------------------
