@@ -106,9 +106,13 @@ class Alpha_V4(StrategyBase):
         bm_df = benchmark_df.copy()
         bm_df.rename(columns={'weight': 'bm_weight'}, inplace=True)
         bm_df['next_date'] = bm_df.index.strftime('%Y%m%d')
-        merge = pd.merge(factor_df.reset_index(), bm_df, how='outer', on=['next_date', 'code'])
+        bm_stk_wgt = bm_df.loc[:, ['next_date', 'code', 'bm_weight']].copy()
+        bm_indu_wgt = bm_df.drop_duplicates(subset=['industry', 'tot_wgt', 'next_date'])
+        bm_indu_wgt = bm_indu_wgt.loc[:, ['next_date', 'industry', 'tot_wgt']].copy()
+        merge = pd.merge(factor_df.reset_index(), bm_stk_wgt, how='outer', on=['next_date', 'code'])
         merge['date'] = merge.groupby('next_date')['date'].fillna(method='ffill')
         merge['date'] = merge.groupby('next_date')['date'].fillna(method='bfill')
+        merge = pd.merge(factor_df.reset_index(), bm_indu_wgt, how='left', on=['next_date', 'industry'])
         merge = merge.dropna(subset=['date'])
         merge = merge.dropna(subset=['next_date'])
         self.risks = self.risk_exp.columns.difference(['code'])
@@ -214,19 +218,19 @@ class Alpha_V4(StrategyBase):
         print('BANK Factors processing...')
         overall_bank = self.factors_combination(CATEGORY_BANK, FACTOR_BANK, '银行(中信)')
         overall_bank.to_csv(self.folder_dir + 'factors_bank.csv', encoding='gbk')
-        overall_bank = overall_bank.loc[:, ['code', 'overall']]
+        overall_bank = overall_bank.loc[:, ['code', 'overall', 'industry']]
         next_bm_bank = self.get_bm_idsty_wgt(next_bm_stk_wgt, '银行(中信)')
         # 券商因子
         print('SEC Factors processing...')
         overall_sec = self.factors_combination(CATEGORY_SEC, FACTOR_SEC, '证券Ⅱ(中信)')
         overall_sec.to_csv(self.folder_dir + 'factors_sec.csv', encoding='gbk')
-        overall_sec = overall_sec.loc[:, ['code', 'overall']]
+        overall_sec = overall_sec.loc[:, ['code', 'overall', 'industry']]
         next_bm_sec = self.get_bm_idsty_wgt(next_bm_stk_wgt, '证券Ⅱ(中信)')
         # 非金融因子
         print('NON FIN Factors processing...')
         overall_non_fin = self.factors_combination(CATEGORY_NON_FIN, FACTOR_NON_FIN, None)
         overall_non_fin.to_csv(self.folder_dir + 'factors_non_fin.csv', encoding='gbk')
-        overall_non_fin = overall_non_fin.loc[:, ['code', 'overall']]
+        overall_non_fin = overall_non_fin.loc[:, ['code', 'overall', 'industry']]
         next_bm_non_fin = self.get_bm_idsty_wgt(next_bm_stk_wgt, None)
         print('ALL Factors finish!')
         # ---------------------------opt_weight------------------------------
