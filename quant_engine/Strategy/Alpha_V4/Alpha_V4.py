@@ -101,6 +101,7 @@ class Alpha_V4(StrategyBase):
         merge['date'] = merge.groupby('next_date')['date'].fillna(method='bfill')
         merge = merge.dropna(subset=['date'])
         merge = merge.dropna(subset=['next_date'])
+        merge = merge.dropna(subset=['industry'])
         self.risks = self.risk_exp.columns.difference(['code'])
         merge = pd.merge(merge, self.risk_exp.reset_index(), how='left', on=['date', 'code'])
         merge = pd.merge(merge, self.spec_risk.reset_index(), how='left', on=['date', 'code'])
