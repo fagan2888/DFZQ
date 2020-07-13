@@ -101,7 +101,6 @@ class Alpha_V4(StrategyBase):
         merge['date'] = merge.groupby('next_date')['date'].fillna(method='bfill')
         merge = merge.dropna(subset=['date'])
         merge = merge.dropna(subset=['next_date'])
-        merge = merge.dropna(subset=['industry'])
         self.risks = self.risk_exp.columns.difference(['code'])
         merge = pd.merge(merge, self.risk_exp.reset_index(), how='left', on=['date', 'code'])
         merge = pd.merge(merge, self.spec_risk.reset_index(), how='left', on=['date', 'code'])
@@ -204,19 +203,19 @@ class Alpha_V4(StrategyBase):
         print('BANK Factors processing...')
         overall_bank = self.factors_combination(CATEGORY_BANK, FACTOR_BANK, '银行(中信)')
         overall_bank.to_csv(self.folder_dir + 'factors_bank.csv', encoding='gbk')
-        overall_bank = overall_bank.loc[:, ['code', 'overall', 'industry']]
+        overall_bank = overall_bank.loc[:, ['code', 'overall']]
         bm_bank = self.get_bm_idsty_wgt('银行(中信)')
         # 券商因子
         print('SEC Factors processing...')
         overall_sec = self.factors_combination(CATEGORY_SEC, FACTOR_SEC, '证券Ⅱ(中信)')
         overall_sec.to_csv(self.folder_dir + 'factors_sec.csv', encoding='gbk')
-        overall_sec = overall_sec.loc[:, ['code', 'overall', 'industry']]
+        overall_sec = overall_sec.loc[:, ['code', 'overall']]
         bm_sec = self.get_bm_idsty_wgt('证券Ⅱ(中信)')
         # 非金融因子
         print('NON FIN Factors processing...')
         overall_non_fin = self.factors_combination(CATEGORY_NON_FIN, FACTOR_NON_FIN, None)
         overall_non_fin.to_csv(self.folder_dir + 'factors_non_fin.csv', encoding='gbk')
-        overall_non_fin = overall_non_fin.loc[:, ['code', 'overall', 'industry']]
+        overall_non_fin = overall_non_fin.loc[:, ['code', 'overall']]
         bm_non_fin = self.get_bm_idsty_wgt(None)
         print('ALL Factors finish!')
         # ---------------------------opt_weight------------------------------
