@@ -68,23 +68,31 @@ class Alpha_V4(StrategyBase):
             cates.append(cate_df)
         merged_df = pd.concat(cates, join='inner', axis=1)
         merged_df['overall'] = merged_df[list(category_weight.keys())].sum(axis=1)
-        merged_df = merged_df.reset_index()
-        merged_df = pd.merge(merged_df, self.industry_data.reset_index(), how='inner', on=['date', 'code'])
-        merged_df = merged_df.set_index('date')
+        merged_df = merged_df.reset_index().set_index('date')
         self.code_range = tmp_code_range
         print('Factors combination finish...')
         return merged_df
 
     def get_bm_idsty_wgt(self, industry):
-        bm_idsty = pd.merge(self.bm_stk_wgt.reset_index(), self.industry_data.reset_index(), on=['date', 'code'])
+        # 行业分类应用 上一天 的
+        former_dict = dict(zip(self.calendar[1:], self.calendar[:-1]))
+        bm_stk_wgt = self.bm_stk_wgt.copy()
+        bm_stk_wgt['former_date'] = bm_stk_wgt.index.strftime('%Y%m%d')
+        bm_stk_wgt['former_date'] = bm_stk_wgt['former_date'].map(former_dict)
+        bm_stk_wgt.reset_index(inplace=True)
+        idsty_data = self.industry_data.copy()
+        idsty_data['former_date'] = idsty_data.index.strftime('%Y%m%d')
+        bm_idsty = pd.merge(bm_stk_wgt, idsty_data, on=['former_date', 'code'])
         if industry:
             bm_idsty = bm_idsty.loc[bm_idsty['industry'] == industry, :]
             wgt_sum = bm_idsty.groupby('date')['weight'].sum()
             wgt_sum = wgt_sum.to_dict()
             bm_idsty['tot_wgt'] = bm_idsty['date'].map(wgt_sum)
             bm_idsty['weight'] = bm_idsty['weight'] / bm_idsty['tot_wgt'] * 100
+            bm_idsty = bm_idsty.loc[:, ['date', 'code', 'weight', 'tot_wgt']]
         else:
             bm_idsty = bm_idsty.loc[~bm_idsty['industry'].isin(['银行(中信)', '证券Ⅱ(中信)']), :]
+            bm_idsty = bm_idsty.loc[:, ['date', 'code', 'weight']]
         bm_idsty.set_index('date', inplace=True)
         return bm_idsty
 
