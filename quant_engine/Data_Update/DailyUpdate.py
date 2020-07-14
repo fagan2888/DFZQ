@@ -41,6 +41,7 @@ from SP import SP
 from DP import DP
 from NCFP import NCFP
 from OCFP import OCFP
+from Audit import Audit
 from ROE2 import ROE2
 from ROA2 import ROA2
 from RNOA2 import RNOA2
@@ -241,6 +242,10 @@ class DailyUpdate:
             res = dp.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
             self.logger.info('--------------------DP_LYR finish---------------------')
+            ao = Audit()
+            res = ao.cal_factors(last_week, last_trade_day, n_jobs)
+            self.log_res(res)
+            self.logger.info('---------------------Audit finish---------------------')
             roe2 = ROE2()
             res = roe2.cal_factors(last_week, last_trade_day, n_jobs)
             self.log_res(res)
