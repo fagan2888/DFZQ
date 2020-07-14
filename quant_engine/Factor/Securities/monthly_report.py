@@ -101,7 +101,7 @@ class SecMonthlyReport(FactorBase):
         report = pd.merge(report, info, on=['code'])
         report['e_name'] = report['e_name'].str.lower()
         c_names = report['c_name'].unique()
-        e_names = report['e_name'].unique()
+        e_names = report['e_name'].dropna().unique()
         c_nicknames = []
         for c_name in c_names:
             tmp = c_name
